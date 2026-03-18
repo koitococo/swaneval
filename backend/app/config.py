@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     # Redis连接URL / Redis connection URL
 
-    CORS_ORIGINS: list[str] = ["http://localhost:20xx"]
+    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     # CORS允许的来源 / Allowed CORS origins
 
     SECRET_KEY: str = "dev-secret-change-in-production"
