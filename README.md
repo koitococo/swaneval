@@ -75,6 +75,10 @@ Once the backend is running:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
+## Web Interface
+
+- Frontend: http://localhost:3000
+
 ## Demo Credentials
 
 ```

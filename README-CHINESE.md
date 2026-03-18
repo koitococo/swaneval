@@ -75,6 +75,10 @@ docker-compose logs -f
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
+## Web 界面
+
+- 前端地址：http://localhost:3000
+
 ## 演示账号
 
 ```
