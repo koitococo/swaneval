@@ -11,6 +11,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -77,6 +79,11 @@ export default function CriteriaPage() {
   const test = useTestCriterion();
 
   const [showForm, setShowForm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [testOpen, setTestOpen] = useState(false);
   const [testId, setTestId] = useState("");
   const [testForm, setTestForm] = useState({
@@ -396,7 +403,9 @@ export default function CriteriaPage() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-destructive"
-                        onClick={() => deleteMut.mutate(c.id)}
+                        onClick={() =>
+                          setDeleteTarget({ id: c.id, name: c.name })
+                        }
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -408,6 +417,46 @@ export default function CriteriaPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteTarget} onOpenChange={() => { setDeleteTarget(null); setDeleteError(""); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>删除评估标准</DialogTitle>
+            <DialogDescription>
+              确定要删除 &quot;{deleteTarget?.name}&quot; 吗？此操作不可撤销。
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError && (
+            <p className="text-sm text-destructive px-1">{deleteError}</p>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteError(""); }}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setDeleteError("");
+                try {
+                  await deleteMut.mutateAsync(deleteTarget!.id);
+                  setDeleteTarget(null);
+                } catch (err: unknown) {
+                  const detail =
+                    err && typeof err === "object" && "response" in err
+                      ? (err as { response?: { data?: { detail?: string } } }).response
+                          ?.data?.detail
+                      : undefined;
+                  setDeleteError(detail || "删除失败");
+                }
+              }}
+              disabled={deleteMut.isPending}
+            >
+              {deleteMut.isPending ? "删除中..." : "删除"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={testOpen} onOpenChange={setTestOpen}>
         <DialogContent className="sm:max-w-md">

@@ -3,7 +3,6 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import Link from "next/link";
 import Xarrow, { Xwrapper } from "react-xarrows";
-import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import {
   Cpu,

@@ -98,6 +98,7 @@ export default function DatasetsPage() {
     id: string;
     name: string;
   } | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -155,9 +156,19 @@ export default function DatasetsPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    if (selectedId === deleteTarget.id) closePanel();
-    await deleteMut.mutateAsync(deleteTarget.id);
-    setDeleteTarget(null);
+    setDeleteError("");
+    try {
+      if (selectedId === deleteTarget.id) closePanel();
+      await deleteMut.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response
+              ?.data?.detail
+          : undefined;
+      setDeleteError(detail || "删除失败");
+    }
   };
 
   const copyToClipboard = (text: string, field: string) => {
@@ -765,7 +776,7 @@ export default function DatasetsPage() {
       </Dialog>
 
       {/* Delete confirmation */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+      <Dialog open={!!deleteTarget} onOpenChange={() => { setDeleteTarget(null); setDeleteError(""); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>删除数据集</DialogTitle>
@@ -773,8 +784,11 @@ export default function DatasetsPage() {
               确定要删除 &quot;{deleteTarget?.name}&quot; 吗？此操作不可撤销。
             </DialogDescription>
           </DialogHeader>
+          {deleteError && (
+            <p className="text-sm text-destructive px-1">{deleteError}</p>
+          )}
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+            <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteError(""); }}>
               取消
             </Button>
             <Button

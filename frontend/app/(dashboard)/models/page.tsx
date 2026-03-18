@@ -88,6 +88,7 @@ export default function ModelsPage() {
     id: string;
     name: string;
   } | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<
     Record<string, { ok: boolean; message: string }>
@@ -153,9 +154,19 @@ export default function ModelsPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    if (selectedId === deleteTarget.id) closePanel();
-    await deleteMut.mutateAsync(deleteTarget.id);
-    setDeleteTarget(null);
+    setDeleteError("");
+    try {
+      if (selectedId === deleteTarget.id) closePanel();
+      await deleteMut.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response
+              ?.data?.detail
+          : undefined;
+      setDeleteError(detail || "删除失败");
+    }
   };
 
   const copyToClipboard = (text: string, field: string) => {
@@ -678,7 +689,7 @@ export default function ModelsPage() {
       </div>
 
       {/* Delete confirmation */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+      <Dialog open={!!deleteTarget} onOpenChange={() => { setDeleteTarget(null); setDeleteError(""); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>删除模型</DialogTitle>
@@ -686,8 +697,11 @@ export default function ModelsPage() {
               确定要删除 &quot;{deleteTarget?.name}&quot; 吗？此操作不可撤销。
             </DialogDescription>
           </DialogHeader>
+          {deleteError && (
+            <p className="text-sm text-destructive px-1">{deleteError}</p>
+          )}
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+            <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteError(""); }}>
               取消
             </Button>
             <Button
