@@ -1,151 +1,199 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useLogin, useRegister, useMe } from "@/lib/hooks/use-auth";
-import { useAuthStore } from "@/lib/stores/auth";
+import api from "@/lib/api";
+import type { TokenResponse, User } from "@/lib/types";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setAuth } = useAuthStore();
-  const login = useLogin();
-  const register = useRegister();
-  const me = useMe();
-
-  const [tab, setTab] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
-  const [regForm, setRegForm] = useState({
-    username: "",
-    email: "",
-    password: "",
-    role: "engineer" as const,
-  });
+  const [regForm, setRegForm] = useState({ username: "", email: "", password: "" });
+
+  // If already logged in, redirect
+  useEffect(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("token")) {
+      router.replace("/");
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
     try {
-      const tokenData = await login.mutateAsync(loginForm);
+      const { data: tokenData } = await api.post<TokenResponse>("/auth/login", loginForm);
       localStorage.setItem("token", tokenData.access_token);
-      const user = await me.mutateAsync();
-      setAuth(tokenData.access_token, user);
-      router.replace("/");
+      const { data: user } = await api.get<User>("/auth/me");
+      localStorage.setItem("user", JSON.stringify(user));
+      window.location.href = "/";
     } catch (err: unknown) {
-      const msg =
+      const detail =
         err && typeof err === "object" && "response" in err
           ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
           : undefined;
-      setError(msg || "Login failed");
+      setError(detail || "Invalid username or password");
+      setLoading(false);
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
+    setLoading(true);
     try {
-      await register.mutateAsync(regForm);
-      setTab("login");
+      await api.post("/auth/register", { ...regForm, role: "engineer" });
+      setSuccess("Account created. Sign in below.");
+      setMode("login");
       setLoginForm({ username: regForm.username, password: regForm.password });
     } catch (err: unknown) {
-      const msg =
+      const detail =
         err && typeof err === "object" && "response" in err
           ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
           : undefined;
-      setError(msg || "Registration failed");
+      setError(detail || "Registration failed");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-center text-lg">EvalScope</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={tab} onValueChange={(v) => { setTab(v as "login" | "register"); setError(""); }}>
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="login">Sign In</TabsTrigger>
-              <TabsTrigger value="register">Register</TabsTrigger>
-            </TabsList>
+    <div className="flex min-h-screen">
+      {/* Left panel */}
+      <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-muted/40 border-r px-12">
+        <div className="max-w-sm space-y-4">
+          <h1 className="text-xl font-semibold tracking-tight">EvalScope</h1>
+          <p className="text-muted-foreground leading-relaxed">
+            Enterprise LLM evaluation platform. Manage datasets, define criteria,
+            run evaluation tasks, and analyze results across models.
+          </p>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex gap-2"><span className="text-foreground">-</span> Multi-model benchmark comparison</li>
+            <li className="flex gap-2"><span className="text-foreground">-</span> Stability testing with seed control</li>
+            <li className="flex gap-2"><span className="text-foreground">-</span> Leaderboard and per-prompt error analysis</li>
+            <li className="flex gap-2"><span className="text-foreground">-</span> Real-time task progress monitoring</li>
+          </ul>
+        </div>
+      </div>
 
-            {error && (
-              <div className="mb-3 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {error}
+      {/* Right panel */}
+      <div className="flex flex-1 items-center justify-center px-6">
+        <div className="w-full max-w-xs space-y-6">
+          <div>
+            <h2 className="text-lg font-medium">
+              {mode === "login" ? "Sign in" : "Create account"}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {mode === "login"
+                ? "Enter your credentials to continue."
+                : "Register a new account to get started."}
+            </p>
+          </div>
+
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
+          {success && (
+            <p className="text-sm text-emerald-600">{success}</p>
+          )}
+
+          {mode === "login" ? (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  autoComplete="username"
+                  value={loginForm.username}
+                  onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                  required
+                />
               </div>
-            )}
-
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="l-user">Username</Label>
-                  <Input
-                    id="l-user"
-                    value={loginForm.username}
-                    onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="l-pass">Password</Label>
-                  <Input
-                    id="l-pass"
-                    type="password"
-                    value={loginForm.password}
-                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={login.isPending || me.isPending}>
-                  {login.isPending || me.isPending ? "Signing in..." : "Sign In"}
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="register">
-              <form onSubmit={handleRegister} className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="r-user">Username</Label>
-                  <Input
-                    id="r-user"
-                    value={regForm.username}
-                    onChange={(e) => setRegForm({ ...regForm, username: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="r-email">Email</Label>
-                  <Input
-                    id="r-email"
-                    type="email"
-                    value={regForm.email}
-                    onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="r-pass">Password</Label>
-                  <Input
-                    id="r-pass"
-                    type="password"
-                    value={regForm.password}
-                    onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={register.isPending}>
-                  {register.isPending ? "Creating..." : "Create Account"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Signing in..." : "Sign in"}
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                No account?{" "}
+                <button
+                  type="button"
+                  onClick={() => { setMode("register"); setError(""); setSuccess(""); }}
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Register
+                </button>
+              </p>
+            </form>
+          ) : (
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="reg-user">Username</Label>
+                <Input
+                  id="reg-user"
+                  autoComplete="username"
+                  value={regForm.username}
+                  onChange={(e) => setRegForm({ ...regForm, username: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="reg-email">Email</Label>
+                <Input
+                  id="reg-email"
+                  type="email"
+                  autoComplete="email"
+                  value={regForm.email}
+                  onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="reg-pass">Password</Label>
+                <Input
+                  id="reg-pass"
+                  type="password"
+                  autoComplete="new-password"
+                  value={regForm.password}
+                  onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Creating..." : "Create account"}
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => { setMode("login"); setError(""); setSuccess(""); }}
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Sign in
+                </button>
+              </p>
+            </form>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

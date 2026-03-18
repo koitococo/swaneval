@@ -11,26 +11,21 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { token, hydrate } = useAuthStore();
-  const [ready, setReady] = useState(false);
+  const { hydrate } = useAuthStore();
+  const [authed, setAuthed] = useState(false);
 
   useEffect(() => {
-    hydrate();
-    setReady(true);
-  }, [hydrate]);
-
-  useEffect(() => {
-    if (ready && !token && !localStorage.getItem("token")) {
+    const token = localStorage.getItem("token");
+    if (!token) {
       router.replace("/login");
+      return;
     }
-  }, [ready, token, router]);
+    hydrate();
+    setAuthed(true);
+  }, [hydrate, router]);
 
-  if (!ready) {
-    return (
-      <div className="flex h-screen items-center justify-center text-muted-foreground">
-        Loading...
-      </div>
-    );
+  if (!authed) {
+    return null;
   }
 
   return (
