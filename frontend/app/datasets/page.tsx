@@ -1,14 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sidebar } from "@/components/sidebar";
 import {
   Plus,
   Search,
@@ -29,12 +49,60 @@ import {
 
 // Demo data
 const mockDatasets = [
-  { id: "1", name: "mmlu", type: "preset", provider: "EvalScope", version: "1.0", samples: 15000, status: "ready" },
-  { id: "2", name: "c-eval", type: "preset", provider: "EvalScope", version: "1.2", samples: 12000, status: "ready" },
-  { id: "3", name: "gsm8k", type: "preset", provider: "EvalScope", version: "1.0", samples: 8500, status: "ready" },
-  { id: "4", name: "math", type: "huggingface", provider: "HuggingFace", version: "1.0", samples: 12500, status: "ready" },
-  { id: "5", name: "custom_dataset_v1", type: "custom", provider: "Local Upload", version: "1.0", samples: 2500, status: "ready" },
-  { id: "6", name: "arc", type: "huggingface", provider: "HuggingFace", version: "1.0", samples: 30000, status: "downloading" },
+  {
+    id: "1",
+    name: "mmlu",
+    type: "preset",
+    provider: "EvalScope",
+    version: "1.0",
+    samples: 15000,
+    status: "ready",
+  },
+  {
+    id: "2",
+    name: "c-eval",
+    type: "preset",
+    provider: "EvalScope",
+    version: "1.2",
+    samples: 12000,
+    status: "ready",
+  },
+  {
+    id: "3",
+    name: "gsm8k",
+    type: "preset",
+    provider: "EvalScope",
+    version: "1.0",
+    samples: 8500,
+    status: "ready",
+  },
+  {
+    id: "4",
+    name: "math",
+    type: "huggingface",
+    provider: "HuggingFace",
+    version: "1.0",
+    samples: 12500,
+    status: "ready",
+  },
+  {
+    id: "5",
+    name: "custom_dataset_v1",
+    type: "custom",
+    provider: "Local Upload",
+    version: "1.0",
+    samples: 2500,
+    status: "ready",
+  },
+  {
+    id: "6",
+    name: "arc",
+    type: "huggingface",
+    provider: "HuggingFace",
+    version: "1.0",
+    samples: 30000,
+    status: "downloading",
+  },
 ];
 
 const datasetTypes = [
@@ -87,7 +155,9 @@ export default function DatasetsPage() {
   });
 
   const filteredDatasets = mockDatasets.filter((dataset) => {
-    const matchesSearch = dataset.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = dataset.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
     const matchesType = typeFilter === "all" || dataset.type === typeFilter;
     return matchesSearch && matchesType;
   });
@@ -96,7 +166,12 @@ export default function DatasetsPage() {
     // TODO: Connect to backend API
     console.log("Add dataset:", newDataset);
     setIsAddDialogOpen(false);
-    setNewDataset({ name: "", type: "preset", huggingfacePath: "", version: "1.0" });
+    setNewDataset({
+      name: "",
+      type: "preset",
+      huggingfacePath: "",
+      version: "1.0",
+    });
   };
 
   const handlePreview = (dataset: any) => {
@@ -105,14 +180,30 @@ export default function DatasetsPage() {
   };
 
   const presetDatasets = [
-    { id: "mmlu", name: "MMLU", description: "Massive Multitask Language Understanding" },
+    {
+      id: "mmlu",
+      name: "MMLU",
+      description: "Massive Multitask Language Understanding",
+    },
     { id: "c-eval", name: "C-Eval", description: "Chinese evaluation suite" },
     { id: "gsm8k", name: "GSM8K", description: "Grade School Math" },
-    { id: "humaneval", name: "HumanEval", description: "Code generation benchmark" },
+    {
+      id: "humaneval",
+      name: "HumanEval",
+      description: "Code generation benchmark",
+    },
     { id: "mbpp", name: "MBPP", description: "Python programming benchmark" },
     { id: "bbh", name: "BBH", description: "Big Bench Hard" },
-    { id: "truthfulqa", name: "TruthfulQA", description: "Truthfulness evaluation" },
-    { id: "ifeval", name: "IFEval", description: "Instruction following evaluation" },
+    {
+      id: "truthfulqa",
+      name: "TruthfulQA",
+      description: "Truthfulness evaluation",
+    },
+    {
+      id: "ifeval",
+      name: "IFEval",
+      description: "Instruction following evaluation",
+    },
   ];
 
   return (
@@ -128,45 +219,7 @@ export default function DatasetsPage() {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 border-r bg-white min-h-[calc(100vh-64px)]">
-          <nav className="p-4 space-y-2">
-            <Link
-              href="/evaluations"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Database className="h-5 w-5" />
-              Evaluations
-            </Link>
-            <Link
-              href="/models"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Database className="h-5 w-5" />
-              Models
-            </Link>
-            <Link
-              href="/datasets"
-              className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2 text-primary"
-            >
-              <Database className="h-5 w-5" />
-              Datasets
-            </Link>
-            <Link
-              href="/results"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Database className="h-5 w-5" />
-              Results
-            </Link>
-            <Link
-              href="/settings"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Database className="h-5 w-5" />
-              Settings
-            </Link>
-          </nav>
-        </aside>
+        <Sidebar />
 
         {/* Main Content */}
         <main className="flex-1 p-6">
@@ -175,7 +228,9 @@ export default function DatasetsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold">Dataset Management</h2>
-                <p className="text-muted-foreground">Manage evaluation datasets</p>
+                <p className="text-muted-foreground">
+                  Manage evaluation datasets
+                </p>
               </div>
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
@@ -188,7 +243,8 @@ export default function DatasetsPage() {
                   <DialogHeader>
                     <DialogTitle>Add New Dataset</DialogTitle>
                     <DialogDescription>
-                      Import a dataset from preset collections, HuggingFace, or upload custom data.
+                      Import a dataset from preset collections, HuggingFace, or
+                      upload custom data.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
@@ -196,7 +252,9 @@ export default function DatasetsPage() {
                       <Label>Dataset Source</Label>
                       <Select
                         value={newDataset.type}
-                        onValueChange={(value) => setNewDataset({ ...newDataset, type: value })}
+                        onValueChange={(value) =>
+                          setNewDataset({ ...newDataset, type: value })
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select dataset source" />
@@ -219,7 +277,9 @@ export default function DatasetsPage() {
                         <Label>Select Preset Dataset</Label>
                         <Select
                           value={newDataset.name}
-                          onValueChange={(value) => setNewDataset({ ...newDataset, name: value })}
+                          onValueChange={(value) =>
+                            setNewDataset({ ...newDataset, name: value })
+                          }
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Choose a preset dataset" />
@@ -228,8 +288,12 @@ export default function DatasetsPage() {
                             {presetDatasets.map((preset) => (
                               <SelectItem key={preset.id} value={preset.id}>
                                 <div>
-                                  <div className="font-medium">{preset.name}</div>
-                                  <div className="text-xs text-muted-foreground">{preset.description}</div>
+                                  <div className="font-medium">
+                                    {preset.name}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {preset.description}
+                                  </div>
                                 </div>
                               </SelectItem>
                             ))}
@@ -245,10 +309,16 @@ export default function DatasetsPage() {
                           <Input
                             placeholder="e.g., openai/gsm8k"
                             value={newDataset.huggingfacePath}
-                            onChange={(e) => setNewDataset({ ...newDataset, huggingfacePath: e.target.value })}
+                            onChange={(e) =>
+                              setNewDataset({
+                                ...newDataset,
+                                huggingfacePath: e.target.value,
+                              })
+                            }
                           />
                           <p className="text-sm text-muted-foreground">
-                            Enter the HuggingFace dataset path (e.g., openai/gsm8k)
+                            Enter the HuggingFace dataset path (e.g.,
+                            openai/gsm8k)
                           </p>
                         </div>
                         <div className="grid gap-2">
@@ -256,7 +326,12 @@ export default function DatasetsPage() {
                           <Input
                             placeholder="e.g., my_custom_dataset"
                             value={newDataset.name}
-                            onChange={(e) => setNewDataset({ ...newDataset, name: e.target.value })}
+                            onChange={(e) =>
+                              setNewDataset({
+                                ...newDataset,
+                                name: e.target.value,
+                              })
+                            }
                           />
                         </div>
                       </>
@@ -269,7 +344,12 @@ export default function DatasetsPage() {
                           <Input
                             placeholder="e.g., my_evaluation_data"
                             value={newDataset.name}
-                            onChange={(e) => setNewDataset({ ...newDataset, name: e.target.value })}
+                            onChange={(e) =>
+                              setNewDataset({
+                                ...newDataset,
+                                name: e.target.value,
+                              })
+                            }
                           />
                         </div>
                         <div className="grid gap-2">
@@ -288,7 +368,10 @@ export default function DatasetsPage() {
                     )}
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAddDialogOpen(false)}
+                    >
                       Cancel
                     </Button>
                     <Button onClick={handleAddDataset}>Import Dataset</Button>
@@ -332,8 +415,12 @@ export default function DatasetsPage() {
                           {getTypeIcon(dataset.type)}
                         </div>
                         <div>
-                          <CardTitle className="text-sm">{dataset.name}</CardTitle>
-                          <CardDescription className="text-xs">{dataset.provider}</CardDescription>
+                          <CardTitle className="text-sm">
+                            {dataset.name}
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            {dataset.provider}
+                          </CardDescription>
                         </div>
                       </div>
                     </div>
@@ -342,7 +429,9 @@ export default function DatasetsPage() {
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Samples</span>
-                        <span className="font-medium">{formatNumber(dataset.samples)}</span>
+                        <span className="font-medium">
+                          {formatNumber(dataset.samples)}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Version</span>
@@ -352,16 +441,31 @@ export default function DatasetsPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {getStatusIcon(dataset.status)}
-                        <span className="text-sm capitalize text-muted-foreground">{dataset.status}</span>
+                        <span className="text-sm capitalize text-muted-foreground">
+                          {dataset.status}
+                        </span>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handlePreview(dataset)}>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handlePreview(dataset)}
+                        >
                           <Eye className="h-3 w-3" />
                         </Button>
-                        <Button variant="outline" size="icon" className="h-8 w-8">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                        >
                           <Edit className="h-3 w-3" />
                         </Button>
-                        <Button variant="outline" size="icon" className="h-8 w-8">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                        >
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
@@ -375,7 +479,9 @@ export default function DatasetsPage() {
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Database className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold">No datasets found</h3>
-                <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
+                <p className="text-muted-foreground">
+                  Try adjusting your search or filter criteria
+                </p>
               </div>
             )}
           </div>
@@ -388,7 +494,8 @@ export default function DatasetsPage() {
           <DialogHeader>
             <DialogTitle>Dataset Preview: {previewDataset?.name}</DialogTitle>
             <DialogDescription>
-              {previewDataset?.samples} samples | {previewDataset?.type} | {previewDataset?.provider}
+              {previewDataset?.samples} samples | {previewDataset?.type} |{" "}
+              {previewDataset?.provider}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -398,8 +505,12 @@ export default function DatasetsPage() {
                   <thead className="border-b bg-muted">
                     <tr>
                       <th className="px-4 py-2 text-left font-medium">ID</th>
-                      <th className="px-4 py-2 text-left font-medium">Question</th>
-                      <th className="px-4 py-2 text-left font-medium">Answer</th>
+                      <th className="px-4 py-2 text-left font-medium">
+                        Question
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium">
+                        Answer
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -410,12 +521,16 @@ export default function DatasetsPage() {
                     </tr>
                     <tr className="border-b">
                       <td className="px-4 py-2">2</td>
-                      <td className="px-4 py-2">What is the capital of France?</td>
+                      <td className="px-4 py-2">
+                        What is the capital of France?
+                      </td>
                       <td className="px-4 py-2 text-green-600">Paris</td>
                     </tr>
                     <tr className="border-b">
                       <td className="px-4 py-2">3</td>
-                      <td className="px-4 py-2">What is the square root of 16?</td>
+                      <td className="px-4 py-2">
+                        What is the square root of 16?
+                      </td>
                       <td className="px-4 py-2 text-green-600">4</td>
                     </tr>
                   </tbody>
@@ -427,7 +542,10 @@ export default function DatasetsPage() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsPreviewDialogOpen(false)}
+            >
               Close
             </Button>
             <Button onClick={() => console.log("Use dataset:", previewDataset)}>

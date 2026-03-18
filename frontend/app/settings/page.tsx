@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Sidebar } from "@/components/sidebar";
 import {
   Card,
   CardContent,
@@ -106,45 +106,7 @@ export default function SettingsPage() {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 border-r bg-white min-h-[calc(100vh-64px)]">
-          <nav className="p-4 space-y-2">
-            <Link
-              href="/evaluations"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Settings className="h-5 w-5" />
-              Evaluations
-            </Link>
-            <Link
-              href="/models"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Settings className="h-5 w-5" />
-              Models
-            </Link>
-            <Link
-              href="/datasets"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Settings className="h-5 w-5" />
-              Datasets
-            </Link>
-            <Link
-              href="/results"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Settings className="h-5 w-5" />
-              Results
-            </Link>
-            <Link
-              href="/settings"
-              className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2 text-primary"
-            >
-              <Settings className="h-5 w-5" />
-              Settings
-            </Link>
-          </nav>
-        </aside>
+        <Sidebar />
 
         {/* Main Content */}
         <main className="flex-1 p-6">

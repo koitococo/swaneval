@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sidebar } from "@/components/sidebar";
 import {
   Plus,
   Play,
@@ -15,10 +15,9 @@ import {
   Cpu,
   Settings,
   FileText,
-  TrendingUp,
-  Clock,
   CheckCircle2,
   AlertCircle,
+  Clock,
 } from "lucide-react";
 
 // Demo data
@@ -88,46 +87,8 @@ export default function EvaluationsPage() {
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 border-r bg-white min-h-[calc(100vh-64px)]">
-          <nav className="p-4 space-y-2">
-            <Link
-              href="/evaluations"
-              className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2 text-primary"
-            >
-              <BarChart3 className="h-5 w-5" />
-              Evaluations
-            </Link>
-            <Link
-              href="/models"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Cpu className="h-5 w-5" />
-              Models
-            </Link>
-            <Link
-              href="/datasets"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Database className="h-5 w-5" />
-              Datasets
-            </Link>
-            <Link
-              href="/results"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <TrendingUp className="h-5 w-5" />
-              Results
-            </Link>
-            <Link
-              href="/settings"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Settings className="h-5 w-5" />
-              Settings
-            </Link>
-          </nav>
-        </aside>
+        {/* 侧边栏 */}
+        <Sidebar />
 
         {/* Main Content */}
         <main className="flex-1 p-6">

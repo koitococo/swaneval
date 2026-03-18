@@ -1,14 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sidebar } from "@/components/sidebar";
 import {
   Plus,
   Search,
@@ -25,14 +45,56 @@ import {
 
 // Demo data
 const mockModels = [
-  { id: "1", name: "Qwen/Qwen2.5-0.5B-Instruct", type: "huggingface", status: "ready", provider: "HuggingFace" },
-  { id: "2", name: "Qwen/Qwen2.5-1.5B-Instruct", type: "huggingface", status: "ready", provider: "HuggingFace" },
-  { id: "3", name: "Qwen/Qwen2.5-7B-Instruct", type: "huggingface", status: "downloading", provider: "HuggingFace" },
-  { id: "4", name: "meta-llama/Llama-3.2-1B-Instruct", type: "huggingface", status: "ready", provider: "HuggingFace" },
-  { id: "5", name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", type: "huggingface", status: "ready", provider: "HuggingFace" },
+  {
+    id: "1",
+    name: "Qwen/Qwen2.5-0.5B-Instruct",
+    type: "huggingface",
+    status: "ready",
+    provider: "HuggingFace",
+  },
+  {
+    id: "2",
+    name: "Qwen/Qwen2.5-1.5B-Instruct",
+    type: "huggingface",
+    status: "ready",
+    provider: "HuggingFace",
+  },
+  {
+    id: "3",
+    name: "Qwen/Qwen2.5-7B-Instruct",
+    type: "huggingface",
+    status: "downloading",
+    provider: "HuggingFace",
+  },
+  {
+    id: "4",
+    name: "meta-llama/Llama-3.2-1B-Instruct",
+    type: "huggingface",
+    status: "ready",
+    provider: "HuggingFace",
+  },
+  {
+    id: "5",
+    name: "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    type: "huggingface",
+    status: "ready",
+    provider: "HuggingFace",
+  },
   { id: "6", name: "gpt-4o", type: "api", status: "ready", provider: "OpenAI" },
-  { id: "7", name: "claude-sonnet-4-20250514", type: "api", status: "ready", provider: "Anthropic" },
-  { id: "8", name: "/models/llama-3.1-8b", type: "local", status: "ready", provider: "Local" },
+  {
+    id: "7",
+    name: "claude-sonnet-4-20250514",
+    type: "api",
+    status: "ready",
+    provider: "Anthropic",
+  },
+  {
+    id: "8",
+    name: "/models/llama-3.1-8b",
+    type: "local",
+    status: "ready",
+    provider: "Local",
+  },
 ];
 
 const modelTypes = [
@@ -80,7 +142,9 @@ export default function ModelsPage() {
   });
 
   const filteredModels = mockModels.filter((model) => {
-    const matchesSearch = model.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = model.name
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase());
     const matchesType = typeFilter === "all" || model.type === typeFilter;
     return matchesSearch && matchesType;
   });
@@ -89,7 +153,13 @@ export default function ModelsPage() {
     // TODO: Connect to backend API
     console.log("Add model:", newModel);
     setIsAddDialogOpen(false);
-    setNewModel({ name: "", type: "huggingface", apiKey: "", apiEndpoint: "", localPath: "" });
+    setNewModel({
+      name: "",
+      type: "huggingface",
+      apiKey: "",
+      apiEndpoint: "",
+      localPath: "",
+    });
   };
 
   return (
@@ -105,45 +175,7 @@ export default function ModelsPage() {
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 border-r bg-white min-h-[calc(100vh-64px)]">
-          <nav className="p-4 space-y-2">
-            <Link
-              href="/evaluations"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Cpu className="h-5 w-5" />
-              Evaluations
-            </Link>
-            <Link
-              href="/models"
-              className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2 text-primary"
-            >
-              <Cpu className="h-5 w-5" />
-              Models
-            </Link>
-            <Link
-              href="/datasets"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Cpu className="h-5 w-5" />
-              Datasets
-            </Link>
-            <Link
-              href="/results"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Cpu className="h-5 w-5" />
-              Results
-            </Link>
-            <Link
-              href="/settings"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              <Cpu className="h-5 w-5" />
-              Settings
-            </Link>
-          </nav>
-        </aside>
+        <Sidebar />
 
         {/* Main Content */}
         <main className="flex-1 p-6">
@@ -152,7 +184,9 @@ export default function ModelsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold">Model Management</h2>
-                <p className="text-muted-foreground">Manage your evaluation models</p>
+                <p className="text-muted-foreground">
+                  Manage your evaluation models
+                </p>
               </div>
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
@@ -165,7 +199,8 @@ export default function ModelsPage() {
                   <DialogHeader>
                     <DialogTitle>Add New Model</DialogTitle>
                     <DialogDescription>
-                      Configure a model for evaluation. Supports HuggingFace, API endpoints, and local models.
+                      Configure a model for evaluation. Supports HuggingFace,
+                      API endpoints, and local models.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
@@ -173,7 +208,9 @@ export default function ModelsPage() {
                       <Label>Model Type</Label>
                       <Select
                         value={newModel.type}
-                        onValueChange={(value) => setNewModel({ ...newModel, type: value })}
+                        onValueChange={(value) =>
+                          setNewModel({ ...newModel, type: value })
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select model type" />
@@ -197,10 +234,13 @@ export default function ModelsPage() {
                         <Input
                           placeholder="e.g., Qwen/Qwen2.5-7B-Instruct"
                           value={newModel.name}
-                          onChange={(e) => setNewModel({ ...newModel, name: e.target.value })}
+                          onChange={(e) =>
+                            setNewModel({ ...newModel, name: e.target.value })
+                          }
                         />
                         <p className="text-sm text-muted-foreground">
-                          Enter the HuggingFace model ID (e.g., meta-llama/Llama-3.2-1B-Instruct)
+                          Enter the HuggingFace model ID (e.g.,
+                          meta-llama/Llama-3.2-1B-Instruct)
                         </p>
                       </div>
                     )}
@@ -212,7 +252,9 @@ export default function ModelsPage() {
                           <Input
                             placeholder="e.g., gpt-4o"
                             value={newModel.name}
-                            onChange={(e) => setNewModel({ ...newModel, name: e.target.value })}
+                            onChange={(e) =>
+                              setNewModel({ ...newModel, name: e.target.value })
+                            }
                           />
                         </div>
                         <div className="grid gap-2">
@@ -220,7 +262,12 @@ export default function ModelsPage() {
                           <Input
                             placeholder="e.g., https://api.openai.com/v1/chat/completions"
                             value={newModel.apiEndpoint}
-                            onChange={(e) => setNewModel({ ...newModel, apiEndpoint: e.target.value })}
+                            onChange={(e) =>
+                              setNewModel({
+                                ...newModel,
+                                apiEndpoint: e.target.value,
+                              })
+                            }
                           />
                         </div>
                         <div className="grid gap-2">
@@ -229,7 +276,12 @@ export default function ModelsPage() {
                             type="password"
                             placeholder="sk-..."
                             value={newModel.apiKey}
-                            onChange={(e) => setNewModel({ ...newModel, apiKey: e.target.value })}
+                            onChange={(e) =>
+                              setNewModel({
+                                ...newModel,
+                                apiKey: e.target.value,
+                              })
+                            }
                           />
                         </div>
                       </>
@@ -241,13 +293,21 @@ export default function ModelsPage() {
                         <Input
                           placeholder="e.g., /models/llama-3.1-8b"
                           value={newModel.localPath}
-                          onChange={(e) => setNewModel({ ...newModel, localPath: e.target.value })}
+                          onChange={(e) =>
+                            setNewModel({
+                              ...newModel,
+                              localPath: e.target.value,
+                            })
+                          }
                         />
                       </div>
                     )}
                   </div>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAddDialogOpen(false)}
+                    >
                       Cancel
                     </Button>
                     <Button onClick={handleAddModel}>Add Model</Button>
@@ -291,8 +351,12 @@ export default function ModelsPage() {
                           {getTypeIcon(model.type)}
                         </div>
                         <div>
-                          <CardTitle className="text-sm">{model.name}</CardTitle>
-                          <CardDescription className="text-xs">{model.provider}</CardDescription>
+                          <CardTitle className="text-sm">
+                            {model.name}
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            {model.provider}
+                          </CardDescription>
                         </div>
                       </div>
                     </div>
@@ -301,13 +365,23 @@ export default function ModelsPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {getStatusIcon(model.status)}
-                        <span className="text-sm capitalize text-muted-foreground">{model.status}</span>
+                        <span className="text-sm capitalize text-muted-foreground">
+                          {model.status}
+                        </span>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="icon" className="h-8 w-8">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                        >
                           <Edit className="h-3 w-3" />
                         </Button>
-                        <Button variant="outline" size="icon" className="h-8 w-8">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                        >
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
@@ -321,7 +395,9 @@ export default function ModelsPage() {
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Cpu className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold">No models found</h3>
-                <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
+                <p className="text-muted-foreground">
+                  Try adjusting your search or filter criteria
+                </p>
               </div>
             )}
           </div>
