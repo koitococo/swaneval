@@ -1,16 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Database,
   Cpu,
+  Database,
   PlayCircle,
-  BarChart3,
-  Plus,
+  CheckCircle2,
   AlertTriangle,
+  Clock,
   ArrowRight,
 } from "lucide-react";
 import { useDatasets } from "@/lib/hooks/use-datasets";
@@ -48,154 +46,203 @@ export default function OverviewPage() {
   const tasks = useTasks();
 
   const allTasks = tasks.data ?? [];
-  const recentTasks = allTasks.slice(0, 8);
-  const failedTasks = allTasks.filter((t) => t.status === "failed").slice(0, 5);
+  const recentTasks = allTasks.slice(0, 20);
+  const failedTasks = allTasks
+    .filter((t) => t.status === "failed")
+    .slice(0, 20);
   const runningCount = allTasks.filter((t) => t.status === "running").length;
   const completedCount = allTasks.filter(
     (t) => t.status === "completed"
   ).length;
-
-  const stats = [
-    {
-      label: "模型",
-      value: models.data?.length ?? 0,
-      icon: Cpu,
-      href: "/models",
-    },
-    {
-      label: "数据集",
-      value: datasets.data?.length ?? 0,
-      icon: Database,
-      href: "/datasets",
-    },
-    {
-      label: "运行中",
-      value: runningCount,
-      icon: PlayCircle,
-      href: "/tasks",
-    },
-    {
-      label: "已完成",
-      value: completedCount,
-      icon: BarChart3,
-      href: "/results",
-    },
-  ];
+  const failedCount = failedTasks.length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">概览</h1>
-        <div className="flex gap-2">
-          <Link href="/tasks">
-            <Button size="sm">
-              <Plus className="mr-1 h-4 w-4" /> 新建评测
-            </Button>
+    <div className="dashboard-hero-bg flex flex-col h-[calc(100vh-3.5rem)] -m-6">
+      <div className="d-blob" />
+
+      {/* ── Hero: title + HUD metrics ── */}
+      <div className="relative z-10 flex flex-col items-center justify-center pt-10 pb-6 px-6 shrink-0">
+        <h1 className="text-4xl font-bold tracking-tight text-foreground/90">
+          概览
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1.5">
+          人工智能模型能力评估工具
+        </p>
+
+        {/* Floating HUD metrics */}
+        <div className="flex items-center gap-8 mt-8">
+          <Link
+            href="/models"
+            className="group flex flex-col items-center gap-1"
+          >
+            <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-foreground transition-colors">
+              <Cpu className="h-3.5 w-3.5" />
+              <span className="text-xs">模型</span>
+            </div>
+            <span className="text-2xl font-semibold tabular-nums">
+              {models.data?.length ?? 0}
+            </span>
           </Link>
-          <Link href="/results">
-            <Button size="sm" variant="outline">
-              <BarChart3 className="mr-1 h-4 w-4" /> 查看结果
-            </Button>
+
+          <div className="w-px h-8 bg-border" />
+
+          <Link
+            href="/datasets"
+            className="group flex flex-col items-center gap-1"
+          >
+            <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-foreground transition-colors">
+              <Database className="h-3.5 w-3.5" />
+              <span className="text-xs">数据集</span>
+            </div>
+            <span className="text-2xl font-semibold tabular-nums">
+              {datasets.data?.length ?? 0}
+            </span>
           </Link>
+
+          <div className="w-px h-8 bg-border" />
+
+          <Link
+            href="/tasks"
+            className="group flex flex-col items-center gap-1"
+          >
+            <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-foreground transition-colors">
+              <PlayCircle className="h-3.5 w-3.5" />
+              <span className="text-xs">运行中</span>
+            </div>
+            <span className="text-2xl font-semibold tabular-nums">
+              {runningCount}
+            </span>
+          </Link>
+
+          <div className="w-px h-8 bg-border" />
+
+          <Link
+            href="/results"
+            className="group flex flex-col items-center gap-1"
+          >
+            <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-foreground transition-colors">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span className="text-xs">已完成</span>
+            </div>
+            <span className="text-2xl font-semibold tabular-nums">
+              {completedCount}
+            </span>
+          </Link>
+
+          {failedCount > 0 && (
+            <>
+              <div className="w-px h-8 bg-border" />
+              <Link
+                href="/tasks"
+                className="group flex flex-col items-center gap-1"
+              >
+                <div className="flex items-center gap-1.5 text-destructive/70 group-hover:text-destructive transition-colors">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span className="text-xs">失败</span>
+                </div>
+                <span className="text-2xl font-semibold tabular-nums text-destructive/80">
+                  {failedCount}
+                </span>
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((s) => (
-          <Link key={s.label} href={s.href}>
-            <Card className="hover:border-primary/30 transition-colors">
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="rounded-md bg-primary/10 p-2">
-                  <s.icon className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-semibold">{s.value}</p>
-                  <p className="text-xs text-muted-foreground">{s.label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">最近任务</CardTitle>
-              <Link
-                href="/tasks"
-                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-              >
-                查看全部 <ArrowRight className="h-3 w-3" />
-              </Link>
+      {/* ── Two-pane task lists ── */}
+      <div className="relative z-10 flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-4 px-6 pb-6">
+        {/* Left: recent tasks */}
+        <div className="flex flex-col min-h-0 rounded-lg border bg-card/60 backdrop-blur-sm">
+          <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+              最近任务
             </div>
-          </CardHeader>
-          <CardContent>
+            <Link
+              href="/tasks"
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+            >
+              查看全部 <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          <div className="flex-1 overflow-auto">
             {recentTasks.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">
-                暂无任务。{" "}
-                <Link href="/tasks" className="text-primary underline">
-                  创建一个
-                </Link>
-              </p>
+              <div className="flex items-center justify-center h-full">
+                <p className="text-xs text-muted-foreground">
+                  暂无任务。{" "}
+                  <Link href="/tasks" className="text-primary hover:underline">
+                    创建一个
+                  </Link>
+                </p>
+              </div>
             ) : (
-              <div className="space-y-2">
+              <div className="p-2 space-y-1">
                 {recentTasks.map((t) => (
                   <Link
                     key={t.id}
                     href={`/tasks/${t.id}`}
-                    className="flex items-center justify-between rounded-md border px-3 py-2 hover:bg-muted/50 transition-colors"
+                    className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-accent/50 transition-colors"
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-sm">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="min-w-0 flex-1 mr-3">
+                      <p className="truncate text-sm font-medium">{t.name}</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">
                         {new Date(t.created_at).toLocaleString()}
                       </p>
                     </div>
-                    <Badge variant={statusVariant(t.status)}>
+                    <Badge
+                      variant={statusVariant(t.status)}
+                      className="shrink-0"
+                    >
                       {statusLabel[t.status] ?? t.status}
                     </Badge>
                   </Link>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-destructive" />
+        {/* Right: failed tasks */}
+        <div className="flex flex-col min-h-0 rounded-lg border bg-card/60 backdrop-blur-sm">
+          <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <AlertTriangle className="h-3.5 w-3.5 text-destructive/70" />
               失败任务
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </div>
+            {failedCount > 0 && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {failedCount} 项
+              </span>
+            )}
+          </div>
+          <div className="flex-1 overflow-auto">
             {failedTasks.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">
-                暂无失败任务。
-              </p>
+              <div className="flex items-center justify-center h-full">
+                <p className="text-xs text-muted-foreground">暂无失败任务。</p>
+              </div>
             ) : (
-              <div className="space-y-2">
+              <div className="p-2 space-y-1">
                 {failedTasks.map((t) => (
                   <Link
                     key={t.id}
                     href={`/tasks/${t.id}`}
-                    className="flex items-center justify-between rounded-md border border-destructive/20 px-3 py-2 hover:bg-destructive/5 transition-colors"
+                    className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-destructive/5 transition-colors"
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-sm">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="min-w-0 flex-1 mr-3">
+                      <p className="truncate text-sm font-medium">{t.name}</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">
                         {new Date(t.created_at).toLocaleString()}
                       </p>
                     </div>
-                    <Badge variant="destructive">失败</Badge>
+                    <Badge variant="destructive" className="shrink-0">
+                      失败
+                    </Badge>
                   </Link>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

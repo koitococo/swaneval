@@ -134,3 +134,48 @@
   background: radial-gradient(circle, #4338ca 0%, transparent 70%);
   animation: blob-drift-3 22s ease-in-out infinite;
 }
+
+/* Dashboard hero — dimmed version of login gradient */
+.dashboard-hero-bg {
+  position: relative;
+  overflow: hidden;
+  background-color: hsl(var(--background));
+}
+
+.dashboard-hero-bg::before,
+.dashboard-hero-bg::after,
+.dashboard-hero-bg > .d-blob {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.dashboard-hero-bg::before {
+  width: 50%;
+  height: 120%;
+  top: -30%;
+  left: -5%;
+  background: radial-gradient(circle, #6366f1 0%, transparent 70%);
+  animation: blob-drift-1 25s ease-in-out infinite;
+}
+
+.dashboard-hero-bg::after {
+  width: 40%;
+  height: 100%;
+  bottom: -20%;
+  right: 0%;
+  background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
+  animation: blob-drift-2 30s ease-in-out infinite;
+}
+
+.dashboard-hero-bg > .d-blob {
+  width: 35%;
+  height: 80%;
+  top: 20%;
+  left: 35%;
+  background: radial-gradient(circle, #4338ca 0%, transparent 70%);
+  animation: blob-drift-3 28s ease-in-out infinite;
+}
