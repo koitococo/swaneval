@@ -44,7 +44,10 @@ const statusLabel: Record<string, string> = {
 };
 
 // Check if an element is visible within its scroll container
-function isVisibleInContainer(el: HTMLElement, container: HTMLElement): boolean {
+function isVisibleInContainer(
+  el: HTMLElement,
+  container: HTMLElement,
+): boolean {
   const elRect = el.getBoundingClientRect();
   const cRect = container.getBoundingClientRect();
   // Element center must be inside the container's visible area (with some margin)
@@ -119,7 +122,6 @@ export default function OverviewPage() {
         {/* ── Hero: title + HUD metrics ── */}
         <div className="relative z-10 flex flex-col items-center justify-center pt-14 pb-10 my-10 px-6 shrink-0">
           <div className="flex items-center gap-3">
-            <Logo className="h-9 w-9 text-primary/80" />
             <h1 className="text-4xl font-bold tracking-tight text-foreground/90">
               概览
             </h1>
@@ -247,9 +249,7 @@ export default function OverviewPage() {
                       className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-accent/50 transition-colors"
                     >
                       <div className="min-w-0 flex-1 mr-3">
-                        <p className="truncate text-sm font-medium">
-                          {t.name}
-                        </p>
+                        <p className="truncate text-sm font-medium">{t.name}</p>
                         <p className="text-xs text-muted-foreground tabular-nums">
                           {new Date(t.created_at).toLocaleString()}
                         </p>
@@ -297,9 +297,7 @@ export default function OverviewPage() {
                       className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-destructive/5 transition-colors"
                     >
                       <div className="min-w-0 flex-1 mr-3">
-                        <p className="truncate text-sm font-medium">
-                          {t.name}
-                        </p>
+                        <p className="truncate text-sm font-medium">{t.name}</p>
                         <p className="text-xs text-muted-foreground tabular-nums">
                           {new Date(t.created_at).toLocaleString()}
                         </p>
