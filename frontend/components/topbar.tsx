@@ -29,7 +29,7 @@ export function Topbar() {
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex h-14 items-center px-6 gap-6">
         <Link href="/" className="shrink-0 mr-2">
-          <span className="text-base font-bold tracking-tight">EvalScope</span>
+          <span className="text-base font-bold tracking-tight">SwanEVAL</span>
         </Link>
 
         <nav className="flex items-center gap-1 flex-1">

@@ -121,7 +121,7 @@ export default function OverviewPage() {
             概览
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
-            人工智能模型能力评估工具
+            AI Model Evaluation
           </p>
 
           {/* Floating HUD metrics */}

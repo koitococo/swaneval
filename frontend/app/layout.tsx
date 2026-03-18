@@ -6,7 +6,7 @@ import { Providers } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EvalScope - 人工智能模型能力评估工具",
+  title: "SwanEVAL - 人工智能模型能力评估工具",
   description: "人工智能模型能力评估工具",
 };
 

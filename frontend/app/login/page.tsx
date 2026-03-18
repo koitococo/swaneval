@@ -83,10 +83,10 @@ export default function LoginPage() {
         <div className="blob" />
         <div className="relative z-10 flex flex-col justify-end h-full p-10">
           <h1 className="text-4xl font-bold text-white/90 tracking-tight leading-none">
-            EvalScope
+            SwanEVAL
           </h1>
           <p className="text-sm text-white/40 mt-2">
-            人工智能模型能力评估工具
+            AI Model Evaluation
           </p>
         </div>
       </div>
@@ -94,8 +94,8 @@ export default function LoginPage() {
       <div className="flex flex-1 items-center justify-center bg-background px-6">
         <div className="w-full max-w-sm space-y-8">
           <div className="lg:hidden">
-            <h1 className="text-2xl font-bold tracking-tight">EvalScope</h1>
-            <p className="text-xs text-muted-foreground">人工智能模型能力评估工具</p>
+            <h1 className="text-2xl font-bold tracking-tight">SwanEVAL</h1>
+            <p className="text-xs text-muted-foreground">AI Model Evaluation</p>
           </div>
 
           <div>
