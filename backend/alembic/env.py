@@ -3,12 +3,11 @@ from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlmodel import SQLModel
 from alembic import context
 
-# Import Base from app.database
-from app.database import Base
-# Import all models to register them with Base
-from app.db.models import User, ModelConfig, Dataset, Evaluation, EvaluationResult
+# Import all models to register them with SQLModel.metadata
+import app.db.models  # noqa: F401
 
 # this is the Alembic Config object
 config = context.config
@@ -23,7 +22,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Add your model's MetaData object here for 'autogenerate' support
-target_metadata = Base.metadata
+target_metadata = SQLModel.metadata
 
 
 def run_migrations_offline() -> None:

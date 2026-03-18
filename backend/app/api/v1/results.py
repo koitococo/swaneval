@@ -1,9 +1,8 @@
 """Results endpoints."""
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_db
 from app.db.models import Evaluation, EvaluationResult, TaskStatus
@@ -13,19 +12,19 @@ router = APIRouter()
 
 
 # Pydantic models
-class MetricResult(BaseModel):
+class MetricResult(SQLModel):
     """Metric result."""
     metric: str
     value: float
 
 
-class ChartDataPoint(BaseModel):
+class ChartDataPoint(SQLModel):
     """Chart data point."""
     name: str
     value: float
 
 
-class EvaluationResultsResponse(BaseModel):
+class EvaluationResultsResponse(SQLModel):
     """Evaluation results response."""
     evaluation_id: int
     total_samples: int
@@ -33,7 +32,7 @@ class EvaluationResultsResponse(BaseModel):
     results: List[dict]
 
 
-class LeaderboardEntry(BaseModel):
+class LeaderboardEntry(SQLModel):
     """Leaderboard entry."""
     model_id: int
     model_name: str
@@ -43,19 +42,19 @@ class LeaderboardEntry(BaseModel):
     rank: int
 
 
-class ColumnChartData(BaseModel):
+class ColumnChartData(SQLModel):
     """Column chart data."""
     metrics: List[str]
-    series: List[dict]  # [{"name": "model1", "data": [0.8, 0.7, ...]}]
+    series: List[dict]
 
 
-class RadarChartData(BaseModel):
+class RadarChartData(SQLModel):
     """Radar chart data."""
     metrics: List[str]
     values: List[float]
 
 
-class LineChartData(BaseModel):
+class LineChartData(SQLModel):
     """Line chart data."""
     x_axis: str
     series: List[dict]
@@ -69,14 +68,13 @@ async def get_evaluation_results(
     current_user: dict = Depends(get_current_user),
 ):
     """Get evaluation results."""
-    # Get evaluation
-    result = await db.execute(
+    result = await db.exec(
         select(Evaluation).where(
             Evaluation.id == evaluation_id,
             Evaluation.user_id == current_user["id"]
         )
     )
-    evaluation = result.scalar_one_or_none()
+    evaluation = result.first()
 
     if not evaluation:
         raise HTTPException(
@@ -84,21 +82,18 @@ async def get_evaluation_results(
             detail="Evaluation not found"
         )
 
-    # Get results
-    results_result = await db.execute(
+    results_result = await db.exec(
         select(EvaluationResult).where(
             EvaluationResult.evaluation_id == evaluation_id
         ).limit(limit)
     )
-    results = results_result.scalars().all()
+    results = results_result.all()
 
-    # Calculate metrics
     metrics = []
     if evaluation.metrics:
         for key, value in evaluation.metrics.items():
             metrics.append(MetricResult(metric=key, value=value))
     elif results:
-        # Calculate from results
         correct_count = sum(1 for r in results if r.is_correct)
         if correct_count > 0:
             accuracy = correct_count / len(results)
@@ -129,7 +124,6 @@ async def get_leaderboard(
     current_user: dict = Depends(get_current_user),
 ):
     """Get model leaderboard."""
-    # Get all evaluations with results
     query = select(Evaluation).where(
         Evaluation.user_id == current_user["id"],
         Evaluation.status == TaskStatus.COMPLETED
@@ -137,10 +131,9 @@ async def get_leaderboard(
     if dataset:
         query = query.where(Evaluation.dataset_id == int(dataset))
 
-    result = await db.execute(query)
-    evaluations = result.scalars().all()
+    result = await db.exec(query)
+    evaluations = result.all()
 
-    # Build leaderboard
     leaderboard = []
     for e in evaluations:
         if e.metrics and metric in e.metrics:
@@ -153,7 +146,6 @@ async def get_leaderboard(
                 rank=0
             ))
 
-    # Sort by value and assign ranks
     leaderboard.sort(key=lambda x: x.value, reverse=True)
     for i, entry in enumerate(leaderboard):
         entry.rank = i + 1
@@ -163,8 +155,8 @@ async def get_leaderboard(
 
 @router.get("/charts/column")
 async def get_column_chart(
-    model_ids: str,  # comma-separated
-    metric_ids: str,  # comma-separated
+    model_ids: str,
+    metric_ids: str,
     dataset_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
@@ -175,14 +167,14 @@ async def get_column_chart(
 
     series = []
     for model_id in model_id_list:
-        result = await db.execute(
+        result = await db.exec(
             select(Evaluation).where(
                 Evaluation.model_config_id == model_id,
                 Evaluation.dataset_id == dataset_id,
                 Evaluation.status == TaskStatus.COMPLETED
             ).order_by(Evaluation.created_at.desc()).limit(1)
         )
-        eval_obj = result.scalar_one_or_none()
+        eval_obj = result.first()
 
         data = []
         if eval_obj and eval_obj.metrics:
@@ -209,15 +201,14 @@ async def get_radar_chart(
     current_user: dict = Depends(get_current_user),
 ):
     """Get radar chart data for single model."""
-    # Get latest evaluation for this model-dataset combination
-    result = await db.execute(
+    result = await db.exec(
         select(Evaluation).where(
             Evaluation.model_config_id == model_id,
             Evaluation.dataset_id == dataset_id,
             Evaluation.status == TaskStatus.COMPLETED
         ).order_by(Evaluation.created_at.desc()).limit(1)
     )
-    eval_obj = result.scalar_one_or_none()
+    eval_obj = result.first()
 
     if not eval_obj or not eval_obj.metrics:
         return RadarChartData(
@@ -225,7 +216,7 @@ async def get_radar_chart(
             values=[0.5, 0.5, 0.5, 0.5]
         )
 
-    metrics = list(eval_obj.metrics.keys())[:6]  # Max 6 metrics for radar
+    metrics = list(eval_obj.metrics.keys())[:6]
     values = [round(eval_obj.metrics.get(m, 0), 4) for m in metrics]
 
     return RadarChartData(
@@ -241,14 +232,13 @@ async def get_line_chart(
     current_user: dict = Depends(get_current_user),
 ):
     """Get line chart data for cross-version comparison."""
-    # Get all completed evaluations for this metric
-    result = await db.execute(
+    result = await db.exec(
         select(Evaluation).where(
             Evaluation.user_id == current_user["id"],
             Evaluation.status == TaskStatus.COMPLETED
         ).order_by(Evaluation.created_at.asc())
     )
-    evaluations = result.scalars().all()
+    evaluations = result.all()
 
     x_axis = []
     series = {}

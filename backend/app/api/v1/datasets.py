@@ -1,10 +1,8 @@
 """Dataset management endpoints."""
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_db
 from app.db.models import Dataset, DatasetSource
@@ -14,7 +12,7 @@ router = APIRouter()
 
 
 # Pydantic models
-class DatasetCreate(BaseModel):
+class DatasetCreate(SQLModel):
     """Dataset create model."""
     name: str
     source: str  # preset, huggingface, custom, server_path
@@ -23,20 +21,17 @@ class DatasetCreate(BaseModel):
     metadata: Optional[dict] = None
 
 
-class DatasetResponse(BaseModel):
+class DatasetResponse(SQLModel):
     """Dataset response model."""
     id: int
     name: str
     source: str
     path: str
     version: int
-    tags: Optional[List[str]]
-    metadata: Optional[dict]
-    row_count: Optional[int]
+    tags: Optional[List[str]] = None
+    metadata: Optional[dict] = None
+    row_count: Optional[int] = None
     created_at: str
-
-    class Config:
-        from_attributes = True
 
 
 # Preset datasets (built-in EvalScope datasets)
@@ -49,7 +44,7 @@ PRESET_DATASETS = [
     {"id": -6, "name": "BBH", "source": "preset", "path": "bbh", "tags": ["reasoning"]},
     {"id": -7, "name": "HumanEval", "source": "preset", "path": "humaneval", "tags": ["code"]},
     {"id": -8, "name": "MBPP", "source": "preset", "path": "mbpp", "tags": ["code"]},
-    {"id": -9, "name": " AlpacaEval", "source": "preset", "path": "alpaca_eval", "tags": ["instruction"]},
+    {"id": -9, "name": "AlpacaEval", "source": "preset", "path": "alpaca_eval", "tags": ["instruction"]},
     {"id": -10, "name": "MT-Bench", "source": "preset", "path": "mt_bench", "tags": ["instruction"]},
     {"id": -11, "name": "LongBench", "source": "preset", "path": "longbench", "tags": ["long_context"]},
 ]
@@ -64,13 +59,11 @@ async def list_datasets(
     current_user: dict = Depends(get_current_user),
 ):
     """List all datasets."""
-    # Return preset datasets + user datasets
-    result = await db.execute(select(Dataset).offset(skip).limit(limit))
-    user_datasets = result.scalars().all()
+    result = await db.exec(select(Dataset).offset(skip).limit(limit))
+    user_datasets = result.all()
 
     all_datasets = []
 
-    # Add preset datasets
     for d in PRESET_DATASETS:
         if tags:
             d_tags = d.get("tags", [])
@@ -88,7 +81,6 @@ async def list_datasets(
             created_at="2024-01-01T00:00:00"
         ))
 
-    # Add user datasets
     for d in user_datasets:
         if tags:
             d_tags = d.tags or []
@@ -101,7 +93,7 @@ async def list_datasets(
             path=d.path,
             version=d.version,
             tags=d.tags,
-            metadata=d.metadata,
+            metadata=d.dataset_metadata,
             row_count=d.row_count,
             created_at=d.created_at.isoformat()
         ))
@@ -132,7 +124,7 @@ async def create_dataset(
         source=DatasetSource(dataset.source),
         path=dataset.path,
         tags=dataset.tags,
-        metadata=dataset.metadata,
+        dataset_metadata=dataset.metadata,
         created_by=current_user["id"],
     )
     db.add(db_dataset)
@@ -146,7 +138,7 @@ async def create_dataset(
         path=db_dataset.path,
         version=db_dataset.version,
         tags=db_dataset.tags,
-        metadata=db_dataset.metadata,
+        metadata=db_dataset.dataset_metadata,
         row_count=db_dataset.row_count,
         created_at=db_dataset.created_at.isoformat()
     )
@@ -160,7 +152,6 @@ async def upload_dataset(
     current_user: dict = Depends(get_current_user),
 ):
     """Upload a custom dataset file."""
-    # Save file to disk (in production, use proper file storage)
     import os
     import aiofiles
 
@@ -172,7 +163,6 @@ async def upload_dataset(
         content = await file.read()
         await f.write(content)
 
-    # Create dataset entry
     dataset_name = name or file.filename.split('.')[0]
     db_dataset = Dataset(
         name=dataset_name,
@@ -192,7 +182,7 @@ async def upload_dataset(
         path=db_dataset.path,
         version=db_dataset.version,
         tags=db_dataset.tags,
-        metadata=db_dataset.metadata,
+        metadata=db_dataset.dataset_metadata,
         row_count=db_dataset.row_count,
         created_at=db_dataset.created_at.isoformat()
     )
@@ -205,7 +195,6 @@ async def get_dataset(
     current_user: dict = Depends(get_current_user),
 ):
     """Get a dataset by ID."""
-    # Check preset datasets first
     for d in PRESET_DATASETS:
         if d["id"] == dataset_id:
             return DatasetResponse(
@@ -220,9 +209,7 @@ async def get_dataset(
                 created_at="2024-01-01T00:00:00"
             )
 
-    # Check user datasets
-    result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
-    dataset = result.scalar_one_or_none()
+    dataset = await db.get(Dataset, dataset_id)
 
     if not dataset:
         raise HTTPException(
@@ -237,7 +224,7 @@ async def get_dataset(
         path=dataset.path,
         version=dataset.version,
         tags=dataset.tags,
-        metadata=dataset.metadata,
+        metadata=dataset.dataset_metadata,
         row_count=dataset.row_count,
         created_at=dataset.created_at.isoformat()
     )
@@ -251,7 +238,6 @@ async def preview_dataset(
     current_user: dict = Depends(get_current_user),
 ):
     """Preview dataset content."""
-    # For preset datasets, return sample data info
     for d in PRESET_DATASETS:
         if d["id"] == dataset_id:
             return {
@@ -261,8 +247,7 @@ async def preview_dataset(
                 "columns": ["question", "answer", "options"] if d["name"] in ["MMLU", "C-Eval"] else ["question", "answer"]
             }
 
-    result = await db.execute(select(Dataset).where(Dataset.id == dataset_id))
-    dataset = result.scalar_one_or_none()
+    dataset = await db.get(Dataset, dataset_id)
 
     if not dataset:
         raise HTTPException(
@@ -270,7 +255,6 @@ async def preview_dataset(
             detail="Dataset not found"
         )
 
-    # Return file info for custom datasets
     return {
         "dataset_id": dataset.id,
         "name": dataset.name,

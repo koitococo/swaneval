@@ -1,19 +1,18 @@
 """Evaluation task endpoints."""
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_db
-from app.db.models import Evaluation, EvaluationResult, TaskStatus
+from app.db.models import Evaluation, TaskStatus
 from app.security import get_current_user
 
 router = APIRouter()
 
 
 # Pydantic models
-class GenerationConfig(BaseModel):
+class GenerationConfig(SQLModel):
     """Generation configuration."""
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = 2048
@@ -21,20 +20,20 @@ class GenerationConfig(BaseModel):
     top_k: Optional[int] = 50
 
 
-class DatasetArgs(BaseModel):
+class DatasetArgs(SQLModel):
     """Dataset arguments."""
     limit: Optional[int] = None
     few_shot_num: Optional[int] = 0
     few_shot_random: Optional[bool] = True
 
 
-class EvalConfig(BaseModel):
+class EvalConfig(SQLModel):
     """Evaluation configuration."""
     metrics: Optional[List[str]] = ["exact_match"]
     eval_type: Optional[str] = "native"
 
 
-class EvaluationCreate(BaseModel):
+class EvaluationCreate(SQLModel):
     """Evaluation create model."""
     name: str
     description: Optional[str] = None
@@ -45,40 +44,33 @@ class EvaluationCreate(BaseModel):
     eval_config: Optional[EvalConfig] = None
 
 
-class EvaluationUpdate(BaseModel):
+class EvaluationUpdate(SQLModel):
     """Evaluation update model."""
     status: Optional[str] = None
     progress: Optional[float] = None
     metrics: Optional[dict] = None
 
 
-class EvaluationResponse(BaseModel):
+class EvaluationResponse(SQLModel):
     """Evaluation response model."""
     id: int
     name: str
-    description: Optional[str]
+    description: Optional[str] = None
     model_id: int
     dataset_id: int
     status: str
     progress: float
-    metrics: Optional[dict]
+    metrics: Optional[dict] = None
     created_at: str
     updated_at: str
-    completed_at: Optional[str]
-
-    class Config:
-        from_attributes = True
+    completed_at: Optional[str] = None
 
 
 class EvaluationDetailResponse(EvaluationResponse):
     """Detailed evaluation response."""
-    generation_config: Optional[dict]
-    dataset_args: Optional[dict]
-    eval_config: Optional[dict]
-
-
-# In-memory task storage (replace with database + Celery)
-EVALUATIONS = {}
+    generation_config: Optional[dict] = None
+    dataset_args: Optional[dict] = None
+    eval_config: Optional[dict] = None
 
 
 @router.get("", response_model=List[EvaluationResponse])
@@ -95,8 +87,8 @@ async def list_evaluations(
         query = query.where(Evaluation.status == TaskStatus(status))
     query = query.order_by(Evaluation.created_at.desc()).offset(skip).limit(limit)
 
-    result = await db.execute(query)
-    evaluations = result.scalars().all()
+    result = await db.exec(query)
+    evaluations = result.all()
 
     return [EvaluationResponse(
         id=e.id,
@@ -120,8 +112,6 @@ async def create_evaluation(
     current_user: dict = Depends(get_current_user),
 ):
     """Create a new evaluation task."""
-    from datetime import datetime
-
     db_evaluation = Evaluation(
         name=evaluation.name,
         description=evaluation.description,
@@ -138,8 +128,6 @@ async def create_evaluation(
     await db.commit()
     await db.refresh(db_evaluation)
 
-    # Trigger async task (in production, use Celery)
-    # For now, simulate a running task
     return EvaluationResponse(
         id=db_evaluation.id,
         name=db_evaluation.name,
@@ -162,13 +150,13 @@ async def get_evaluation(
     current_user: dict = Depends(get_current_user),
 ):
     """Get evaluation details."""
-    result = await db.execute(
+    result = await db.exec(
         select(Evaluation).where(
             Evaluation.id == evaluation_id,
             Evaluation.user_id == current_user["id"]
         )
     )
-    evaluation = result.scalar_one_or_none()
+    evaluation = result.first()
 
     if not evaluation:
         raise HTTPException(
@@ -202,13 +190,13 @@ async def update_evaluation(
     current_user: dict = Depends(get_current_user),
 ):
     """Update an evaluation."""
-    result = await db.execute(
+    result = await db.exec(
         select(Evaluation).where(
             Evaluation.id == evaluation_id,
             Evaluation.user_id == current_user["id"]
         )
     )
-    evaluation = result.scalar_one_or_none()
+    evaluation = result.first()
 
     if not evaluation:
         raise HTTPException(
@@ -223,6 +211,7 @@ async def update_evaluation(
     if update.metrics is not None:
         evaluation.metrics = update.metrics
 
+    db.add(evaluation)
     await db.commit()
     await db.refresh(evaluation)
 
@@ -248,13 +237,13 @@ async def delete_evaluation(
     current_user: dict = Depends(get_current_user),
 ):
     """Delete an evaluation."""
-    result = await db.execute(
+    result = await db.exec(
         select(Evaluation).where(
             Evaluation.id == evaluation_id,
             Evaluation.user_id == current_user["id"]
         )
     )
-    evaluation = result.scalar_one_or_none()
+    evaluation = result.first()
 
     if not evaluation:
         raise HTTPException(

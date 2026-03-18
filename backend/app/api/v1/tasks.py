@@ -1,9 +1,8 @@
 """Task management endpoints."""
 from typing import List, Optional
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from sqlmodel import SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_db
 from app.db.models import Evaluation, TaskStatus
@@ -13,18 +12,18 @@ router = APIRouter()
 
 
 # Pydantic models
-class TaskStatusResponse(BaseModel):
+class TaskStatusResponse(SQLModel):
     """Task status response."""
     id: int
     name: str
     status: str
     progress: float
-    message: Optional[str]
+    message: Optional[str] = None
     created_at: str
     updated_at: str
 
 
-class TaskCancelResponse(BaseModel):
+class TaskCancelResponse(SQLModel):
     """Task cancel response."""
     success: bool
     message: str
@@ -44,8 +43,8 @@ async def list_tasks(
         query = query.where(Evaluation.status == TaskStatus(status))
     query = query.order_by(Evaluation.created_at.desc()).offset(skip).limit(limit)
 
-    result = await db.execute(query)
-    tasks = result.scalars().all()
+    result = await db.exec(query)
+    tasks = result.all()
 
     return [TaskStatusResponse(
         id=t.id,
@@ -65,16 +64,15 @@ async def get_task(
     current_user: dict = Depends(get_current_user),
 ):
     """Get task status."""
-    result = await db.execute(
+    result = await db.exec(
         select(Evaluation).where(
             Evaluation.id == task_id,
             Evaluation.user_id == current_user["id"]
         )
     )
-    task = result.scalar_one_or_none()
+    task = result.first()
 
     if not task:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Task not found")
 
     return TaskStatusResponse(
@@ -95,16 +93,15 @@ async def cancel_task(
     current_user: dict = Depends(get_current_user),
 ):
     """Cancel a task."""
-    result = await db.execute(
+    result = await db.exec(
         select(Evaluation).where(
             Evaluation.id == task_id,
             Evaluation.user_id == current_user["id"]
         )
     )
-    task = result.scalar_one_or_none()
+    task = result.first()
 
     if not task:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Task not found")
 
     if task.status not in [TaskStatus.PENDING, TaskStatus.RUNNING]:
@@ -114,6 +111,7 @@ async def cancel_task(
         )
 
     task.status = TaskStatus.CANCELLED
+    db.add(task)
     await db.commit()
 
     return TaskCancelResponse(
@@ -129,22 +127,22 @@ async def pause_task(
     current_user: dict = Depends(get_current_user),
 ):
     """Pause a running task."""
-    result = await db.execute(
+    result = await db.exec(
         select(Evaluation).where(
             Evaluation.id == task_id,
             Evaluation.user_id == current_user["id"]
         )
     )
-    task = result.scalar_one_or_none()
+    task = result.first()
 
     if not task:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Task not found")
 
     if task.status != TaskStatus.RUNNING:
         return {"success": False, "message": "Task is not running"}
 
     task.status = TaskStatus.PAUSED
+    db.add(task)
     await db.commit()
 
     return {"success": True, "message": "Task paused"}
@@ -157,22 +155,22 @@ async def resume_task(
     current_user: dict = Depends(get_current_user),
 ):
     """Resume a paused task."""
-    result = await db.execute(
+    result = await db.exec(
         select(Evaluation).where(
             Evaluation.id == task_id,
             Evaluation.user_id == current_user["id"]
         )
     )
-    task = result.scalar_one_or_none()
+    task = result.first()
 
     if not task:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Task not found")
 
     if task.status != TaskStatus.PAUSED:
         return {"success": False, "message": "Task is not paused"}
 
     task.status = TaskStatus.RUNNING
+    db.add(task)
     await db.commit()
 
     return {"success": True, "message": "Task resumed"}
@@ -185,7 +183,6 @@ async def task_progress_websocket(websocket: WebSocket, task_id: int):
     await websocket.accept()
 
     try:
-        # Send initial status
         await websocket.send_json({
             "type": "status",
             "task_id": task_id,
@@ -193,11 +190,8 @@ async def task_progress_websocket(websocket: WebSocket, task_id: int):
             "progress": 0
         })
 
-        # Keep connection alive and send updates
-        # In production, this would subscribe to Celery task events
         while True:
             data = await websocket.receive_text()
-            # Handle incoming messages if needed
             await websocket.send_json({
                 "type": "heartbeat",
                 "task_id": task_id

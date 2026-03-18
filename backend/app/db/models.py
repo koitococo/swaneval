@@ -1,14 +1,9 @@
 """Database models for EvalScope GUI."""
 from datetime import datetime, timezone
 from typing import Optional, List
-from sqlalchemy import (
-    String, Integer, Boolean, DateTime, Text, JSON,
-    ForeignKey, Enum as SQLEnum, Float
-)
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlmodel import SQLModel, Field, Relationship, Column
+from sqlalchemy import Text, JSON, Enum as SQLEnum
 import enum
-
-from app.database import Base
 
 
 class UserRole(str, enum.Enum):
@@ -44,110 +39,114 @@ class DatasetSource(str, enum.Enum):
     SERVER_PATH = "server_path"
 
 
-class User(Base):
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class User(SQLModel, table=True):
     """User model."""
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    hashed_password: Mapped[str] = mapped_column(String(255))
-    role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole), default=UserRole.GUEST)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(max_length=50, unique=True, index=True)
+    email: str = Field(max_length=255, unique=True, index=True)
+    hashed_password: str = Field(max_length=255)
+    role: UserRole = Field(sa_column=Column(SQLEnum(UserRole), default=UserRole.GUEST))
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
 
     # Relationships
-    evaluations: Mapped[List["Evaluation"]] = relationship("Evaluation", back_populates="user")
-    models: Mapped[List["ModelConfig"]] = relationship("ModelConfig", back_populates="user")
+    evaluations: List["Evaluation"] = Relationship(back_populates="user")
+    models: List["ModelConfig"] = Relationship(back_populates="user")
 
 
-class ModelConfig(Base):
+class ModelConfig(SQLModel, table=True):
     """Model configuration model."""
     __tablename__ = "model_configs"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(255), index=True)
-    model_type: Mapped[ModelType] = mapped_column(SQLEnum(ModelType))
-    path: Mapped[str] = mapped_column(Text)  # HF path, local path, or API endpoint
-    api_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    config: Mapped[Optional[JSON]] = mapped_column(JSON, nullable=True)  # revision, precision, device_map
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
-    is_public: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(max_length=255, index=True)
+    model_type: ModelType = Field(sa_column=Column(SQLEnum(ModelType)))
+    path: str = Field(sa_column=Column(Text))
+    api_key: Optional[str] = Field(default=None, max_length=255)
+    config: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    user_id: int = Field(foreign_key="users.id")
+    is_public: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="models")
-    evaluations: Mapped[List["Evaluation"]] = relationship("Evaluation", back_populates="model_config")
+    user: Optional["User"] = Relationship(back_populates="models")
+    evaluations: List["Evaluation"] = Relationship(back_populates="model_config")
 
 
-class Dataset(Base):
+class Dataset(SQLModel, table=True):
     """Dataset model."""
     __tablename__ = "datasets"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(255), index=True)
-    source: Mapped[DatasetSource] = mapped_column(SQLEnum(DatasetSource))
-    path: Mapped[str] = mapped_column(Text)  # HF ID, local path, or server path
-    version: Mapped[int] = mapped_column(Integer, default=1)
-    tags: Mapped[Optional[JSON]] = mapped_column(JSON, nullable=True)
-    dataset_metadata: Mapped[Optional[JSON]] = mapped_column("metadata", JSON, nullable=True)
-    row_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(max_length=255, index=True)
+    source: DatasetSource = Field(sa_column=Column(SQLEnum(DatasetSource)))
+    path: str = Field(sa_column=Column(Text))
+    version: int = Field(default=1)
+    tags: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    dataset_metadata: Optional[dict] = Field(default=None, sa_column=Column("metadata", JSON, nullable=True))
+    row_count: Optional[int] = Field(default=None)
+    created_by: int = Field(foreign_key="users.id")
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
 
     # Relationships
-    evaluations: Mapped[List["Evaluation"]] = relationship("Evaluation", back_populates="dataset")
+    evaluations: List["Evaluation"] = Relationship(back_populates="dataset")
 
 
-class Evaluation(Base):
+class Evaluation(SQLModel, table=True):
     """Evaluation model."""
     __tablename__ = "evaluations"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(255))
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    model_config_id: Mapped[int] = mapped_column(Integer, ForeignKey("model_configs.id"))
-    dataset_id: Mapped[int] = mapped_column(Integer, ForeignKey("datasets.id"))
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"))
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(max_length=255)
+    description: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    model_config_id: int = Field(foreign_key="model_configs.id")
+    dataset_id: int = Field(foreign_key="datasets.id")
+    user_id: int = Field(foreign_key="users.id")
 
     # Configuration
-    generation_config: Mapped[Optional[JSON]] = mapped_column(JSON, nullable=True)
-    dataset_args: Mapped[Optional[JSON]] = mapped_column(JSON, nullable=True)
-    eval_config: Mapped[Optional[JSON]] = mapped_column(JSON, nullable=True)
+    generation_config: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    dataset_args: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    eval_config: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
 
     # Results
-    status: Mapped[TaskStatus] = mapped_column(SQLEnum(TaskStatus), default=TaskStatus.PENDING)
-    progress: Mapped[float] = mapped_column(Float, default=0.0)
-    metrics: Mapped[Optional[JSON]] = mapped_column(JSON, nullable=True)
+    status: TaskStatus = Field(sa_column=Column(SQLEnum(TaskStatus), default=TaskStatus.PENDING))
+    progress: float = Field(default=0.0)
+    metrics: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
+    completed_at: Optional[datetime] = Field(default=None)
 
     # Relationships
-    model_config: Mapped["ModelConfig"] = relationship("ModelConfig", back_populates="evaluations")
-    dataset: Mapped["Dataset"] = relationship("Dataset", back_populates="evaluations")
-    user: Mapped["User"] = relationship("User", back_populates="evaluations")
-    results: Mapped[List["EvaluationResult"]] = relationship("EvaluationResult", back_populates="evaluation")
+    model_config: Optional["ModelConfig"] = Relationship(back_populates="evaluations")
+    dataset: Optional["Dataset"] = Relationship(back_populates="evaluations")
+    user: Optional["User"] = Relationship(back_populates="evaluations")
+    results: List["EvaluationResult"] = Relationship(back_populates="evaluation")
 
 
-class EvaluationResult(Base):
+class EvaluationResult(SQLModel, table=True):
     """Evaluation result model."""
     __tablename__ = "evaluation_results"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    evaluation_id: Mapped[int] = mapped_column(Integer, ForeignKey("evaluations.id"))
-    prompt: Mapped[Text] = mapped_column(Text)
-    expected_output: Mapped[Optional[Text]] = mapped_column(Text, nullable=True)
-    actual_output: Mapped[Optional[Text]] = mapped_column(Text, nullable=True)
-    is_correct: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
-    score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    dataset_metadata: Mapped[Optional[JSON]] = mapped_column("metadata", JSON, nullable=True)
-    latency_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    id: Optional[int] = Field(default=None, primary_key=True)
+    evaluation_id: int = Field(foreign_key="evaluations.id")
+    prompt: str = Field(sa_column=Column(Text))
+    expected_output: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    actual_output: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    is_correct: Optional[bool] = Field(default=None)
+    score: Optional[float] = Field(default=None)
+    result_metadata: Optional[dict] = Field(default=None, sa_column=Column("metadata", JSON, nullable=True))
+    latency_ms: Optional[float] = Field(default=None)
+    created_at: datetime = Field(default_factory=_utcnow)
 
     # Relationships
-    evaluation: Mapped["Evaluation"] = relationship("Evaluation", back_populates="results")
+    evaluation: Optional["Evaluation"] = Relationship(back_populates="results")

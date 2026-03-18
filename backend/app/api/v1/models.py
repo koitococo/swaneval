@@ -1,9 +1,8 @@
 """Model management endpoints."""
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel, Field, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.database import get_db
 from app.db.models import ModelConfig, ModelType
@@ -13,7 +12,7 @@ router = APIRouter()
 
 
 # Pydantic models
-class ModelConfigCreate(BaseModel):
+class ModelConfigCreate(SQLModel):
     """Model config create model."""
     name: str
     model_type: str  # local, huggingface, api
@@ -23,7 +22,7 @@ class ModelConfigCreate(BaseModel):
     is_public: bool = False
 
 
-class ModelConfigUpdate(BaseModel):
+class ModelConfigUpdate(SQLModel):
     """Model config update model."""
     name: Optional[str] = None
     api_key: Optional[str] = None
@@ -31,18 +30,15 @@ class ModelConfigUpdate(BaseModel):
     is_public: Optional[bool] = None
 
 
-class ModelConfigResponse(BaseModel):
+class ModelConfigResponse(SQLModel):
     """Model config response model."""
     id: int
     name: str
     model_type: str
     path: str
-    config: Optional[dict]
+    config: Optional[dict] = None
     is_public: bool
     created_at: str
-
-    class Config:
-        from_attributes = True
 
 
 # Preset models (built-in EvalScope models)
@@ -65,15 +61,13 @@ async def list_models(
     current_user: dict = Depends(get_current_user),
 ):
     """List all model configurations."""
-    # Return preset models + user models
-    result = await db.execute(
+    result = await db.exec(
         select(ModelConfig).where(
             (ModelConfig.user_id == current_user["id"]) | (ModelConfig.is_public == True)
         ).offset(skip).limit(limit)
     )
-    user_models = result.scalars().all()
+    user_models = result.all()
 
-    # Combine preset models with user models
     all_models = []
     for m in PRESET_MODELS:
         all_models.append(ModelConfigResponse(
@@ -144,7 +138,6 @@ async def get_model(
     current_user: dict = Depends(get_current_user),
 ):
     """Get a model configuration by ID."""
-    # Check preset models first
     for m in PRESET_MODELS:
         if m["id"] == model_id:
             return ModelConfigResponse(
@@ -157,11 +150,7 @@ async def get_model(
                 created_at="2024-01-01T00:00:00"
             )
 
-    # Check user models
-    result = await db.execute(
-        select(ModelConfig).where(ModelConfig.id == model_id)
-    )
-    model = result.scalar_one_or_none()
+    model = await db.get(ModelConfig, model_id)
 
     if not model:
         raise HTTPException(
@@ -187,7 +176,6 @@ async def delete_model(
     current_user: dict = Depends(get_current_user),
 ):
     """Delete a model configuration."""
-    # Don't allow deleting preset models
     for m in PRESET_MODELS:
         if m["id"] == model_id:
             raise HTTPException(
@@ -195,13 +183,13 @@ async def delete_model(
                 detail="Cannot delete preset models"
             )
 
-    result = await db.execute(
+    result = await db.exec(
         select(ModelConfig).where(
             ModelConfig.id == model_id,
             ModelConfig.user_id == current_user["id"]
         )
     )
-    model = result.scalar_one_or_none()
+    model = result.first()
 
     if not model:
         raise HTTPException(

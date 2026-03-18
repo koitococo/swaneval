@@ -1,6 +1,6 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from app.config import settings
 
@@ -14,7 +14,6 @@ engine = create_async_engine(
     max_overflow=20,
     connect_args={
         "server_settings": {"application_name": "evalscope-gui"},
-        "ssl": False,  # Disable SSL for local development
     },
 )
 
@@ -37,8 +36,3 @@ async def get_db() -> AsyncSession:
             raise
         finally:
             await session.close()
-
-
-class Base(DeclarativeBase):
-    """Base class for all database models."""
-    pass
