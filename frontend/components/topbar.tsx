@@ -14,11 +14,11 @@ import { useAuthStore } from "@/lib/stores/auth";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/", label: "概览", sub: "Dashboard", icon: LayoutDashboard },
-  { href: "/models", label: "模型", sub: "Models", icon: Cpu },
-  { href: "/datasets", label: "数据集", sub: "Datasets", icon: Database },
-  { href: "/tasks", label: "评测任务", sub: "Evaluations", icon: PlayCircle },
-  { href: "/results", label: "结果分析", sub: "Results", icon: BarChart3 },
+  { href: "/", label: "概览", icon: LayoutDashboard },
+  { href: "/models", label: "模型", icon: Cpu },
+  { href: "/datasets", label: "数据集", icon: Database },
+  { href: "/tasks", label: "评测任务", icon: PlayCircle },
+  { href: "/results", label: "结果分析", icon: BarChart3 },
 ];
 
 export function Topbar() {
@@ -51,9 +51,6 @@ export function Topbar() {
               >
                 <item.icon className="h-4 w-4" />
                 <span>{item.label}</span>
-                <span className="hidden lg:inline text-xs opacity-50">
-                  {item.sub}
-                </span>
               </Link>
             );
           })}
@@ -71,7 +68,7 @@ export function Topbar() {
                 window.location.href = "/login";
               }}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              title="Logout"
+              title="退出登录"
             >
               <LogOut className="h-4 w-4" />
             </button>

@@ -46,16 +46,28 @@ const typeColors: Record<
 };
 
 const typeDescriptions: Record<string, string> = {
-  preset: "Use a built-in metric like Exact Match, Contains, or Numeric Closeness.",
-  regex: "Match model output against a regular expression pattern.",
-  script: "Run a custom script to evaluate model output.",
-  llm_judge: "Use another LLM model to judge the quality of responses.",
+  preset: "使用内置指标，如精确匹配、包含匹配或数值接近度。",
+  regex: "使用正则表达式匹配模型输出。",
+  script: "运行自定义脚本评估模型输出。",
+  llm_judge: "使用另一个大语言模型评判响应质量。",
 };
 
 const presetMetrics = [
-  { value: "exact_match", label: "Exact Match", desc: "Output must exactly match expected answer" },
-  { value: "contains", label: "Contains", desc: "Output must contain the expected string" },
-  { value: "numeric", label: "Numeric Closeness", desc: "Compare numeric values with tolerance" },
+  {
+    value: "exact_match",
+    label: "精确匹配",
+    desc: "输出必须与预期答案完全一致",
+  },
+  {
+    value: "contains",
+    label: "包含匹配",
+    desc: "输出必须包含预期字符串",
+  },
+  {
+    value: "numeric",
+    label: "数值接近",
+    desc: "在容差范围内比较数值",
+  },
 ];
 
 export default function CriteriaPage() {
@@ -104,7 +116,10 @@ export default function CriteriaPage() {
     else if (form.type === "regex")
       config = { pattern: form.pattern, match_mode: "contains" };
     else if (form.type === "script")
-      config = { script_path: form.script_path, entrypoint: form.entrypoint };
+      config = {
+        script_path: form.script_path,
+        entrypoint: form.entrypoint,
+      };
     else if (form.type === "llm_judge")
       config = { system_prompt: form.judge_prompt };
 
@@ -141,21 +156,20 @@ export default function CriteriaPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Evaluation Criteria</h1>
+        <h1 className="text-lg font-semibold">评估标准</h1>
         {!showForm && (
           <Button size="sm" onClick={() => setShowForm(true)}>
-            <Plus className="mr-1 h-4 w-4" /> New Criterion
+            <Plus className="mr-1 h-4 w-4" /> 新建标准
           </Button>
         )}
       </div>
 
-      {/* Inline creation form */}
       {showForm && (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium">
-                Create Criterion
+                创建评估标准
               </CardTitle>
               <Button
                 variant="ghost"
@@ -169,21 +183,20 @@ export default function CriteriaPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
-              {/* Row 1: Name + Type side by side */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Name</Label>
+                  <Label>名称</Label>
                   <Input
                     value={form.name}
                     onChange={(e) =>
                       setForm({ ...form, name: e.target.value })
                     }
-                    placeholder="e.g. Exact Match, Custom Regex"
+                    placeholder="例如：精确匹配、自定义正则"
                     required
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Type</Label>
+                  <Label>类型</Label>
                   <Select
                     value={form.type}
                     onValueChange={(v) => setForm({ ...form, type: v })}
@@ -192,24 +205,22 @@ export default function CriteriaPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="preset">Preset Metric</SelectItem>
-                      <SelectItem value="regex">Regex</SelectItem>
-                      <SelectItem value="script">Script</SelectItem>
-                      <SelectItem value="llm_judge">LLM Judge</SelectItem>
+                      <SelectItem value="preset">预设指标</SelectItem>
+                      <SelectItem value="regex">正则表达式</SelectItem>
+                      <SelectItem value="script">自定义脚本</SelectItem>
+                      <SelectItem value="llm_judge">LLM 评判</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              {/* Type description */}
               <p className="text-xs text-muted-foreground">
                 {typeDescriptions[form.type]}
               </p>
 
-              {/* Type-specific config */}
               {form.type === "preset" && (
                 <div className="space-y-2">
-                  <Label>Metric</Label>
+                  <Label>指标</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {presetMetrics.map((m) => (
                       <button
@@ -236,19 +247,18 @@ export default function CriteriaPage() {
 
               {form.type === "regex" && (
                 <div className="space-y-1">
-                  <Label>Pattern</Label>
+                  <Label>正则表达式</Label>
                   <Input
                     value={form.pattern}
                     onChange={(e) =>
                       setForm({ ...form, pattern: e.target.value })
                     }
-                    placeholder="e.g. \\d+\\.?\\d*"
+                    placeholder="例如 \\d+\\.?\\d*"
                     className="font-mono"
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    Standard regex syntax. The pattern will be tested against
-                    model output.
+                    标准正则语法，将对模型输出进行匹配。
                   </p>
                 </div>
               )}
@@ -256,7 +266,7 @@ export default function CriteriaPage() {
               {form.type === "script" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label>Script Path</Label>
+                    <Label>脚本路径</Label>
                     <Input
                       value={form.script_path}
                       onChange={(e) =>
@@ -268,7 +278,7 @@ export default function CriteriaPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label>Entrypoint</Label>
+                    <Label>入口函数</Label>
                     <Input
                       value={form.entrypoint}
                       onChange={(e) =>
@@ -284,26 +294,25 @@ export default function CriteriaPage() {
 
               {form.type === "llm_judge" && (
                 <div className="space-y-1">
-                  <Label>System Prompt</Label>
+                  <Label>系统提示词</Label>
                   <textarea
                     value={form.judge_prompt}
                     onChange={(e) =>
                       setForm({ ...form, judge_prompt: e.target.value })
                     }
-                    placeholder="You are an evaluation judge. Score the response from 0 to 1 based on..."
+                    placeholder="你是一个评估专家。请根据以下标准对回答打分（0-1）..."
                     className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     required
                   />
                 </div>
               )}
 
-              {/* Submit */}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancel
+                  取消
                 </Button>
                 <Button type="submit" disabled={create.isPending}>
-                  {create.isPending ? "Creating..." : "Create Criterion"}
+                  {create.isPending ? "创建中..." : "创建标准"}
                 </Button>
               </div>
             </form>
@@ -311,16 +320,15 @@ export default function CriteriaPage() {
         </Card>
       )}
 
-      {/* Criteria table */}
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Config</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>名称</TableHead>
+                <TableHead>类型</TableHead>
+                <TableHead>配置</TableHead>
+                <TableHead>创建时间</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -331,7 +339,7 @@ export default function CriteriaPage() {
                     colSpan={5}
                     className="text-center text-muted-foreground py-8"
                   >
-                    Loading...
+                    加载中...
                   </TableCell>
                 </TableRow>
               ) : criteria.length === 0 ? (
@@ -340,13 +348,13 @@ export default function CriteriaPage() {
                     colSpan={5}
                     className="text-center text-muted-foreground py-8"
                   >
-                    No criteria defined.{" "}
+                    暂无评估标准。{" "}
                     {!showForm && (
                       <button
                         className="text-primary underline"
                         onClick={() => setShowForm(true)}
                       >
-                        Create one
+                        创建一个
                       </button>
                     )}
                   </TableCell>
@@ -401,15 +409,14 @@ export default function CriteriaPage() {
         </CardContent>
       </Card>
 
-      {/* Test Dialog */}
       <Dialog open={testOpen} onOpenChange={setTestOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Test Criterion</DialogTitle>
+            <DialogTitle>测试评估标准</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleTest} className="space-y-3">
             <div className="space-y-1">
-              <Label>Prompt</Label>
+              <Label>输入提示</Label>
               <Input
                 value={testForm.prompt}
                 onChange={(e) =>
@@ -418,7 +425,7 @@ export default function CriteriaPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Expected Output</Label>
+              <Label>预期输出</Label>
               <Input
                 value={testForm.expected}
                 onChange={(e) =>
@@ -428,7 +435,7 @@ export default function CriteriaPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Actual Output</Label>
+              <Label>实际输出</Label>
               <Input
                 value={testForm.actual}
                 onChange={(e) =>
@@ -437,12 +444,16 @@ export default function CriteriaPage() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={test.isPending}>
-              {test.isPending ? "Testing..." : "Run Test"}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={test.isPending}
+            >
+              {test.isPending ? "测试中..." : "运行测试"}
             </Button>
             {testResult !== null && (
               <div className="rounded bg-muted p-3 text-center">
-                <span className="text-xs text-muted-foreground">Score: </span>
+                <span className="text-xs text-muted-foreground">得分：</span>
                 <span
                   className={`text-lg font-bold ${
                     testResult.score >= 1

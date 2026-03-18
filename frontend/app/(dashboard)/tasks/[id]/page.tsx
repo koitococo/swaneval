@@ -60,7 +60,7 @@ export default function TaskDetailPage() {
 
   if (isLoading || !task) {
     return (
-      <div className="text-muted-foreground py-12 text-center">Loading...</div>
+      <div className="text-muted-foreground py-12 text-center">加载中...</div>
     );
   }
 
@@ -103,7 +103,7 @@ export default function TaskDetailPage() {
         <div className="flex-1">
           <h1 className="text-lg font-semibold">{task.name}</h1>
           <p className="text-xs text-muted-foreground">
-            Created {new Date(task.created_at).toLocaleString()}
+            创建于 {new Date(task.created_at).toLocaleString()}
           </p>
         </div>
         <Badge variant={statusVariant(task.status)} className="text-sm">
@@ -111,7 +111,7 @@ export default function TaskDetailPage() {
         </Badge>
         {task.status === "running" && (
           <Button variant="outline" size="sm" onClick={() => pause.mutate(id)}>
-            <Pause className="mr-1 h-3.5 w-3.5" /> Pause
+            <Pause className="mr-1 h-3.5 w-3.5" /> 暂停
           </Button>
         )}
         {(task.status === "paused" || task.status === "failed") && (
@@ -120,7 +120,7 @@ export default function TaskDetailPage() {
             size="sm"
             onClick={() => resumeTask.mutate(id)}
           >
-            <Play className="mr-1 h-3.5 w-3.5" /> Resume
+            <Play className="mr-1 h-3.5 w-3.5" /> 恢复
           </Button>
         )}
         {(task.status === "running" || task.status === "pending") && (
@@ -130,7 +130,7 @@ export default function TaskDetailPage() {
             className="text-destructive"
             onClick={() => cancel.mutate(id)}
           >
-            <XCircle className="mr-1 h-3.5 w-3.5" /> Cancel
+            <XCircle className="mr-1 h-3.5 w-3.5" /> 取消
           </Button>
         )}
       </div>
@@ -143,8 +143,7 @@ export default function TaskDetailPage() {
               <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
               <div className="space-y-1 min-w-0">
                 <p className="text-sm font-medium text-destructive">
-                  Task failed — {failedSubtasks.length} subtask
-                  {failedSubtasks.length > 1 ? "s" : ""} with errors
+                  任务失败 — {failedSubtasks.length} 个子任务出错
                 </p>
                 {failedSubtasks.map((st) =>
                   st.error_log ? (
@@ -152,7 +151,7 @@ export default function TaskDetailPage() {
                       key={st.id}
                       className="text-xs text-muted-foreground font-mono truncate"
                     >
-                      Run {st.run_index + 1}: {st.error_log}
+                      运行 {st.run_index + 1}: {st.error_log}
                     </p>
                   ) : null
                 )}
@@ -165,10 +164,10 @@ export default function TaskDetailPage() {
       {/* Config summary */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          { label: "Repeat Count", value: task.repeat_count },
-          { label: "Seed Strategy", value: task.seed_strategy },
-          { label: "Temperature", value: params.temperature ?? "-" },
-          { label: "Max Tokens", value: params.max_tokens ?? "-" },
+          { label: "重复次数", value: task.repeat_count },
+          { label: "种子策略", value: task.seed_strategy },
+          { label: "温度", value: params.temperature ?? "-" },
+          { label: "最大 Token 数", value: params.max_tokens ?? "-" },
         ].map((item) => (
           <Card key={item.label}>
             <CardContent className="p-3">
@@ -183,13 +182,13 @@ export default function TaskDetailPage() {
       {subtasks.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Subtasks</CardTitle>
+            <CardTitle className="text-sm font-medium">子任务</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {subtasks.map((st) => (
               <div key={st.id} className="flex items-center gap-3">
                 <span className="text-xs text-muted-foreground w-16">
-                  Run {st.run_index + 1}
+                  运行 {st.run_index + 1}
                 </span>
                 <Progress value={st.progress_pct} className="flex-1 h-2" />
                 <span className="text-xs font-mono w-12 text-right">
@@ -204,9 +203,9 @@ export default function TaskDetailPage() {
 
       <Tabs defaultValue={task.status === "failed" ? "errors" : "summary"}>
         <TabsList>
-          <TabsTrigger value="summary">Summary</TabsTrigger>
+          <TabsTrigger value="summary">汇总</TabsTrigger>
           <TabsTrigger value="errors">
-            Errors{errors.length > 0 && ` (${errors.length})`}
+            错误{errors.length > 0 && ` (${errors.length})`}
           </TabsTrigger>
         </TabsList>
 
@@ -215,8 +214,8 @@ export default function TaskDetailPage() {
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
                 {task.status === "running" || task.status === "pending"
-                  ? "Task is still running..."
-                  : "No results yet."}
+                  ? "任务仍在运行中..."
+                  : "暂无结果。"}
               </CardContent>
             </Card>
           ) : (
@@ -225,7 +224,7 @@ export default function TaskDetailPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">
-                    Average Scores by Criterion
+                    各评估标准平均得分
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -257,18 +256,18 @@ export default function TaskDetailPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Criterion</TableHead>
+                        <TableHead>评估标准</TableHead>
                         <TableHead className="text-right">
-                          Avg Score
+                          平均分
                         </TableHead>
-                        <TableHead className="text-right">Min</TableHead>
-                        <TableHead className="text-right">Max</TableHead>
-                        <TableHead className="text-right">Count</TableHead>
+                        <TableHead className="text-right">最小</TableHead>
+                        <TableHead className="text-right">最大</TableHead>
+                        <TableHead className="text-right">数量</TableHead>
                         <TableHead className="text-right">
-                          Avg Latency
+                          平均延迟
                         </TableHead>
                         <TableHead className="text-right">
-                          Avg Tokens
+                          平均 Token
                         </TableHead>
                       </TableRow>
                     </TableHeader>
@@ -311,16 +310,16 @@ export default function TaskDetailPage() {
             <CardContent className="p-0">
               {errors.length === 0 ? (
                 <p className="py-8 text-center text-muted-foreground">
-                  No errors found.
+                  未发现错误。
                 </p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Prompt</TableHead>
-                      <TableHead>Expected</TableHead>
-                      <TableHead>Model Output</TableHead>
-                      <TableHead className="text-right">Score</TableHead>
+                      <TableHead>输入提示</TableHead>
+                      <TableHead>预期输出</TableHead>
+                      <TableHead>模型输出</TableHead>
+                      <TableHead className="text-right">得分</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

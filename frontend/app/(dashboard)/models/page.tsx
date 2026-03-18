@@ -93,7 +93,7 @@ export default function ModelsPage() {
     setTestingId(id);
     setTestResults((prev) => ({
       ...prev,
-      [id]: { ok: false, message: "Testing..." },
+      [id]: { ok: false, message: "测试中..." },
     }));
     try {
       const result = await testModel.mutateAsync(id);
@@ -104,7 +104,7 @@ export default function ModelsPage() {
     } catch {
       setTestResults((prev) => ({
         ...prev,
-        [id]: { ok: false, message: "Connection failed" },
+        [id]: { ok: false, message: "连接失败" },
       }));
     } finally {
       setTestingId(null);
@@ -120,21 +120,21 @@ export default function ModelsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">模型 Models</h1>
+        <h1 className="text-lg font-semibold">模型管理</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <Plus className="mr-1 h-4 w-4" /> Add Model
+              <Plus className="mr-1 h-4 w-4" /> 添加模型
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-auto">
             <DialogHeader>
-              <DialogTitle>Register Model</DialogTitle>
+              <DialogTitle>注册模型</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Display Name</Label>
+                  <Label>显示名称</Label>
                   <Input
                     value={form.name}
                     onChange={(e) =>
@@ -145,7 +145,7 @@ export default function ModelsPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Provider</Label>
+                  <Label>提供商</Label>
                   <Input
                     value={form.provider}
                     onChange={(e) =>
@@ -158,7 +158,7 @@ export default function ModelsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Model Name / ID</Label>
+                  <Label>模型 ID</Label>
                   <Input
                     value={form.model_name}
                     onChange={(e) =>
@@ -167,11 +167,11 @@ export default function ModelsPage() {
                     placeholder="gpt-4o-2024-08-06"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Actual model identifier sent to the API
+                    发送至 API 的实际模型标识
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <Label>Type</Label>
+                  <Label>类型</Label>
                   <Select
                     value={form.model_type}
                     onValueChange={(v) =>
@@ -190,7 +190,7 @@ export default function ModelsPage() {
                 </div>
               </div>
               <div className="space-y-1">
-                <Label>Endpoint URL</Label>
+                <Label>端点 URL</Label>
                 <Input
                   value={form.endpoint_url}
                   onChange={(e) =>
@@ -202,7 +202,7 @@ export default function ModelsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>API Key</Label>
+                  <Label>API 密钥</Label>
                   <Input
                     type="password"
                     value={form.api_key}
@@ -213,7 +213,7 @@ export default function ModelsPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Max Tokens</Label>
+                  <Label>最大 Token 数</Label>
                   <Input
                     type="number"
                     value={form.max_tokens}
@@ -225,13 +225,13 @@ export default function ModelsPage() {
                 </div>
               </div>
               <div className="space-y-1">
-                <Label>Description</Label>
+                <Label>描述</Label>
                 <Input
                   value={form.description}
                   onChange={(e) =>
                     setForm({ ...form, description: e.target.value })
                   }
-                  placeholder="Notes about this model configuration..."
+                  placeholder="模型配置备注..."
                 />
               </div>
               <Button
@@ -239,7 +239,7 @@ export default function ModelsPage() {
                 className="w-full"
                 disabled={create.isPending}
               >
-                {create.isPending ? "Adding..." : "Add Model"}
+                {create.isPending ? "添加中..." : "添加模型"}
               </Button>
             </form>
           </DialogContent>
@@ -251,11 +251,11 @@ export default function ModelsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>名称</TableHead>
+                <TableHead>提供商</TableHead>
+                <TableHead>类型</TableHead>
                 <TableHead>Endpoint</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>状态</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -266,7 +266,7 @@ export default function ModelsPage() {
                     colSpan={6}
                     className="text-center text-muted-foreground py-8"
                   >
-                    Loading...
+                    加载中...
                   </TableCell>
                 </TableRow>
               ) : models.length === 0 ? (
@@ -275,7 +275,7 @@ export default function ModelsPage() {
                     colSpan={6}
                     className="text-center text-muted-foreground py-8"
                   >
-                    No models registered.
+                    暂无已注册的模型。
                   </TableCell>
                 </TableRow>
               ) : (
@@ -307,15 +307,15 @@ export default function ModelsPage() {
                       {testResults[m.id] ? (
                         <Badge
                           variant={
-                            testResults[m.id].message === "Testing..."
+                            testResults[m.id].message === "测试中..."
                               ? "outline"
                               : testResults[m.id].ok
                                 ? "default"
                                 : "destructive"
                           }
                         >
-                          {testResults[m.id].message === "Testing..."
-                            ? "Testing..."
+                          {testResults[m.id].message === "测试中..."
+                            ? "测试中..."
                             : testResults[m.id].ok
                               ? "OK"
                               : "Failed"}
@@ -333,7 +333,7 @@ export default function ModelsPage() {
                         className="h-7 w-7"
                         onClick={() => handleTest(m.id)}
                         disabled={testingId === m.id}
-                        title="Test endpoint"
+                        title="测试连接"
                       >
                         {testingId === m.id ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -364,22 +364,21 @@ export default function ModelsPage() {
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete Model</DialogTitle>
+            <DialogTitle>删除模型</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{deleteTarget?.name}&quot;?
-              This action cannot be undone.
+              确定要删除 &quot;{deleteTarget?.name}&quot; 吗？此操作不可撤销。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Cancel
+              取消
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={deleteMut.isPending}
             >
-              {deleteMut.isPending ? "Deleting..." : "Delete"}
+              {deleteMut.isPending ? "删除中..." : "删除"}
             </Button>
           </DialogFooter>
         </DialogContent>

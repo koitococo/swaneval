@@ -127,14 +127,14 @@ export default function ResultsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">结果分析 Results</h1>
+        <h1 className="text-lg font-semibold">结果分析</h1>
         <div className="flex items-center gap-2">
           <Select value={criterionFilter} onValueChange={setCriterionFilter}>
             <SelectTrigger className="w-44">
-              <SelectValue placeholder="All criteria" />
+              <SelectValue placeholder="全部标准" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__all__">All criteria</SelectItem>
+              <SelectItem value="__all__">全部标准</SelectItem>
               {criteria.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
@@ -150,10 +150,10 @@ export default function ResultsPage() {
 
       <Tabs defaultValue="leaderboard">
         <TabsList>
-          <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
-          <TabsTrigger value="comparison">Comparison</TabsTrigger>
-          <TabsTrigger value="radar">Radar</TabsTrigger>
-          <TabsTrigger value="detail">Detail</TabsTrigger>
+          <TabsTrigger value="leaderboard">排行榜</TabsTrigger>
+          <TabsTrigger value="comparison">对比</TabsTrigger>
+          <TabsTrigger value="radar">雷达图</TabsTrigger>
+          <TabsTrigger value="detail">明细</TabsTrigger>
         </TabsList>
 
         <TabsContent value="leaderboard">
@@ -161,22 +161,22 @@ export default function ResultsPage() {
             <CardContent className="p-0">
               {isLoading ? (
                 <p className="py-8 text-center text-muted-foreground">
-                  Loading...
+                  加载中...
                 </p>
               ) : leaderboard.length === 0 ? (
                 <p className="py-8 text-center text-muted-foreground">
-                  No results yet. Run evaluation tasks first.
+                  暂无结果，请先运行评测任务。
                 </p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-8">#</TableHead>
-                      <TableHead>Model</TableHead>
-                      <TableHead>Criterion</TableHead>
-                      <TableHead className="text-right">Avg Score</TableHead>
-                      <TableHead className="text-right">Prompts</TableHead>
-                      <TableHead className="text-right">Avg Latency</TableHead>
+                      <TableHead>模型</TableHead>
+                      <TableHead>标准</TableHead>
+                      <TableHead className="text-right">平均分</TableHead>
+                      <TableHead className="text-right">样本数</TableHead>
+                      <TableHead className="text-right">平均延迟</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -217,13 +217,13 @@ export default function ResultsPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">
-                Score Comparison
+                得分对比
               </CardTitle>
             </CardHeader>
             <CardContent>
               {barData.length === 0 ? (
                 <p className="py-8 text-center text-muted-foreground">
-                  No data to chart.
+                  暂无图表数据。
                 </p>
               ) : (
                 <ResponsiveContainer width="100%" height={350}>
@@ -252,13 +252,13 @@ export default function ResultsPage() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">
-                Multi-dimensional Radar
+                多维雷达图
               </CardTitle>
             </CardHeader>
             <CardContent>
               {radarData.length === 0 ? (
                 <p className="py-8 text-center text-muted-foreground">
-                  No data to chart.
+                  暂无图表数据。
                 </p>
               ) : (
                 <ResponsiveContainer width="100%" height={400}>
@@ -296,14 +296,14 @@ export default function ResultsPage() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium">
-                  Result Detail
+                  结果明细
                 </CardTitle>
                 <Select value={taskFilter} onValueChange={(v) => { setTaskFilter(v); setDetailPage(1); }}>
                   <SelectTrigger className="w-52">
-                    <SelectValue placeholder="All tasks" />
+                    <SelectValue placeholder="全部任务" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__all__">All tasks</SelectItem>
+                    <SelectItem value="__all__">全部任务</SelectItem>
                     {completedTasks.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
                         {t.name}
@@ -316,18 +316,18 @@ export default function ResultsPage() {
             <CardContent className="p-0">
               {detailResults.length === 0 ? (
                 <p className="py-8 text-center text-muted-foreground">
-                  No results. Select a task or run an evaluation first.
+                  暂无结果，请选择任务或先运行评测。
                 </p>
               ) : (
                 <>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Prompt</TableHead>
-                        <TableHead>Expected</TableHead>
-                        <TableHead>Model Output</TableHead>
-                        <TableHead className="text-right">Score</TableHead>
-                        <TableHead className="text-right">Latency</TableHead>
+                        <TableHead>输入提示</TableHead>
+                        <TableHead>预期输出</TableHead>
+                        <TableHead>模型输出</TableHead>
+                        <TableHead className="text-right">得分</TableHead>
+                        <TableHead className="text-right">延迟</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -361,10 +361,10 @@ export default function ResultsPage() {
                       disabled={detailPage <= 1}
                       onClick={() => setDetailPage(detailPage - 1)}
                     >
-                      <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
+                      <ChevronLeft className="h-3.5 w-3.5 mr-1" /> 上一页
                     </Button>
                     <span className="text-xs text-muted-foreground">
-                      Page {detailPage}
+                      第 {detailPage} 页
                     </span>
                     <Button
                       variant="ghost"
@@ -372,7 +372,7 @@ export default function ResultsPage() {
                       disabled={detailResults.length < 20}
                       onClick={() => setDetailPage(detailPage + 1)}
                     >
-                      Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                      下一页 <ChevronRight className="h-3.5 w-3.5 ml-1" />
                     </Button>
                   </div>
                 </>

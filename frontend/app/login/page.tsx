@@ -47,7 +47,7 @@ export default function LoginPage() {
           ? (err as { response?: { data?: { detail?: string } } }).response
               ?.data?.detail
           : undefined;
-      setError(detail || "Invalid username or password");
+      setError(detail || "用户名或密码错误");
       setLoading(false);
     }
   };
@@ -59,7 +59,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await api.post("/auth/register", { ...regForm, role: "engineer" });
-      setSuccess("Account created. Sign in below.");
+      setSuccess("账号创建成功，请在下方登录。");
       setMode("login");
       setLoginForm({
         username: regForm.username,
@@ -71,7 +71,7 @@ export default function LoginPage() {
           ? (err as { response?: { data?: { detail?: string } } }).response
               ?.data?.detail
           : undefined;
-      setError(detail || "Registration failed");
+      setError(detail || "注册失败");
     } finally {
       setLoading(false);
     }
@@ -79,39 +79,33 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Left — animated gradient background */}
       <div className="hidden lg:block lg:w-1/2 login-bg">
-        {/* Blob element for the third animated gradient layer */}
         <div className="blob" />
-
-        {/* App name pinned to bottom-left */}
         <div className="relative z-10 flex flex-col justify-end h-full p-10">
           <h1 className="text-4xl font-bold text-white/90 tracking-tight leading-none">
             EvalScope
           </h1>
           <p className="text-sm text-white/40 mt-2">
-            LLM Evaluation Platform
+            人工智能模型能力评估工具
           </p>
         </div>
       </div>
 
-      {/* Right — plain form panel */}
       <div className="flex flex-1 items-center justify-center bg-background px-6">
         <div className="w-full max-w-sm space-y-8">
-          {/* Mobile-only brand */}
           <div className="lg:hidden">
             <h1 className="text-2xl font-bold tracking-tight">EvalScope</h1>
+            <p className="text-xs text-muted-foreground">人工智能模型能力评估工具</p>
           </div>
 
-          {/* Header */}
           <div>
             <h2 className="text-xl font-semibold tracking-tight">
-              {mode === "login" ? "Sign in" : "Create account"}
+              {mode === "login" ? "登录" : "创建账号"}
             </h2>
             <p className="text-muted-foreground mt-1">
               {mode === "login"
-                ? "Enter your credentials to continue."
-                : "Register a new account to get started."}
+                ? "输入您的凭据以继续。"
+                : "注册新账号以开始使用。"}
             </p>
           </div>
 
@@ -121,7 +115,7 @@ export default function LoginPage() {
           {mode === "login" ? (
             <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="username">用户名</Label>
                 <Input
                   id="username"
                   autoComplete="username"
@@ -134,7 +128,7 @@ export default function LoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">密码</Label>
                 <Input
                   id="password"
                   type="password"
@@ -148,10 +142,10 @@ export default function LoginPage() {
                 />
               </div>
               <Button type="submit" className="w-full h-10" disabled={loading}>
-                {loading ? "Signing in..." : "Sign in"}
+                {loading ? "登录中..." : "登录"}
               </Button>
               <p className="text-center text-sm text-muted-foreground">
-                No account?{" "}
+                还没有账号？{" "}
                 <button
                   type="button"
                   onClick={() => {
@@ -161,14 +155,14 @@ export default function LoginPage() {
                   }}
                   className="text-primary font-medium hover:underline underline-offset-4"
                 >
-                  Register
+                  注册
                 </button>
               </p>
             </form>
           ) : (
             <form onSubmit={handleRegister} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="reg-user">Username</Label>
+                <Label htmlFor="reg-user">用户名</Label>
                 <Input
                   id="reg-user"
                   autoComplete="username"
@@ -181,7 +175,7 @@ export default function LoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-email">Email</Label>
+                <Label htmlFor="reg-email">邮箱</Label>
                 <Input
                   id="reg-email"
                   type="email"
@@ -195,7 +189,7 @@ export default function LoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-pass">Password</Label>
+                <Label htmlFor="reg-pass">密码</Label>
                 <Input
                   id="reg-pass"
                   type="password"
@@ -209,10 +203,10 @@ export default function LoginPage() {
                 />
               </div>
               <Button type="submit" className="w-full h-10" disabled={loading}>
-                {loading ? "Creating..." : "Create account"}
+                {loading ? "创建中..." : "创建账号"}
               </Button>
               <p className="text-center text-sm text-muted-foreground">
-                Already have an account?{" "}
+                已有账号？{" "}
                 <button
                   type="button"
                   onClick={() => {
@@ -222,7 +216,7 @@ export default function LoginPage() {
                   }}
                   className="text-primary font-medium hover:underline underline-offset-4"
                 >
-                  Sign in
+                  登录
                 </button>
               </p>
             </form>

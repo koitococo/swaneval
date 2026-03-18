@@ -6,8 +6,8 @@ import { Providers } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EvalScope GUI",
-  description: "Enterprise LLM evaluation platform",
+  title: "EvalScope - 人工智能模型能力评估工具",
+  description: "人工智能模型能力评估工具",
 };
 
 export default function RootLayout({
@@ -16,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="zh-CN">
       <body className={inter.className}>
         <Providers>{children}</Providers>
       </body>

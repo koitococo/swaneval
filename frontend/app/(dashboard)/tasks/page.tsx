@@ -69,10 +69,10 @@ const statusVariant = (
 };
 
 const STEPS = [
-  { key: "model", label: "Select Model" },
-  { key: "datasets", label: "Select Datasets" },
-  { key: "params", label: "Parameters" },
-  { key: "review", label: "Review & Run" },
+  { key: "model", label: "选择模型" },
+  { key: "datasets", label: "选择数据集" },
+  { key: "params", label: "参数配置" },
+  { key: "review", label: "确认并运行" },
 ] as const;
 
 export default function TasksPage() {
@@ -186,7 +186,7 @@ export default function TasksPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">评测任务 Evaluations</h1>
+        <h1 className="text-lg font-semibold">评测任务</h1>
         <Dialog
           open={open}
           onOpenChange={(v) => {
@@ -196,12 +196,12 @@ export default function TasksPage() {
         >
           <DialogTrigger asChild>
             <Button size="sm">
-              <Plus className="mr-1 h-4 w-4" /> New Task
+              <Plus className="mr-1 h-4 w-4" /> 新建任务
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-auto">
             <DialogHeader>
-              <DialogTitle>Create Evaluation Task</DialogTitle>
+              <DialogTitle>创建评测任务</DialogTitle>
             </DialogHeader>
 
             {/* Stepper */}
@@ -237,13 +237,13 @@ export default function TasksPage() {
             {step === 0 && (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <Label>Model</Label>
+                  <Label>模型</Label>
                   <Select
                     value={form.model_id}
                     onValueChange={(v) => setForm({ ...form, model_id: v })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select model" />
+                      <SelectValue placeholder="请选择模型" />
                     </SelectTrigger>
                     <SelectContent>
                       {models.map((m) => (
@@ -258,7 +258,7 @@ export default function TasksPage() {
                   </Select>
                   {models.length === 0 && (
                     <p className="text-xs text-muted-foreground">
-                      No models registered. Add one in the Models page first.
+                      暂无已注册模型，请先在模型页面添加。
                     </p>
                   )}
                 </div>
@@ -269,7 +269,7 @@ export default function TasksPage() {
             {step === 1 && (
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <Label>Datasets (click to select)</Label>
+                  <Label>数据集（点击选择）</Label>
                   <div className="flex flex-wrap gap-1.5 rounded border p-2 min-h-[2.5rem]">
                     {datasets.map((ds) => (
                       <button
@@ -287,16 +287,16 @@ export default function TasksPage() {
                     ))}
                     {datasets.length === 0 && (
                       <span className="text-xs text-muted-foreground">
-                        No datasets available
+                        暂无可用数据集
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {form.dataset_ids.length} selected
+                    {form.dataset_ids.length} 已选择
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <Label>Criteria (click to select)</Label>
+                  <Label>评估标准（点击选择）</Label>
                   <div className="flex flex-wrap gap-1.5 rounded border p-2 min-h-[2.5rem]">
                     {criteria.map((c) => (
                       <button
@@ -314,12 +314,12 @@ export default function TasksPage() {
                     ))}
                     {criteria.length === 0 && (
                       <span className="text-xs text-muted-foreground">
-                        No criteria available
+                        暂无可用评估标准
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {form.criteria_ids.length} selected
+                    {form.criteria_ids.length} 已选择
                   </p>
                 </div>
               </div>
@@ -329,19 +329,19 @@ export default function TasksPage() {
             {step === 2 && (
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <Label>Task Name</Label>
+                  <Label>任务名称</Label>
                   <Input
                     value={form.name}
                     onChange={(e) =>
                       setForm({ ...form, name: e.target.value })
                     }
-                    placeholder={`${selectedModel?.name ?? "Model"} eval`}
+                    placeholder={`${selectedModel?.name ?? "模型"} 评测`}
                     required
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label>Temperature</Label>
+                    <Label>温度</Label>
                     <Input
                       type="number"
                       step="0.1"
@@ -354,7 +354,7 @@ export default function TasksPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label>Max Tokens</Label>
+                    <Label>最大 Token 数</Label>
                     <Input
                       type="number"
                       value={form.max_tokens}
@@ -365,9 +365,9 @@ export default function TasksPage() {
                   </div>
                   <div className="space-y-1">
                     <Label>
-                      Limit{" "}
+                      限制{" "}
                       <span className="text-muted-foreground font-normal">
-                        (samples)
+                        （样本数）
                       </span>
                     </Label>
                     <Input
@@ -377,15 +377,14 @@ export default function TasksPage() {
                       onChange={(e) =>
                         setForm({ ...form, limit: e.target.value })
                       }
-                      placeholder="All"
+                      placeholder="全部"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Leave empty to eval all rows. Set a small number for quick
-                      debugging.
+                      留空则评测全部数据行，设置小数值可用于快速调试。
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <Label>Repeat Count</Label>
+                    <Label>重复次数</Label>
                     <Input
                       type="number"
                       min="1"
@@ -397,7 +396,7 @@ export default function TasksPage() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label>Seed Strategy</Label>
+                  <Label>种子策略</Label>
                   <Select
                     value={form.seed_strategy}
                     onValueChange={(v) =>
@@ -408,8 +407,8 @@ export default function TasksPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="fixed">Fixed</SelectItem>
-                      <SelectItem value="random">Random</SelectItem>
+                      <SelectItem value="fixed">固定</SelectItem>
+                      <SelectItem value="random">随机</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -421,15 +420,15 @@ export default function TasksPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <p className="text-xs text-muted-foreground">Model</p>
+                    <p className="text-xs text-muted-foreground">模型</p>
                     <p className="font-medium">{selectedModel?.name}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Task Name</p>
+                    <p className="text-xs text-muted-foreground">任务名称</p>
                     <p className="font-medium">{form.name || "(untitled)"}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Datasets</p>
+                    <p className="text-xs text-muted-foreground">数据集</p>
                     <div className="flex flex-wrap gap-1 mt-0.5">
                       {form.dataset_ids.map((id) => (
                         <Badge key={id} variant="secondary" className="text-xs">
@@ -439,7 +438,7 @@ export default function TasksPage() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Criteria</p>
+                    <p className="text-xs text-muted-foreground">评估标准</p>
                     <div className="flex flex-wrap gap-1 mt-0.5">
                       {form.criteria_ids.map((id) => (
                         <Badge key={id} variant="outline" className="text-xs">
@@ -450,7 +449,7 @@ export default function TasksPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">
-                      Temperature / Max Tokens
+                      温度 / 最大 Token 数
                     </p>
                     <p className="font-mono text-xs">
                       {form.temperature} / {form.max_tokens}
@@ -458,11 +457,11 @@ export default function TasksPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">
-                      Repeat / Seed / Limit
+                      重复 / 种子 / 限制
                     </p>
                     <p className="font-mono text-xs">
                       {form.repeat_count}x / {form.seed_strategy} /{" "}
-                      {form.limit || "all"}
+                      {form.limit || "全部"}
                     </p>
                   </div>
                 </div>
@@ -474,7 +473,7 @@ export default function TasksPage() {
                   className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                 >
                   <Code className="h-3.5 w-3.5" />
-                  {showConfig ? "Hide" : "Show"} config JSON
+                  {showConfig ? "隐藏" : "显示"}配置 JSON
                 </button>
                 {showConfig && (
                   <pre className="rounded bg-muted p-3 text-xs font-mono overflow-auto max-h-48">
@@ -493,7 +492,7 @@ export default function TasksPage() {
                 onClick={() => setStep(step - 1)}
                 disabled={step === 0}
               >
-                <ChevronLeft className="mr-1 h-3.5 w-3.5" /> Back
+                <ChevronLeft className="mr-1 h-3.5 w-3.5" /> 上一步
               </Button>
               {step < 3 ? (
                 <Button
@@ -502,7 +501,7 @@ export default function TasksPage() {
                   onClick={() => setStep(step + 1)}
                   disabled={!canNext()}
                 >
-                  Next <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                  下一步 <ChevronRight className="ml-1 h-3.5 w-3.5" />
                 </Button>
               ) : (
                 <Button
@@ -511,7 +510,7 @@ export default function TasksPage() {
                   onClick={handleCreate}
                   disabled={createTask.isPending || !form.name}
                 >
-                  {createTask.isPending ? "Creating..." : "Create & Run"}
+                  {createTask.isPending ? "创建中..." : "创建并运行"}
                 </Button>
               )}
             </div>
@@ -524,12 +523,12 @@ export default function TasksPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Repeat</TableHead>
-                <TableHead>Seed</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Duration</TableHead>
+                <TableHead>名称</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>重复</TableHead>
+                <TableHead>种子</TableHead>
+                <TableHead>创建时间</TableHead>
+                <TableHead>耗时</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -540,7 +539,7 @@ export default function TasksPage() {
                     colSpan={7}
                     className="text-center text-muted-foreground py-8"
                   >
-                    Loading...
+                    加载中...
                   </TableCell>
                 </TableRow>
               ) : tasks.length === 0 ? (
@@ -549,7 +548,7 @@ export default function TasksPage() {
                     colSpan={7}
                     className="text-center text-muted-foreground py-8"
                   >
-                    No tasks.
+                    暂无任务。
                   </TableCell>
                 </TableRow>
               ) : (
@@ -558,7 +557,7 @@ export default function TasksPage() {
                     t.started_at && t.finished_at
                       ? `${((new Date(t.finished_at).getTime() - new Date(t.started_at).getTime()) / 1000).toFixed(1)}s`
                       : t.started_at
-                        ? "running..."
+                        ? "运行中..."
                         : "-";
 
                   return (

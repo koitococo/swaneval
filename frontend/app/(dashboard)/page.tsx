@@ -34,6 +34,14 @@ const statusVariant = (
   return map[s] || "outline";
 };
 
+const statusLabel: Record<string, string> = {
+  completed: "已完成",
+  running: "运行中",
+  failed: "失败",
+  pending: "等待中",
+  paused: "已暂停",
+};
+
 export default function OverviewPage() {
   const datasets = useDatasets();
   const models = useModels();
@@ -43,29 +51,31 @@ export default function OverviewPage() {
   const recentTasks = allTasks.slice(0, 8);
   const failedTasks = allTasks.filter((t) => t.status === "failed").slice(0, 5);
   const runningCount = allTasks.filter((t) => t.status === "running").length;
-  const completedCount = allTasks.filter((t) => t.status === "completed").length;
+  const completedCount = allTasks.filter(
+    (t) => t.status === "completed"
+  ).length;
 
   const stats = [
     {
-      label: "Models",
+      label: "模型",
       value: models.data?.length ?? 0,
       icon: Cpu,
       href: "/models",
     },
     {
-      label: "Datasets",
+      label: "数据集",
       value: datasets.data?.length ?? 0,
       icon: Database,
       href: "/datasets",
     },
     {
-      label: "Running",
+      label: "运行中",
       value: runningCount,
       icon: PlayCircle,
       href: "/tasks",
     },
     {
-      label: "Completed",
+      label: "已完成",
       value: completedCount,
       icon: BarChart3,
       href: "/results",
@@ -75,16 +85,16 @@ export default function OverviewPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">概览 Dashboard</h1>
+        <h1 className="text-lg font-semibold">概览</h1>
         <div className="flex gap-2">
           <Link href="/tasks">
             <Button size="sm">
-              <Plus className="mr-1 h-4 w-4" /> New Evaluation
+              <Plus className="mr-1 h-4 w-4" /> 新建评测
             </Button>
           </Link>
           <Link href="/results">
             <Button size="sm" variant="outline">
-              <BarChart3 className="mr-1 h-4 w-4" /> Results
+              <BarChart3 className="mr-1 h-4 w-4" /> 查看结果
             </Button>
           </Link>
         </div>
@@ -109,27 +119,24 @@ export default function OverviewPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Recent Tasks */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">
-                Recent Tasks
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">最近任务</CardTitle>
               <Link
                 href="/tasks"
                 className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
               >
-                View all <ArrowRight className="h-3 w-3" />
+                查看全部 <ArrowRight className="h-3 w-3" />
               </Link>
             </div>
           </CardHeader>
           <CardContent>
             {recentTasks.length === 0 ? (
               <p className="text-xs text-muted-foreground py-4 text-center">
-                No tasks yet.{" "}
+                暂无任务。{" "}
                 <Link href="/tasks" className="text-primary underline">
-                  Create one
+                  创建一个
                 </Link>
               </p>
             ) : (
@@ -146,7 +153,9 @@ export default function OverviewPage() {
                         {new Date(t.created_at).toLocaleString()}
                       </p>
                     </div>
-                    <Badge variant={statusVariant(t.status)}>{t.status}</Badge>
+                    <Badge variant={statusVariant(t.status)}>
+                      {statusLabel[t.status] ?? t.status}
+                    </Badge>
                   </Link>
                 ))}
               </div>
@@ -154,18 +163,17 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
 
-        {/* Failed Tasks */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-destructive" />
-              Failed Tasks
+              失败任务
             </CardTitle>
           </CardHeader>
           <CardContent>
             {failedTasks.length === 0 ? (
               <p className="text-xs text-muted-foreground py-4 text-center">
-                No failed tasks.
+                暂无失败任务。
               </p>
             ) : (
               <div className="space-y-2">
@@ -181,7 +189,7 @@ export default function OverviewPage() {
                         {new Date(t.created_at).toLocaleString()}
                       </p>
                     </div>
-                    <Badge variant="destructive">failed</Badge>
+                    <Badge variant="destructive">失败</Badge>
                   </Link>
                 ))}
               </div>

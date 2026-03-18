@@ -115,30 +115,30 @@ export default function DatasetsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">数据集 Datasets</h1>
+        <h1 className="text-lg font-semibold">数据集管理</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <Plus className="mr-1 h-4 w-4" /> Add Dataset
+              <Plus className="mr-1 h-4 w-4" /> 添加数据集
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Add Dataset</DialogTitle>
+              <DialogTitle>添加数据集</DialogTitle>
             </DialogHeader>
             <Tabs defaultValue="upload">
               <TabsList className="w-full">
                 <TabsTrigger value="upload" className="flex-1">
-                  <Upload className="mr-1 h-3.5 w-3.5" /> Upload File
+                  <Upload className="mr-1 h-3.5 w-3.5" /> 上传文件
                 </TabsTrigger>
                 <TabsTrigger value="mount" className="flex-1">
-                  <FolderOpen className="mr-1 h-3.5 w-3.5" /> Server Path
+                  <FolderOpen className="mr-1 h-3.5 w-3.5" /> 服务器路径
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="upload">
                 <form onSubmit={handleUpload} className="space-y-3 pt-2">
                   <div className="space-y-1">
-                    <Label>File (JSONL / CSV / JSON)</Label>
+                    <Label>文件 (JSONL / CSV / JSON)</Label>
                     <Input
                       ref={fileRef}
                       type="file"
@@ -148,17 +148,17 @@ export default function DatasetsPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label>Name</Label>
+                      <Label>名称</Label>
                       <Input
                         value={uploadForm.name}
                         onChange={(e) =>
                           setUploadForm({ ...uploadForm, name: e.target.value })
                         }
-                        placeholder="Defaults to filename"
+                        placeholder="默认使用文件名"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label>Tags</Label>
+                      <Label>标签</Label>
                       <Input
                         value={uploadForm.tags}
                         onChange={(e) =>
@@ -169,7 +169,7 @@ export default function DatasetsPage() {
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <Label>Description</Label>
+                    <Label>描述</Label>
                     <Input
                       value={uploadForm.description}
                       onChange={(e) =>
@@ -186,14 +186,14 @@ export default function DatasetsPage() {
                     disabled={upload.isPending}
                   >
                     <Upload className="mr-1 h-4 w-4" />
-                    {upload.isPending ? "Uploading..." : "Upload"}
+                    {upload.isPending ? "上传中..." : "上传"}
                   </Button>
                 </form>
               </TabsContent>
               <TabsContent value="mount">
                 <form onSubmit={handleMount} className="space-y-3 pt-2">
                   <div className="space-y-1">
-                    <Label>Server Path</Label>
+                    <Label>服务器路径</Label>
                     <Input
                       value={mountForm.server_path}
                       onChange={(e) =>
@@ -207,23 +207,23 @@ export default function DatasetsPage() {
                       required
                     />
                     <p className="text-xs text-muted-foreground">
-                      Absolute path on the server. File will not be copied.
+                      服务器上的绝对路径，文件不会被复制。
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label>Name</Label>
+                      <Label>名称</Label>
                       <Input
                         value={mountForm.name}
                         onChange={(e) =>
                           setMountForm({ ...mountForm, name: e.target.value })
                         }
-                        placeholder="Dataset name"
+                        placeholder="数据集名称"
                         required
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label>Format</Label>
+                      <Label>格式</Label>
                       <Input
                         value={mountForm.format}
                         onChange={(e) =>
@@ -235,7 +235,7 @@ export default function DatasetsPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label>Description</Label>
+                      <Label>描述</Label>
                       <Input
                         value={mountForm.description}
                         onChange={(e) =>
@@ -247,7 +247,7 @@ export default function DatasetsPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label>Tags</Label>
+                      <Label>标签</Label>
                       <Input
                         value={mountForm.tags}
                         onChange={(e) =>
@@ -263,7 +263,7 @@ export default function DatasetsPage() {
                     disabled={mount.isPending}
                   >
                     <FolderOpen className="mr-1 h-4 w-4" />
-                    {mount.isPending ? "Mounting..." : "Mount Path"}
+                    {mount.isPending ? "挂载中..." : "挂载路径"}
                   </Button>
                 </form>
               </TabsContent>
@@ -277,13 +277,13 @@ export default function DatasetsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Format</TableHead>
-                <TableHead className="text-right">Rows</TableHead>
-                <TableHead className="text-right">Size</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead className="text-right">Ver</TableHead>
+                <TableHead>名称</TableHead>
+                <TableHead>来源</TableHead>
+                <TableHead>格式</TableHead>
+                <TableHead className="text-right">行数</TableHead>
+                <TableHead className="text-right">大小</TableHead>
+                <TableHead>标签</TableHead>
+                <TableHead className="text-right">版本</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -294,7 +294,7 @@ export default function DatasetsPage() {
                     colSpan={8}
                     className="text-center text-muted-foreground py-8"
                   >
-                    Loading...
+                    加载中...
                   </TableCell>
                 </TableRow>
               ) : datasets.length === 0 ? (
@@ -303,7 +303,7 @@ export default function DatasetsPage() {
                     colSpan={8}
                     className="text-center text-muted-foreground py-8"
                   >
-                    No datasets. Add one to get started.
+                    暂无数据集，请添加一个以开始使用。
                   </TableCell>
                 </TableRow>
               ) : (
@@ -376,14 +376,14 @@ export default function DatasetsPage() {
       <Dialog open={!!previewId} onOpenChange={() => setPreviewId(null)}>
         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle>Dataset Preview</DialogTitle>
+            <DialogTitle>数据集预览</DialogTitle>
           </DialogHeader>
           {preview.isLoading ? (
             <p className="text-muted-foreground text-center py-8">
-              Loading...
+              加载中...
             </p>
           ) : preview.data?.rows.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No rows</p>
+            <p className="text-muted-foreground text-center py-8">暂无数据</p>
           ) : (
             <div className="overflow-auto">
               <Table>
@@ -408,8 +408,8 @@ export default function DatasetsPage() {
                 </TableBody>
               </Table>
               <p className="mt-2 text-xs text-muted-foreground">
-                Showing {preview.data?.rows.length} of {preview.data?.total}{" "}
-                rows
+                显示 {preview.data?.rows.length} / {preview.data?.total}{" "}
+                行
               </p>
             </div>
           )}
@@ -420,22 +420,22 @@ export default function DatasetsPage() {
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Delete Dataset</DialogTitle>
+            <DialogTitle>删除数据集</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{deleteTarget?.name}&quot;?
-              This action cannot be undone.
+              确定要删除 &quot;{deleteTarget?.name}&quot;
+              吗？此操作不可撤销。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Cancel
+              取消
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={deleteMut.isPending}
             >
-              {deleteMut.isPending ? "Deleting..." : "Delete"}
+              {deleteMut.isPending ? "删除中..." : "删除"}
             </Button>
           </DialogFooter>
         </DialogContent>
