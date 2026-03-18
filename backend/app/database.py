@@ -5,16 +5,21 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.config import settings
 
 
+def get_async_url() -> str:
+    """Convert postgresql:// to postgresql+asyncpg://."""
+    url = settings.database_url
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+
 # Create async engine for PostgreSQL
 engine = create_async_engine(
-    settings.database_url.replace("postgresql://", "postgresql+asyncpg://"),
+    get_async_url(),
     echo=settings.debug,
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,
-    connect_args={
-        "server_settings": {"application_name": "evalscope-gui"},
-    },
 )
 
 # Async session factory
