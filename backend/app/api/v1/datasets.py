@@ -2,7 +2,7 @@ import json
 import os
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -36,9 +36,9 @@ def _count_rows(file_path: str) -> int:
 @router.post("/upload", response_model=DatasetResponse, status_code=201)
 async def upload_dataset(
     file: UploadFile,
-    name: str = "",
-    description: str = "",
-    tags: str = "",
+    name: str = Form(""),
+    description: str = Form(""),
+    tags: str = Form(""),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
