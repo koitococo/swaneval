@@ -19,6 +19,15 @@
 - PostgreSQL 14+
 - Redis 6+
 
+### 数据库配置
+
+```bash
+# 创建数据库用户和数据库
+psql -U postgres -c "CREATE USER evalscope WITH PASSWORD 'evalscope';"
+psql -U postgres -c "CREATE DATABASE evalscope OWNER evalscope;"
+psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE evalscope TO evalscope;"
+```
+
 ### 后端配置
 
 ```bash
@@ -58,15 +67,24 @@ export NEXT_PUBLIC_API_URL="http://localhost:8000/api/v1"
 npm run dev
 ```
 
-### Docker 配置
+### Docker 配置（仅基础设施）
+
+使用 Docker 运行 PostgreSQL 和 Redis，然后在本地运行后端和前端进行开发。
 
 ```bash
-# 启动所有服务
+# 仅启动基础设施服务
 docker-compose up -d
 
-# 查看日志
-docker-compose logs -f
+# 验证服务运行状态
+docker-compose ps
+
+# 停止服务
+docker-compose down
 ```
+
+然后在本地运行后端和前端（见上文"后端配置"和"前端配置"部分）。
+
+**已包含 Dockerfiles**：后端和前端目录中包含 `Dockerfile`，供参考或生产部署使用。
 
 ## API 文档
 

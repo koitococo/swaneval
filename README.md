@@ -19,6 +19,15 @@ Enterprise-grade GUI for the EvalScope model evaluation framework.
 - PostgreSQL 14+
 - Redis 6+
 
+### Database Setup
+
+```bash
+# Create database user and database
+psql -U postgres -c "CREATE USER evalscope WITH PASSWORD 'evalscope';"
+psql -U postgres -c "CREATE DATABASE evalscope OWNER evalscope;"
+psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE evalscope TO evalscope;"
+```
+
 ### Backend Setup
 
 ```bash
@@ -58,15 +67,24 @@ export NEXT_PUBLIC_API_URL="http://localhost:8000/api/v1"
 npm run dev
 ```
 
-### Docker Setup
+### Docker Setup (Infrastructure Only)
+
+Use Docker to run PostgreSQL and Redis, then run backend/frontend locally for development.
 
 ```bash
-# Start all services
+# Start infrastructure services only
 docker-compose up -d
 
-# View logs
-docker-compose logs -f
+# Verify services are running
+docker-compose ps
+
+# Stop services
+docker-compose down
 ```
+
+Then run backend and frontend locally (see Backend Setup and Frontend Setup above).
+
+**Dockerfiles are included** in `backend/Dockerfile` and `frontend/Dockerfile` for reference or production deployment.
 
 ## API Documentation
 
