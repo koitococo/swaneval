@@ -199,7 +199,10 @@ async def delete_dataset(
     for r in results:
         await session.delete(r)
 
+    # Delete dataset versions (must flush before deleting parent)
     await delete_dataset_versions(session, ds.id)
+    await session.flush()
+
     cleanup_uploaded_file(ds)
     await session.delete(ds)
     await session.commit()
