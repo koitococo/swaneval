@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -43,6 +45,10 @@ export default function ModelsPage() {
   const testModel = useTestModel();
 
   const [open, setOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<
     Record<string, { ok: boolean; message: string }>
@@ -85,7 +91,10 @@ export default function ModelsPage() {
 
   const handleTest = async (id: string) => {
     setTestingId(id);
-    setTestResults((prev) => ({ ...prev, [id]: { ok: false, message: "Testing..." } }));
+    setTestResults((prev) => ({
+      ...prev,
+      [id]: { ok: false, message: "Testing..." },
+    }));
     try {
       const result = await testModel.mutateAsync(id);
       setTestResults((prev) => ({
@@ -100,6 +109,12 @@ export default function ModelsPage() {
     } finally {
       setTestingId(null);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    await deleteMut.mutateAsync(deleteTarget.id);
+    setDeleteTarget(null);
   };
 
   return (
@@ -241,7 +256,6 @@ export default function ModelsPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Endpoint</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -249,7 +263,7 @@ export default function ModelsPage() {
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={6}
                     className="text-center text-muted-foreground py-8"
                   >
                     Loading...
@@ -258,7 +272,7 @@ export default function ModelsPage() {
               ) : models.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={6}
                     className="text-center text-muted-foreground py-8"
                   >
                     No models registered.
@@ -267,7 +281,21 @@ export default function ModelsPage() {
               ) : (
                 models.map((m) => (
                   <TableRow key={m.id}>
-                    <TableCell className="font-medium">{m.name}</TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{m.name}</p>
+                        {m.model_name && (
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {m.model_name}
+                          </p>
+                        )}
+                        {m.description && (
+                          <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {m.description}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{m.provider}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{m.model_type}</Badge>
@@ -298,9 +326,6 @@ export default function ModelsPage() {
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(m.created_at).toLocaleDateString()}
-                    </TableCell>
                     <TableCell className="text-right space-x-1">
                       <Button
                         variant="ghost"
@@ -320,7 +345,9 @@ export default function ModelsPage() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-destructive"
-                        onClick={() => deleteMut.mutate(m.id)}
+                        onClick={() =>
+                          setDeleteTarget({ id: m.id, name: m.name })
+                        }
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -332,6 +359,31 @@ export default function ModelsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Model</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &quot;{deleteTarget?.name}&quot;?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteMut.isPending}
+            >
+              {deleteMut.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

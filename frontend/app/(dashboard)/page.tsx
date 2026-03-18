@@ -1,44 +1,94 @@
 "use client";
 
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Database, Ruler, Cpu, PlayCircle } from "lucide-react";
+import {
+  Database,
+  Cpu,
+  PlayCircle,
+  BarChart3,
+  Plus,
+  AlertTriangle,
+  ArrowRight,
+} from "lucide-react";
 import { useDatasets } from "@/lib/hooks/use-datasets";
-import { useCriteria } from "@/lib/hooks/use-criteria";
 import { useModels } from "@/lib/hooks/use-models";
 import { useTasks } from "@/lib/hooks/use-tasks";
 import type { EvalTask } from "@/lib/types";
 
-const statusVariant = (s: EvalTask["status"]) => {
-  const map: Record<string, "success" | "warning" | "destructive" | "default" | "secondary"> = {
-    completed: "success",
-    running: "warning",
+const statusVariant = (
+  s: EvalTask["status"]
+): "default" | "secondary" | "destructive" | "outline" => {
+  const map: Record<
+    string,
+    "default" | "secondary" | "destructive" | "outline"
+  > = {
+    completed: "default",
+    running: "secondary",
     failed: "destructive",
-    pending: "secondary",
-    paused: "default",
+    pending: "outline",
+    paused: "outline",
   };
-  return map[s] || "default";
+  return map[s] || "outline";
 };
 
 export default function OverviewPage() {
   const datasets = useDatasets();
-  const criteria = useCriteria();
   const models = useModels();
   const tasks = useTasks();
 
-  const stats = [
-    { label: "Datasets", value: datasets.data?.length ?? 0, icon: Database, href: "/datasets" },
-    { label: "Criteria", value: criteria.data?.length ?? 0, icon: Ruler, href: "/criteria" },
-    { label: "Models", value: models.data?.length ?? 0, icon: Cpu, href: "/models" },
-    { label: "Tasks", value: tasks.data?.length ?? 0, icon: PlayCircle, href: "/tasks" },
-  ];
+  const allTasks = tasks.data ?? [];
+  const recentTasks = allTasks.slice(0, 8);
+  const failedTasks = allTasks.filter((t) => t.status === "failed").slice(0, 5);
+  const runningCount = allTasks.filter((t) => t.status === "running").length;
+  const completedCount = allTasks.filter((t) => t.status === "completed").length;
 
-  const recentTasks = (tasks.data ?? []).slice(0, 8);
+  const stats = [
+    {
+      label: "Models",
+      value: models.data?.length ?? 0,
+      icon: Cpu,
+      href: "/models",
+    },
+    {
+      label: "Datasets",
+      value: datasets.data?.length ?? 0,
+      icon: Database,
+      href: "/datasets",
+    },
+    {
+      label: "Running",
+      value: runningCount,
+      icon: PlayCircle,
+      href: "/tasks",
+    },
+    {
+      label: "Completed",
+      value: completedCount,
+      icon: BarChart3,
+      href: "/results",
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold">Overview</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">概览 Dashboard</h1>
+        <div className="flex gap-2">
+          <Link href="/tasks">
+            <Button size="sm">
+              <Plus className="mr-1 h-4 w-4" /> New Evaluation
+            </Button>
+          </Link>
+          <Link href="/results">
+            <Button size="sm" variant="outline">
+              <BarChart3 className="mr-1 h-4 w-4" /> Results
+            </Button>
+          </Link>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (
@@ -58,39 +108,87 @@ export default function OverviewPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Recent Tasks</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {recentTasks.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-4 text-center">
-              No tasks yet.{" "}
-              <Link href="/tasks" className="text-primary underline">
-                Create one
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Recent Tasks */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium">
+                Recent Tasks
+              </CardTitle>
+              <Link
+                href="/tasks"
+                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+              >
+                View all <ArrowRight className="h-3 w-3" />
               </Link>
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {recentTasks.map((t) => (
-                <Link
-                  key={t.id}
-                  href={`/tasks/${t.id}`}
-                  className="flex items-center justify-between rounded-md border px-3 py-2 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-sm">{t.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(t.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                  <Badge variant={statusVariant(t.status)}>{t.status}</Badge>
-                </Link>
-              ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            {recentTasks.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">
+                No tasks yet.{" "}
+                <Link href="/tasks" className="text-primary underline">
+                  Create one
+                </Link>
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {recentTasks.map((t) => (
+                  <Link
+                    key={t.id}
+                    href={`/tasks/${t.id}`}
+                    className="flex items-center justify-between rounded-md border px-3 py-2 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-sm">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(t.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <Badge variant={statusVariant(t.status)}>{t.status}</Badge>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Failed Tasks */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              Failed Tasks
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {failedTasks.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">
+                No failed tasks.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {failedTasks.map((t) => (
+                  <Link
+                    key={t.id}
+                    href={`/tasks/${t.id}`}
+                    className="flex items-center justify-between rounded-md border border-destructive/20 px-3 py-2 hover:bg-destructive/5 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-sm">{t.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(t.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <Badge variant="destructive">failed</Badge>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

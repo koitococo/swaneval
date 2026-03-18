@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,6 +27,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   RadarChart,
   Radar,
@@ -33,8 +35,10 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
 } from "recharts";
-import { useLeaderboard } from "@/lib/hooks/use-results";
+import { useLeaderboard, useResults } from "@/lib/hooks/use-results";
 import { useCriteria } from "@/lib/hooks/use-criteria";
+import { useTasks } from "@/lib/hooks/use-tasks";
+import { Download, ChevronLeft, ChevronRight } from "lucide-react";
 
 const barColors = [
   "#3b82f6",
@@ -48,9 +52,21 @@ const barColors = [
 
 export default function ResultsPage() {
   const { data: criteria = [] } = useCriteria();
+  const { data: allTasks = [] } = useTasks();
+  const completedTasks = allTasks.filter((t) => t.status === "completed" || t.status === "failed");
+
   const [criterionFilter, setCriterionFilter] = useState<string>("__all__");
+  const [taskFilter, setTaskFilter] = useState<string>("__all__");
+  const [detailPage, setDetailPage] = useState(1);
+
   const { data: leaderboard = [], isLoading } = useLeaderboard(
     criterionFilter === "__all__" ? undefined : criterionFilter
+  );
+
+  const { data: detailResults = [] } = useResults(
+    taskFilter === "__all__" ? undefined : taskFilter,
+    detailPage,
+    20
   );
 
   // Group leaderboard by model for charts
@@ -67,7 +83,6 @@ export default function ResultsPage() {
 
   const modelEntries = Object.values(modelIndex);
 
-  // Bar chart: group by model, show scores across criteria
   const barData = modelEntries.map((m) => ({
     name: m.name,
     ...m.scores,
@@ -78,7 +93,6 @@ export default function ResultsPage() {
     return acc;
   }, []);
 
-  // Radar data: all criteria as axes, one series per model
   const radarData = allCriteriaNames.map((cn) => {
     const point: Record<string, string | number> = { criterion: cn };
     modelEntries.forEach((m) => {
@@ -89,23 +103,49 @@ export default function ResultsPage() {
 
   const modelNames = modelEntries.map((m) => m.name);
 
+  // Export leaderboard as CSV
+  const exportCSV = () => {
+    if (leaderboard.length === 0) return;
+    const headers = ["Model", "Criterion", "Avg Score", "Total Prompts", "Avg Latency (ms)"];
+    const rows = leaderboard.map((e) => [
+      e.model_name,
+      e.criterion_name,
+      (e.avg_score * 100).toFixed(1),
+      e.total_prompts,
+      e.avg_latency_ms.toFixed(0),
+    ]);
+    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "leaderboard.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">结果分析 Results</h1>
-        <Select value={criterionFilter} onValueChange={setCriterionFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="All criteria" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All criteria</SelectItem>
-            {criteria.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select value={criterionFilter} onValueChange={setCriterionFilter}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="All criteria" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All criteria</SelectItem>
+              {criteria.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={exportCSV} disabled={leaderboard.length === 0}>
+            <Download className="mr-1 h-3.5 w-3.5" /> CSV
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="leaderboard">
@@ -113,6 +153,7 @@ export default function ResultsPage() {
           <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
           <TabsTrigger value="comparison">Comparison</TabsTrigger>
           <TabsTrigger value="radar">Radar</TabsTrigger>
+          <TabsTrigger value="detail">Detail</TabsTrigger>
         </TabsList>
 
         <TabsContent value="leaderboard">
@@ -135,9 +176,7 @@ export default function ResultsPage() {
                       <TableHead>Criterion</TableHead>
                       <TableHead className="text-right">Avg Score</TableHead>
                       <TableHead className="text-right">Prompts</TableHead>
-                      <TableHead className="text-right">
-                        Avg Latency
-                      </TableHead>
+                      <TableHead className="text-right">Avg Latency</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -193,6 +232,7 @@ export default function ResultsPage() {
                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                     <YAxis domain={[0, 1]} tick={{ fontSize: 12 }} />
                     <Tooltip />
+                    <Legend />
                     {allCriteriaNames.map((cn, i) => (
                       <Bar
                         key={cn}
@@ -243,8 +283,99 @@ export default function ResultsPage() {
                       />
                     ))}
                     <Tooltip />
+                    <Legend />
                   </RadarChart>
                 </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="detail">
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium">
+                  Result Detail
+                </CardTitle>
+                <Select value={taskFilter} onValueChange={(v) => { setTaskFilter(v); setDetailPage(1); }}>
+                  <SelectTrigger className="w-52">
+                    <SelectValue placeholder="All tasks" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All tasks</SelectItem>
+                    {completedTasks.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {detailResults.length === 0 ? (
+                <p className="py-8 text-center text-muted-foreground">
+                  No results. Select a task or run an evaluation first.
+                </p>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Prompt</TableHead>
+                        <TableHead>Expected</TableHead>
+                        <TableHead>Model Output</TableHead>
+                        <TableHead className="text-right">Score</TableHead>
+                        <TableHead className="text-right">Latency</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detailResults.map((r) => (
+                        <TableRow key={r.id}>
+                          <TableCell className="max-w-[180px] truncate text-xs">
+                            {r.prompt_text}
+                          </TableCell>
+                          <TableCell className="max-w-[120px] truncate font-mono text-xs">
+                            {r.expected_output}
+                          </TableCell>
+                          <TableCell className="max-w-[180px] truncate font-mono text-xs">
+                            {r.model_output}
+                          </TableCell>
+                          <TableCell
+                            className={`text-right font-mono text-xs ${r.score >= 1 ? "text-emerald-600" : "text-destructive"}`}
+                          >
+                            {r.score.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {r.latency_ms.toFixed(0)}ms
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="flex items-center justify-between px-4 py-2 border-t">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={detailPage <= 1}
+                      onClick={() => setDetailPage(detailPage - 1)}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Page {detailPage}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={detailResults.length < 20}
+                      onClick={() => setDetailPage(detailPage + 1)}
+                    >
+                      Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                    </Button>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

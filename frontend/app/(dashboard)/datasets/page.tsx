@@ -15,6 +15,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -23,10 +24,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Upload, Trash2, Eye } from "lucide-react";
+import { Plus, Upload, Trash2, Eye, FolderOpen } from "lucide-react";
 import {
   useDatasets,
   useUploadDataset,
+  useMountDataset,
   useDeleteDataset,
   useDatasetPreview,
 } from "@/lib/hooks/use-datasets";
@@ -42,6 +44,7 @@ function formatBytes(bytes: number) {
 export default function DatasetsPage() {
   const { data: datasets = [], isLoading, refetch } = useDatasets();
   const upload = useUploadDataset();
+  const mount = useMountDataset();
   const deleteMut = useDeleteDataset();
 
   const [open, setOpen] = useState(false);
@@ -50,7 +53,18 @@ export default function DatasetsPage() {
     id: string;
     name: string;
   } | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", tags: "" });
+  const [uploadForm, setUploadForm] = useState({
+    name: "",
+    description: "",
+    tags: "",
+  });
+  const [mountForm, setMountForm] = useState({
+    name: "",
+    description: "",
+    server_path: "",
+    format: "jsonl",
+    tags: "",
+  });
   const fileRef = useRef<HTMLInputElement>(null);
 
   const preview = useDatasetPreview(previewId ?? "", !!previewId);
@@ -61,11 +75,30 @@ export default function DatasetsPage() {
     if (!file) return;
     await upload.mutateAsync({
       file,
-      name: form.name || file.name,
-      description: form.description,
-      tags: form.tags,
+      name: uploadForm.name || file.name,
+      description: uploadForm.description,
+      tags: uploadForm.tags,
     });
-    setForm({ name: "", description: "", tags: "" });
+    setUploadForm({ name: "", description: "", tags: "" });
+    setOpen(false);
+  };
+
+  const handleMount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await mount.mutateAsync({
+      name: mountForm.name,
+      description: mountForm.description,
+      server_path: mountForm.server_path,
+      format: mountForm.format,
+      tags: mountForm.tags,
+    });
+    setMountForm({
+      name: "",
+      description: "",
+      server_path: "",
+      format: "jsonl",
+      tags: "",
+    });
     setOpen(false);
   };
 
@@ -86,57 +119,155 @@ export default function DatasetsPage() {
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <Plus className="mr-1 h-4 w-4" /> Upload
+              <Plus className="mr-1 h-4 w-4" /> Add Dataset
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Upload Dataset</DialogTitle>
+              <DialogTitle>Add Dataset</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleUpload} className="space-y-3">
-              <div className="space-y-1">
-                <Label>File (JSONL / CSV / JSON)</Label>
-                <Input
-                  ref={fileRef}
-                  type="file"
-                  accept=".jsonl,.csv,.json"
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Name</Label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Optional — defaults to filename"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Description</Label>
-                <Input
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Tags (comma-separated)</Label>
-                <Input
-                  value={form.tags}
-                  onChange={(e) => setForm({ ...form, tags: e.target.value })}
-                  placeholder="math,reasoning"
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={upload.isPending}
-              >
-                <Upload className="mr-1 h-4 w-4" />
-                {upload.isPending ? "Uploading..." : "Upload"}
-              </Button>
-            </form>
+            <Tabs defaultValue="upload">
+              <TabsList className="w-full">
+                <TabsTrigger value="upload" className="flex-1">
+                  <Upload className="mr-1 h-3.5 w-3.5" /> Upload File
+                </TabsTrigger>
+                <TabsTrigger value="mount" className="flex-1">
+                  <FolderOpen className="mr-1 h-3.5 w-3.5" /> Server Path
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="upload">
+                <form onSubmit={handleUpload} className="space-y-3 pt-2">
+                  <div className="space-y-1">
+                    <Label>File (JSONL / CSV / JSON)</Label>
+                    <Input
+                      ref={fileRef}
+                      type="file"
+                      accept=".jsonl,.csv,.json"
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Name</Label>
+                      <Input
+                        value={uploadForm.name}
+                        onChange={(e) =>
+                          setUploadForm({ ...uploadForm, name: e.target.value })
+                        }
+                        placeholder="Defaults to filename"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Tags</Label>
+                      <Input
+                        value={uploadForm.tags}
+                        onChange={(e) =>
+                          setUploadForm({ ...uploadForm, tags: e.target.value })
+                        }
+                        placeholder="math,reasoning"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Description</Label>
+                    <Input
+                      value={uploadForm.description}
+                      onChange={(e) =>
+                        setUploadForm({
+                          ...uploadForm,
+                          description: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={upload.isPending}
+                  >
+                    <Upload className="mr-1 h-4 w-4" />
+                    {upload.isPending ? "Uploading..." : "Upload"}
+                  </Button>
+                </form>
+              </TabsContent>
+              <TabsContent value="mount">
+                <form onSubmit={handleMount} className="space-y-3 pt-2">
+                  <div className="space-y-1">
+                    <Label>Server Path</Label>
+                    <Input
+                      value={mountForm.server_path}
+                      onChange={(e) =>
+                        setMountForm({
+                          ...mountForm,
+                          server_path: e.target.value,
+                        })
+                      }
+                      placeholder="/data/datasets/eval.jsonl"
+                      className="font-mono"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Absolute path on the server. File will not be copied.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Name</Label>
+                      <Input
+                        value={mountForm.name}
+                        onChange={(e) =>
+                          setMountForm({ ...mountForm, name: e.target.value })
+                        }
+                        placeholder="Dataset name"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Format</Label>
+                      <Input
+                        value={mountForm.format}
+                        onChange={(e) =>
+                          setMountForm({ ...mountForm, format: e.target.value })
+                        }
+                        placeholder="jsonl"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Description</Label>
+                      <Input
+                        value={mountForm.description}
+                        onChange={(e) =>
+                          setMountForm({
+                            ...mountForm,
+                            description: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Tags</Label>
+                      <Input
+                        value={mountForm.tags}
+                        onChange={(e) =>
+                          setMountForm({ ...mountForm, tags: e.target.value })
+                        }
+                        placeholder="math,reasoning"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={mount.isPending}
+                  >
+                    <FolderOpen className="mr-1 h-4 w-4" />
+                    {mount.isPending ? "Mounting..." : "Mount Path"}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
@@ -172,13 +303,22 @@ export default function DatasetsPage() {
                     colSpan={8}
                     className="text-center text-muted-foreground py-8"
                   >
-                    No datasets. Upload one to get started.
+                    No datasets. Add one to get started.
                   </TableCell>
                 </TableRow>
               ) : (
                 datasets.map((ds) => (
                   <TableRow key={ds.id}>
-                    <TableCell className="font-medium">{ds.name}</TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{ds.name}</p>
+                        {ds.description && (
+                          <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {ds.description}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{ds.source_type}</Badge>
                     </TableCell>

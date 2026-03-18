@@ -35,7 +35,10 @@ import {
   Play,
   XCircle,
   ChevronRight,
+  ChevronLeft,
   AlertTriangle,
+  Check,
+  Code,
 } from "lucide-react";
 import {
   useTasks,
@@ -52,7 +55,10 @@ import type { EvalTask } from "@/lib/types";
 const statusVariant = (
   s: EvalTask["status"]
 ): "default" | "secondary" | "destructive" | "outline" => {
-  const map: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  const map: Record<
+    string,
+    "default" | "secondary" | "destructive" | "outline"
+  > = {
     completed: "default",
     running: "secondary",
     failed: "destructive",
@@ -61,6 +67,13 @@ const statusVariant = (
   };
   return map[s] || "outline";
 };
+
+const STEPS = [
+  { key: "model", label: "Select Model" },
+  { key: "datasets", label: "Select Datasets" },
+  { key: "params", label: "Parameters" },
+  { key: "review", label: "Review & Run" },
+] as const;
 
 export default function TasksPage() {
   const router = useRouter();
@@ -74,6 +87,8 @@ export default function TasksPage() {
   const cancel = useCancelTask();
 
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState(0);
+  const [showConfig, setShowConfig] = useState(false);
   const [form, setForm] = useState({
     name: "",
     model_id: "",
@@ -83,23 +98,42 @@ export default function TasksPage() {
     max_tokens: "1024",
     repeat_count: "1",
     seed_strategy: "fixed",
+    limit: "",
   });
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const resetWizard = () => {
+    setStep(0);
+    setShowConfig(false);
+    setForm({
+      name: "",
+      model_id: "",
+      dataset_ids: [],
+      criteria_ids: [],
+      temperature: "0.7",
+      max_tokens: "1024",
+      repeat_count: "1",
+      seed_strategy: "fixed",
+      limit: "",
+    });
+  };
+
+  const handleCreate = async () => {
+    const paramsObj: Record<string, unknown> = {
+      temperature: parseFloat(form.temperature),
+      max_tokens: parseInt(form.max_tokens),
+    };
+    if (form.limit) paramsObj.limit = parseInt(form.limit);
     await createTask.mutateAsync({
       name: form.name,
       model_id: form.model_id,
       dataset_ids: form.dataset_ids,
       criteria_ids: form.criteria_ids,
-      params_json: JSON.stringify({
-        temperature: parseFloat(form.temperature),
-        max_tokens: parseInt(form.max_tokens),
-      }),
+      params_json: JSON.stringify(paramsObj),
       repeat_count: parseInt(form.repeat_count),
       seed_strategy: form.seed_strategy,
     });
     setOpen(false);
+    resetWizard();
   };
 
   const toggleDataset = (id: string) => {
@@ -120,137 +154,247 @@ export default function TasksPage() {
     }));
   };
 
+  const canNext = () => {
+    if (step === 0) return !!form.model_id;
+    if (step === 1)
+      return form.dataset_ids.length > 0 && form.criteria_ids.length > 0;
+    if (step === 2) return !!form.name;
+    return true;
+  };
+
+  const selectedModel = models.find((m) => m.id === form.model_id);
+
+  // Build config preview object
+  const configPreview = {
+    name: form.name || "(untitled)",
+    model: selectedModel?.name ?? form.model_id,
+    datasets: form.dataset_ids.map(
+      (id) => datasets.find((d) => d.id === id)?.name ?? id
+    ),
+    criteria: form.criteria_ids.map(
+      (id) => criteria.find((c) => c.id === id)?.name ?? id
+    ),
+    params: {
+      temperature: parseFloat(form.temperature),
+      max_tokens: parseInt(form.max_tokens),
+      ...(form.limit ? { limit: parseInt(form.limit) } : {}),
+    },
+    repeat_count: parseInt(form.repeat_count),
+    seed_strategy: form.seed_strategy,
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">评测任务 Evaluations</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+          open={open}
+          onOpenChange={(v) => {
+            setOpen(v);
+            if (!v) resetWizard();
+          }}
+        >
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="mr-1 h-4 w-4" /> New Task
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-auto">
+          <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-auto">
             <DialogHeader>
               <DialogTitle>Create Evaluation Task</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-1">
-                <Label>Task Name</Label>
-                <Input
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm({ ...form, name: e.target.value })
-                  }
-                  required
-                />
-              </div>
 
-              <div className="space-y-1">
-                <Label>Model</Label>
-                <Select
-                  value={form.model_id}
-                  onValueChange={(v) =>
-                    setForm({ ...form, model_id: v })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {models.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name} ({m.provider})
-                      </SelectItem>
+            {/* Stepper */}
+            <div className="flex items-center gap-1 mb-4">
+              {STEPS.map((s, i) => (
+                <div key={s.key} className="flex items-center gap-1 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => i < step && setStep(i)}
+                    className={`flex items-center justify-center h-7 w-7 rounded-full text-xs font-medium shrink-0 transition-colors ${
+                      i < step
+                        ? "bg-primary text-primary-foreground cursor-pointer"
+                        : i === step
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {i < step ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                  </button>
+                  <span
+                    className={`text-xs truncate ${i === step ? "font-medium" : "text-muted-foreground"}`}
+                  >
+                    {s.label}
+                  </span>
+                  {i < STEPS.length - 1 && (
+                    <div className="flex-1 h-px bg-border mx-1" />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Step 0: Model */}
+            {step === 0 && (
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label>Model</Label>
+                  <Select
+                    value={form.model_id}
+                    onValueChange={(v) => setForm({ ...form, model_id: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {models.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}{" "}
+                          <span className="text-muted-foreground">
+                            ({m.provider})
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {models.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No models registered. Add one in the Models page first.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Step 1: Datasets + Criteria */}
+            {step === 1 && (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label>Datasets (click to select)</Label>
+                  <div className="flex flex-wrap gap-1.5 rounded border p-2 min-h-[2.5rem]">
+                    {datasets.map((ds) => (
+                      <button
+                        key={ds.id}
+                        type="button"
+                        onClick={() => toggleDataset(ds.id)}
+                        className={`rounded px-2 py-0.5 text-xs border transition-colors ${
+                          form.dataset_ids.includes(ds.id)
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted hover:bg-accent"
+                        }`}
+                      >
+                        {ds.name}
+                      </button>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1">
-                <Label>Datasets (click to select)</Label>
-                <div className="flex flex-wrap gap-1.5 rounded border p-2 min-h-[2.5rem]">
-                  {datasets.map((ds) => (
-                    <button
-                      key={ds.id}
-                      type="button"
-                      onClick={() => toggleDataset(ds.id)}
-                      className={`rounded px-2 py-0.5 text-xs border transition-colors ${
-                        form.dataset_ids.includes(ds.id)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted hover:bg-accent"
-                      }`}
-                    >
-                      {ds.name}
-                    </button>
-                  ))}
-                  {datasets.length === 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      No datasets available
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label>Criteria (click to select)</Label>
-                <div className="flex flex-wrap gap-1.5 rounded border p-2 min-h-[2.5rem]">
-                  {criteria.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => toggleCriterion(c.id)}
-                      className={`rounded px-2 py-0.5 text-xs border transition-colors ${
-                        form.criteria_ids.includes(c.id)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-muted hover:bg-accent"
-                      }`}
-                    >
-                      {c.name}
-                    </button>
-                  ))}
-                  {criteria.length === 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      No criteria available
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>Temperature</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="2"
-                    value={form.temperature}
-                    onChange={(e) =>
-                      setForm({ ...form, temperature: e.target.value })
-                    }
-                  />
+                    {datasets.length === 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        No datasets available
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {form.dataset_ids.length} selected
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <Label>Max Tokens</Label>
+                  <Label>Criteria (click to select)</Label>
+                  <div className="flex flex-wrap gap-1.5 rounded border p-2 min-h-[2.5rem]">
+                    {criteria.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => toggleCriterion(c.id)}
+                        className={`rounded px-2 py-0.5 text-xs border transition-colors ${
+                          form.criteria_ids.includes(c.id)
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted hover:bg-accent"
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                    {criteria.length === 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        No criteria available
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {form.criteria_ids.length} selected
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Parameters */}
+            {step === 2 && (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label>Task Name</Label>
                   <Input
-                    type="number"
-                    value={form.max_tokens}
+                    value={form.name}
                     onChange={(e) =>
-                      setForm({ ...form, max_tokens: e.target.value })
+                      setForm({ ...form, name: e.target.value })
                     }
+                    placeholder={`${selectedModel?.name ?? "Model"} eval`}
+                    required
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label>Repeat Count</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={form.repeat_count}
-                    onChange={(e) =>
-                      setForm({ ...form, repeat_count: e.target.value })
-                    }
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label>Temperature</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="2"
+                      value={form.temperature}
+                      onChange={(e) =>
+                        setForm({ ...form, temperature: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Max Tokens</Label>
+                    <Input
+                      type="number"
+                      value={form.max_tokens}
+                      onChange={(e) =>
+                        setForm({ ...form, max_tokens: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>
+                      Limit{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (samples)
+                      </span>
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={form.limit}
+                      onChange={(e) =>
+                        setForm({ ...form, limit: e.target.value })
+                      }
+                      placeholder="All"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Leave empty to eval all rows. Set a small number for quick
+                      debugging.
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Repeat Count</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={form.repeat_count}
+                      onChange={(e) =>
+                        setForm({ ...form, repeat_count: e.target.value })
+                      }
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <Label>Seed Strategy</Label>
@@ -270,20 +414,107 @@ export default function TasksPage() {
                   </Select>
                 </div>
               </div>
+            )}
 
+            {/* Step 3: Review */}
+            {step === 3 && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Model</p>
+                    <p className="font-medium">{selectedModel?.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Task Name</p>
+                    <p className="font-medium">{form.name || "(untitled)"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Datasets</p>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {form.dataset_ids.map((id) => (
+                        <Badge key={id} variant="secondary" className="text-xs">
+                          {datasets.find((d) => d.id === id)?.name ?? id}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Criteria</p>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {form.criteria_ids.map((id) => (
+                        <Badge key={id} variant="outline" className="text-xs">
+                          {criteria.find((c) => c.id === id)?.name ?? id}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      Temperature / Max Tokens
+                    </p>
+                    <p className="font-mono text-xs">
+                      {form.temperature} / {form.max_tokens}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">
+                      Repeat / Seed / Limit
+                    </p>
+                    <p className="font-mono text-xs">
+                      {form.repeat_count}x / {form.seed_strategy} /{" "}
+                      {form.limit || "all"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Config JSON toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowConfig(!showConfig)}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Code className="h-3.5 w-3.5" />
+                  {showConfig ? "Hide" : "Show"} config JSON
+                </button>
+                {showConfig && (
+                  <pre className="rounded bg-muted p-3 text-xs font-mono overflow-auto max-h-48">
+                    {JSON.stringify(configPreview, null, 2)}
+                  </pre>
+                )}
+              </div>
+            )}
+
+            {/* Navigation */}
+            <div className="flex items-center justify-between pt-2">
               <Button
-                type="submit"
-                className="w-full"
-                disabled={
-                  createTask.isPending ||
-                  !form.model_id ||
-                  form.dataset_ids.length === 0 ||
-                  form.criteria_ids.length === 0
-                }
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setStep(step - 1)}
+                disabled={step === 0}
               >
-                {createTask.isPending ? "Creating..." : "Create & Run"}
+                <ChevronLeft className="mr-1 h-3.5 w-3.5" /> Back
               </Button>
-            </form>
+              {step < 3 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setStep(step + 1)}
+                  disabled={!canNext()}
+                >
+                  Next <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleCreate}
+                  disabled={createTask.isPending || !form.name}
+                >
+                  {createTask.isPending ? "Creating..." : "Create & Run"}
+                </Button>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </div>
