@@ -1,0 +1,53 @@
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
+import type { EvalResult, LeaderboardEntry, TaskSummaryEntry } from "@/lib/types";
+
+export function useResults(taskId?: string, page = 1, pageSize = 50) {
+  return useQuery({
+    queryKey: ["results", taskId, page],
+    queryFn: async () => {
+      const params: Record<string, string | number> = { page, page_size: pageSize };
+      if (taskId) params.task_id = taskId;
+      const res = await api.get<EvalResult[]>("/results", { params });
+      return res.data;
+    },
+  });
+}
+
+export function useLeaderboard(criterionId?: string) {
+  return useQuery({
+    queryKey: ["leaderboard", criterionId],
+    queryFn: async () => {
+      const params: Record<string, string> = {};
+      if (criterionId) params.criterion_id = criterionId;
+      const res = await api.get<LeaderboardEntry[]>("/results/leaderboard", { params });
+      return res.data;
+    },
+  });
+}
+
+export function useTaskSummary(taskId: string) {
+  return useQuery({
+    queryKey: ["results", "summary", taskId],
+    queryFn: async () => {
+      const res = await api.get<TaskSummaryEntry[]>("/results/summary", {
+        params: { task_id: taskId },
+      });
+      return res.data;
+    },
+    enabled: !!taskId,
+  });
+}
+
+export function useErrorResults(taskId: string, page = 1) {
+  return useQuery({
+    queryKey: ["results", "errors", taskId, page],
+    queryFn: async () => {
+      const res = await api.get<EvalResult[]>("/results/errors", {
+        params: { task_id: taskId, page },
+      });
+      return res.data;
+    },
+    enabled: !!taskId,
+  });
+}

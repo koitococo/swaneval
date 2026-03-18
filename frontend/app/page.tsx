@@ -3,240 +3,150 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Cpu,
-  Database,
-  BarChart3,
-  Settings,
-  Shield,
-  ArrowRight,
-  LogIn,
-  UserPlus,
-} from "lucide-react";
+import { useLogin, useRegister, useMe } from "@/lib/hooks/use-auth";
+import { useAuthStore } from "@/lib/stores/auth";
 
-export default function HomePage() {
+export default function LoginPage() {
   const router = useRouter();
-  const [isLogin, setIsLogin] = useState(true);
-  const [credentials, setCredentials] = useState({ username: "", password: "" });
-  const [isLoading, setIsLoading] = useState(false);
+  const { setAuth } = useAuthStore();
+  const login = useLogin();
+  const register = useRegister();
+  const me = useMe();
+
+  const [tab, setTab] = useState<"login" | "register">("login");
+  const [error, setError] = useState("");
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [regForm, setRegForm] = useState({
+    username: "",
+    email: "",
+    password: "",
+    role: "engineer" as const,
+  });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    // Demo login - in production, this would call the backend
-    setTimeout(() => {
-      setIsLoading(false);
-      router.push("/evaluations");
-    }, 1000);
+    setError("");
+    try {
+      const tokenData = await login.mutateAsync(loginForm);
+      localStorage.setItem("token", tokenData.access_token);
+      const user = await me.mutateAsync();
+      setAuth(tokenData.access_token, user);
+      router.push("/");
+      router.refresh();
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      setError(msg || "Login failed");
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    // Demo registration
-    setTimeout(() => {
-      setIsLoading(false);
-      setIsLogin(true);
-    }, 1000);
+    setError("");
+    try {
+      await register.mutateAsync(regForm);
+      setTab("login");
+      setLoginForm({ username: regForm.username, password: regForm.password });
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      setError(msg || "Registration failed");
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="flex h-16 items-center justify-between px-6 max-w-7xl mx-auto">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Cpu className="h-5 w-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold">EvalScope GUI</h1>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Enterprise Model Evaluation Platform
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-center text-lg">EvalScope</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={tab} onValueChange={(v) => { setTab(v as "login" | "register"); setError(""); }}>
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="login">Sign In</TabsTrigger>
+              <TabsTrigger value="register">Register</TabsTrigger>
+            </TabsList>
 
-      <div className="flex min-h-[calc(100vh-64px)]">
-        {/* Left Side - Introduction */}
-        <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-12 py-8">
-          <div className="max-w-lg">
-            <h2 className="text-4xl font-bold mb-6">
-              Evaluate AI Models with <span className="text-primary">Confidence</span>
-            </h2>
-            <p className="text-lg text-muted-foreground mb-8">
-              Enterprise-grade GUI for the EvalScope model evaluation framework.
-              Visualize results, monitor tasks, and make data-driven decisions.
-            </p>
-
-            <div className="space-y-4">
-              <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <Database className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Model Management</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Support for HuggingFace, local, and API models
-                  </p>
-                </div>
+            {error && (
+              <div className="mb-3 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {error}
               </div>
+            )}
 
-              <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <BarChart3 className="h-5 w-5 text-primary" />
+            <TabsContent value="login">
+              <form onSubmit={handleLogin} className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="l-user">Username</Label>
+                  <Input
+                    id="l-user"
+                    value={loginForm.username}
+                    onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                    required
+                  />
                 </div>
-                <div>
-                  <h3 className="font-semibold">Rich Visualizations</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Column, radar, and line charts for comprehensive analysis
-                  </p>
+                <div className="space-y-1">
+                  <Label htmlFor="l-pass">Password</Label>
+                  <Input
+                    id="l-pass"
+                    type="password"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                    required
+                  />
                 </div>
-              </div>
+                <Button type="submit" className="w-full" disabled={login.isPending || me.isPending}>
+                  {login.isPending || me.isPending ? "Signing in..." : "Sign In"}
+                </Button>
+              </form>
+            </TabsContent>
 
-              <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <Settings className="h-5 w-5 text-primary" />
+            <TabsContent value="register">
+              <form onSubmit={handleRegister} className="space-y-3">
+                <div className="space-y-1">
+                  <Label htmlFor="r-user">Username</Label>
+                  <Input
+                    id="r-user"
+                    value={regForm.username}
+                    onChange={(e) => setRegForm({ ...regForm, username: e.target.value })}
+                    required
+                  />
                 </div>
-                <div>
-                  <h3 className="font-semibold">Real-time Monitoring</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Track evaluation progress and task status in real-time
-                  </p>
+                <div className="space-y-1">
+                  <Label htmlFor="r-email">Email</Label>
+                  <Input
+                    id="r-email"
+                    type="email"
+                    value={regForm.email}
+                    onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
+                    required
+                  />
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side - Login/Register */}
-        <div className="flex-1 flex items-center justify-center px-6 py-8">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <div className="flex justify-center mb-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
-                  <Cpu className="h-7 w-7 text-white" />
+                <div className="space-y-1">
+                  <Label htmlFor="r-pass">Password</Label>
+                  <Input
+                    id="r-pass"
+                    type="password"
+                    value={regForm.password}
+                    onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
+                    required
+                  />
                 </div>
-              </div>
-              <CardTitle className="text-2xl">Welcome to EvalScope</CardTitle>
-              <CardDescription>
-                Sign in to manage your evaluations
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={isLogin ? "login" : "register"} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="login" onClick={() => setIsLogin(true)}>
-                    <LogIn className="h-4 w-4 mr-2" />
-                    Sign In
-                  </TabsTrigger>
-                  <TabsTrigger value="register" onClick={() => setIsLogin(false)}>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Register
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="login">
-                  <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="username">Username</Label>
-                      <Input
-                        id="username"
-                        placeholder="admin"
-                        value={credentials.username}
-                        onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="Enter your password"
-                        value={credentials.password}
-                        onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                      {isLoading ? (
-                        "Signing in..."
-                      ) : (
-                        <>
-                          Sign In
-                          <ArrowRight className="h-4 w-4 ml-2" />
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                  <div className="mt-4 text-center text-sm text-muted-foreground">
-                    Demo credentials: admin / admin
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="register">
-                  <form onSubmit={handleRegister} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="reg-username">Username</Label>
-                      <Input
-                        id="reg-username"
-                        placeholder="Choose a username"
-                        value={credentials.username}
-                        onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="reg-email">Email</Label>
-                      <Input
-                        id="reg-email"
-                        type="email"
-                        placeholder="you@example.com"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="reg-password">Password</Label>
-                      <Input
-                        id="reg-password"
-                        type="password"
-                        placeholder="Create a password"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password">Confirm Password</Label>
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        placeholder="Confirm your password"
-                        required
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                      {isLoading ? (
-                        "Creating account..."
-                      ) : (
-                        <>
-                          Create Account
-                          <ArrowRight className="h-4 w-4 ml-2" />
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                <Button type="submit" className="w-full" disabled={register.isPending}>
+                  {register.isPending ? "Creating..." : "Create Account"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }

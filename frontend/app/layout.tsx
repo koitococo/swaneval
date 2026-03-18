@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "EvalScope GUI",
-  description: "Enterprise-grade model evaluation platform",
+  description: "Enterprise LLM evaluation platform",
 };
 
 export default function RootLayout({

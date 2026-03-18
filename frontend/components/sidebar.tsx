@@ -3,56 +3,78 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3,
-  Cpu,
+  LayoutDashboard,
   Database,
-  TrendingUp,
-  Settings,
+  Ruler,
+  Cpu,
+  PlayCircle,
+  BarChart3,
+  LogOut,
 } from "lucide-react";
+import { useAuthStore } from "@/lib/stores/auth";
+import { cn } from "@/lib/utils";
 
-/**
- * 侧边栏导航配置
- */
-const navItems = [
-  { href: "/evaluations", label: "Evaluations", icon: BarChart3 },
-  { href: "/models", label: "Models", icon: Cpu },
+const nav = [
+  { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/datasets", label: "Datasets", icon: Database },
-  { href: "/results", label: "Results", icon: TrendingUp },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/criteria", label: "Criteria", icon: Ruler },
+  { href: "/models", label: "Models", icon: Cpu },
+  { href: "/tasks", label: "Tasks", icon: PlayCircle },
+  { href: "/results", label: "Results", icon: BarChart3 },
 ];
 
-/**
- * 可复用的侧边栏组件
- * 根据当前路径自动高亮激活的菜单项
- */
 export function Sidebar() {
   const pathname = usePathname();
+  const { user, logout } = useAuthStore();
 
   return (
-    <aside className="w-64 border-r bg-white min-h-[calc(100vh-64px)]">
-      <nav className="p-4 space-y-2">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-          const Icon = item.icon;
-
+    <aside className="flex h-screen w-56 flex-col border-r bg-card">
+      <div className="flex h-12 items-center border-b px-4">
+        <span className="text-sm font-semibold tracking-tight">EvalScope</span>
+      </div>
+      <nav className="flex-1 space-y-0.5 p-2">
+        {nav.map((item) => {
+          const active =
+            item.href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`
-                flex items-center gap-3 rounded-lg px-3 py-2
-                ${isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted"
-                }
-              `}
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+                active
+                  ? "bg-accent text-accent-foreground font-medium"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+              )}
             >
-              <Icon className="h-5 w-5" />
+              <item.icon className="h-4 w-4" />
               {item.label}
             </Link>
           );
         })}
       </nav>
+      {user && (
+        <div className="border-t p-3">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{user.username}</p>
+              <p className="truncate text-xs text-muted-foreground">{user.role}</p>
+            </div>
+            <button
+              onClick={() => {
+                logout();
+                window.location.href = "/";
+              }}
+              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
