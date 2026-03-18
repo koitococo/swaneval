@@ -83,15 +83,17 @@ export default function LoginPage() {
       <div className="hidden lg:block lg:w-1/2 login-bg">
         <div className="blob" />
         <div className="relative z-10 flex flex-col justify-end h-full p-10">
-          <div className="flex items-center gap-3">
-            <Logo className="h-10 w-10 text-white/80" />
-            <h1 className="text-4xl font-bold text-white/90 tracking-tight leading-none">
-              SwanEVAL
-            </h1>
+          <div className="flex items-start gap-4">
+            <Logo className="h-12 w-12 text-white/70 mt-0.5" />
+            <div>
+              <h1 className="text-4xl font-bold text-white/90 tracking-tight leading-none">
+                SwanEVAL
+              </h1>
+              <p className="text-sm text-white/40 mt-1.5">
+                AI Model Evaluation
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-white/40 mt-2 ml-[52px]">
-            AI Model Evaluation
-          </p>
         </div>
       </div>
 
