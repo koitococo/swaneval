@@ -135,7 +135,7 @@
   animation: blob-drift-3 22s ease-in-out infinite;
 }
 
-/* Dashboard hero — dimmed version of login gradient */
+/* Dashboard hero — subtle but visible gradient */
 .dashboard-hero-bg {
   position: relative;
   overflow: hidden;
@@ -148,34 +148,34 @@
   content: '';
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.08;
+  filter: blur(90px);
+  opacity: 0.18;
   pointer-events: none;
 }
 
 .dashboard-hero-bg::before {
-  width: 50%;
-  height: 120%;
-  top: -30%;
-  left: -5%;
-  background: radial-gradient(circle, #6366f1 0%, transparent 70%);
-  animation: blob-drift-1 25s ease-in-out infinite;
+  width: 55%;
+  height: 130%;
+  top: -40%;
+  left: -10%;
+  background: radial-gradient(circle, #6366f1 0%, transparent 65%);
+  animation: blob-drift-1 22s ease-in-out infinite;
 }
 
 .dashboard-hero-bg::after {
-  width: 40%;
-  height: 100%;
-  bottom: -20%;
-  right: 0%;
-  background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
-  animation: blob-drift-2 30s ease-in-out infinite;
+  width: 45%;
+  height: 110%;
+  bottom: -25%;
+  right: -5%;
+  background: radial-gradient(circle, #8b5cf6 0%, transparent 65%);
+  animation: blob-drift-2 28s ease-in-out infinite;
 }
 
 .dashboard-hero-bg > .d-blob {
-  width: 35%;
-  height: 80%;
-  top: 20%;
-  left: 35%;
-  background: radial-gradient(circle, #4338ca 0%, transparent 70%);
-  animation: blob-drift-3 28s ease-in-out infinite;
+  width: 40%;
+  height: 90%;
+  top: 15%;
+  left: 30%;
+  background: radial-gradient(circle, #4338ca 0%, transparent 65%);
+  animation: blob-drift-3 25s ease-in-out infinite;
 }

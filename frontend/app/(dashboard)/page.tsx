@@ -61,16 +61,16 @@ export default function OverviewPage() {
       <div className="d-blob" />
 
       {/* ── Hero: title + HUD metrics ── */}
-      <div className="relative z-10 flex flex-col items-center justify-center pt-10 pb-6 px-6 shrink-0">
+      <div className="relative z-10 flex flex-col items-center justify-center pt-14 pb-10 px-6 shrink-0">
         <h1 className="text-4xl font-bold tracking-tight text-foreground/90">
           概览
         </h1>
-        <p className="text-sm text-muted-foreground mt-1.5">
+        <p className="text-sm text-muted-foreground mt-2">
           人工智能模型能力评估工具
         </p>
 
         {/* Floating HUD metrics */}
-        <div className="flex items-center gap-8 mt-8">
+        <div className="flex items-center gap-10 mt-12">
           <Link
             href="/models"
             className="group flex flex-col items-center gap-1"
