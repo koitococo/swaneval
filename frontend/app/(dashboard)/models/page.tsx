@@ -51,6 +51,7 @@ import {
   Pencil,
   Copy,
   Check,
+  KeyRound,
 } from "lucide-react";
 import {
   useModels,
@@ -895,6 +896,15 @@ export default function ModelsPage() {
                         })
                       }
                     />
+                    <EditableSecret
+                      label="API 密钥"
+                      onSave={(v) =>
+                        update.mutate({
+                          id: selectedModel.id,
+                          api_key: v,
+                        })
+                      }
+                    />
                     <EditableText
                       label="最大 Token"
                       value={
@@ -1125,6 +1135,69 @@ function EditableText({
           </span>
         )}
         <Pencil className="h-2.5 w-2.5 text-muted-foreground/30 group-hover/edit:text-muted-foreground/60 transition-colors shrink-0" />
+      </div>
+    </div>
+  );
+}
+
+function EditableSecret({
+  label,
+  onSave,
+}: {
+  label: string;
+  onSave: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  const commit = () => {
+    if (draft.trim()) {
+      onSave(draft.trim());
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
+    setDraft("");
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-start justify-between gap-3 text-xs">
+        <span className="text-muted-foreground shrink-0 pt-1.5">{label}</span>
+        <Input
+          type="password"
+          value={draft}
+          placeholder="输入新密钥"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") {
+              setDraft("");
+              setEditing(false);
+            }
+          }}
+          className="h-7 text-xs text-right font-mono"
+          autoFocus
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex items-start justify-between gap-3 text-xs group/edit cursor-pointer rounded-sm px-1 -mx-1 py-0.5 -my-0.5 hover:bg-muted/60 transition-colors"
+      onClick={() => setEditing(true)}
+    >
+      <span className="text-muted-foreground shrink-0 pt-0.5">{label}</span>
+      <div className="flex items-center gap-1 min-w-0">
+        <span className="font-mono text-muted-foreground/70">••••••••</span>
+        {saved ? (
+          <Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
+        ) : (
+          <KeyRound className="h-2.5 w-2.5 text-muted-foreground/30 group-hover/edit:text-muted-foreground/60 transition-colors shrink-0" />
+        )}
       </div>
     </div>
   );

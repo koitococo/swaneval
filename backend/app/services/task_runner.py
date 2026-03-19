@@ -409,7 +409,7 @@ async def run_task(task_id: uuid.UUID):
                             cfg_json = enriched_configs.get(str(criterion.id), criterion.config_json)
                             score = run_criterion(
                                 criterion.type,
-                                criterion.config_json,
+                                cfg_json,
                                 expected,
                                 output,
                             )
