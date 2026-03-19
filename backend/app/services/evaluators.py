@@ -137,11 +137,11 @@ def evaluate_llm_judge(config: dict, expected: str, actual: str) -> float:
     payload = {
         "model": model_name,
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 16,
+        "max_tokens": 64,
         "temperature": 0.0,
     }
 
-    with httpx.Client(timeout=30.0) as client:
+    with httpx.Client(timeout=120.0) as client:
         resp = client.post(endpoint_url, json=payload, headers=headers)
         resp.raise_for_status()
         data = resp.json()
