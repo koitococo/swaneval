@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { EvalResult, LeaderboardEntry, TaskSummaryEntry } from "@/lib/types";
+import type { EvalResult, LeaderboardEntry, TaskSummaryEntry, PaginatedResponse } from "@/lib/types";
 
 export function useResults(taskId?: string, page = 1, pageSize = 50) {
   return useQuery({
-    queryKey: ["results", taskId, page],
+    queryKey: ["results", taskId, page, pageSize],
     queryFn: async () => {
       const params: Record<string, string | number> = { page, page_size: pageSize };
       if (taskId) params.task_id = taskId;
-      const res = await api.get<EvalResult[]>("/results", { params });
+      const res = await api.get<PaginatedResponse<EvalResult>>("/results", { params });
       return res.data;
     },
   });
@@ -39,12 +39,12 @@ export function useTaskSummary(taskId: string) {
   });
 }
 
-export function useErrorResults(taskId: string, page = 1) {
+export function useErrorResults(taskId: string, page = 1, pageSize = 50) {
   return useQuery({
-    queryKey: ["results", "errors", taskId, page],
+    queryKey: ["results", "errors", taskId, page, pageSize],
     queryFn: async () => {
-      const res = await api.get<EvalResult[]>("/results/errors", {
-        params: { task_id: taskId, page },
+      const res = await api.get<PaginatedResponse<EvalResult>>("/results/errors", {
+        params: { task_id: taskId, page, page_size: pageSize },
       });
       return res.data;
     },

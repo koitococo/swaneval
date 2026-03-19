@@ -89,7 +89,8 @@ const emptyMountForm = {
 };
 
 export default function DatasetsPage() {
-  const { data: datasets = [], isLoading } = useDatasets();
+  const { data: datasetsData, isLoading } = useDatasets();
+  const datasets = useMemo(() => datasetsData?.items ?? [], [datasetsData]);
   const upload = useUploadDataset();
   const mount = useMountDataset();
   const deleteMut = useDeleteDataset();

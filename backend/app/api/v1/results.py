@@ -11,12 +11,12 @@ from app.models.eval_result import EvalResult
 from app.models.eval_task import EvalTask
 from app.models.llm_model import LLMModel
 from app.models.user import User
-from app.schemas.result import EvalResultResponse
+from app.schemas.result import PaginatedResultResponse
 
 router = APIRouter()
 
 
-@router.get("", response_model=list[EvalResultResponse])
+@router.get("", response_model=PaginatedResultResponse)
 async def list_results(
     task_id: uuid.UUID | None = None,
     criterion_id: uuid.UUID | None = None,
@@ -25,14 +25,19 @@ async def list_results(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    stmt = select(EvalResult).order_by(EvalResult.created_at.desc())
+    base = select(EvalResult)
     if task_id:
-        stmt = stmt.where(EvalResult.task_id == task_id)
+        base = base.where(EvalResult.task_id == task_id)
     if criterion_id:
-        stmt = stmt.where(EvalResult.criterion_id == criterion_id)
-    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
-    result = await session.exec(stmt)
-    return result.all()
+        base = base.where(EvalResult.criterion_id == criterion_id)
+
+    count_stmt = select(sa_func.count()).select_from(base.subquery())
+    total = (await session.exec(count_stmt)).one()
+
+    offset = (page - 1) * page_size
+    items_stmt = base.order_by(EvalResult.created_at.desc()).offset(offset).limit(page_size)
+    result = await session.exec(items_stmt)
+    return PaginatedResultResponse(items=result.all(), total=total, page=page, page_size=page_size)
 
 
 @router.get("/leaderboard")
@@ -78,7 +83,7 @@ async def leaderboard(
     ]
 
 
-@router.get("/errors")
+@router.get("/errors", response_model=PaginatedResultResponse)
 async def error_results(
     task_id: uuid.UUID,
     page: int = 1,
@@ -87,15 +92,15 @@ async def error_results(
     current_user: User = Depends(get_current_user),
 ):
     """Return results where score < 1.0 (wrong answers)."""
-    stmt = (
-        select(EvalResult)
-        .where(EvalResult.task_id == task_id, EvalResult.score < 1.0)
-        .order_by(EvalResult.score.asc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-    )
-    result = await session.exec(stmt)
-    return result.all()
+    base = select(EvalResult).where(EvalResult.task_id == task_id, EvalResult.score < 1.0)
+
+    count_stmt = select(sa_func.count()).select_from(base.subquery())
+    total = (await session.exec(count_stmt)).one()
+
+    offset = (page - 1) * page_size
+    items_stmt = base.order_by(EvalResult.score.asc()).offset(offset).limit(page_size)
+    result = await session.exec(items_stmt)
+    return PaginatedResultResponse(items=result.all(), total=total, page=page, page_size=page_size)
 
 
 @router.get("/summary")

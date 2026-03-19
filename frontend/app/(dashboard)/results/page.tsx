@@ -114,11 +114,13 @@ export default function ResultsPage() {
     criterionFilter === "__all__" ? undefined : criterionFilter,
   );
 
-  const { data: detailResults = [], isLoading: detailLoading } = useResults(
+  const { data: detailData, isLoading: detailLoading } = useResults(
     detailTaskId || undefined,
     detailPage,
     PAGE_SIZE,
   );
+  const detailResults = detailData?.items ?? [];
+  const detailTotal = detailData?.total ?? 0;
 
   // Stats
   const uniqueModels = useMemo(
@@ -639,12 +641,13 @@ export default function ResultsPage() {
                       <span className="font-semibold text-foreground tabular-nums">
                         {detailPage}
                       </span>{" "}
-                      页
+                      / {Math.max(1, Math.ceil(detailTotal / PAGE_SIZE))} 页
+                      <span className="ml-1.5">共 {detailTotal} 条</span>
                     </span>
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={detailResults.length < PAGE_SIZE}
+                      disabled={detailPage * PAGE_SIZE >= detailTotal}
                       onClick={() => setDetailPage((p) => p + 1)}
                     >
                       <ChevronRight className="h-4 w-4" />

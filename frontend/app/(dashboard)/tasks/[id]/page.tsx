@@ -64,7 +64,8 @@ export default function TaskDetailPage() {
   const { data: task, isLoading } = useTask(id);
   const { data: subtasks = [] } = useSubtasks(id);
   const { data: summary = [] } = useTaskSummary(id);
-  const { data: errors = [] } = useErrorResults(id);
+  const { data: errorsData } = useErrorResults(id);
+  const errors = errorsData?.items ?? [];
   const pause = usePauseTask();
   const resumeTask = useResumeTask();
   const cancel = useCancelTask();

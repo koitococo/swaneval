@@ -156,7 +156,7 @@ export default function OverviewPage() {
                 <span className="text-xs">数据集</span>
               </div>
               <span className="text-2xl font-semibold tabular-nums">
-                {datasets.data?.length ?? 0}
+                {datasets.data?.total ?? datasets.data?.items?.length ?? 0}
               </span>
             </Link>
 

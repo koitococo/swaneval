@@ -3,7 +3,7 @@ import os
 import uuid
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func as sa_func
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -12,7 +12,7 @@ from app.config import settings
 from app.models.dataset import Dataset, DatasetVersion, SourceType
 from app.models.eval_result import EvalResult
 from app.models.user import User
-from app.schemas.dataset import DatasetMountRequest, DatasetResponse
+from app.schemas.dataset import DatasetMountRequest, DatasetResponse, PaginatedResponse
 from app.services.dataset_deletion import cleanup_uploaded_file, delete_dataset_versions
 
 router = APIRouter()
@@ -124,7 +124,7 @@ async def mount_dataset(
     return ds
 
 
-@router.get("", response_model=list[DatasetResponse])
+@router.get("", response_model=PaginatedResponse)
 async def list_datasets(
     page: int = 1,
     page_size: int = 20,
@@ -132,13 +132,19 @@ async def list_datasets(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    stmt = select(Dataset)
+    base = select(Dataset)
     if tag:
-        stmt = stmt.where(Dataset.tags.contains(tag))
-    stmt = stmt.order_by(Dataset.created_at.desc())
-    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
-    result = await session.exec(stmt)
-    return result.all()
+        base = base.where(Dataset.tags.contains(tag))
+
+    count_stmt = select(sa_func.count()).select_from(base.subquery())
+    total = (await session.exec(count_stmt)).one()
+
+    offset = (page - 1) * page_size
+    items_stmt = base.order_by(Dataset.created_at.desc()).offset(offset).limit(page_size)
+    result = await session.exec(items_stmt)
+    return PaginatedResponse(
+        items=result.all(), total=total, page=page, page_size=page_size,
+    )
 
 
 @router.get("/{dataset_id}", response_model=DatasetResponse)

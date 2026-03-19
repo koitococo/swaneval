@@ -21,6 +21,7 @@ class TaskResponse(BaseModel):
     name: str
     status: TaskStatus
     model_id: uuid.UUID
+    model_name: str = ""
     dataset_ids: str
     criteria_ids: str
     params_json: str

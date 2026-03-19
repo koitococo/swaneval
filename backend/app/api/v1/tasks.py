@@ -8,9 +8,34 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.deps import get_current_user, get_db
 from app.models.eval_result import EvalResult
 from app.models.eval_task import EvalSubtask, EvalTask, TaskStatus
+from app.models.llm_model import LLMModel
 from app.models.user import User
 from app.schemas.task import SubtaskResponse, TaskCreate, TaskResponse
 from app.services.task_runner import run_task
+
+
+async def _enrich_task(session: AsyncSession, task: EvalTask) -> TaskResponse:
+    """Convert EvalTask to TaskResponse with model_name resolved."""
+    model_name = ""
+    if task.model_id:
+        model = await session.get(LLMModel, task.model_id)
+        if model:
+            model_name = model.name
+    return TaskResponse(
+        id=task.id,
+        name=task.name,
+        status=task.status,
+        model_id=task.model_id,
+        model_name=model_name,
+        dataset_ids=task.dataset_ids,
+        criteria_ids=task.criteria_ids,
+        params_json=task.params_json,
+        repeat_count=task.repeat_count,
+        seed_strategy=task.seed_strategy,
+        started_at=task.started_at,
+        finished_at=task.finished_at,
+        created_at=task.created_at,
+    )
 
 router = APIRouter()
 
@@ -39,7 +64,7 @@ async def create_task(
     # Launch task in background
     asyncio.create_task(run_task(task.id))
 
-    return task
+    return await _enrich_task(session, task)
 
 
 @router.get("", response_model=list[TaskResponse])
@@ -52,7 +77,8 @@ async def list_tasks(
     if status_filter:
         stmt = stmt.where(EvalTask.status == status_filter)
     result = await session.exec(stmt)
-    return result.all()
+    tasks = result.all()
+    return [await _enrich_task(session, t) for t in tasks]
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
@@ -64,7 +90,7 @@ async def get_task(
     task = await session.get(EvalTask, task_id)
     if not task:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
-    return task
+    return await _enrich_task(session, task)
 
 
 @router.get("/{task_id}/subtasks", response_model=list[SubtaskResponse])
@@ -73,7 +99,11 @@ async def list_subtasks(
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    stmt = select(EvalSubtask).where(EvalSubtask.task_id == task_id).order_by(EvalSubtask.run_index)
+    stmt = (
+        select(EvalSubtask)
+        .where(EvalSubtask.task_id == task_id)
+        .order_by(EvalSubtask.run_index)
+    )
     result = await session.exec(stmt)
     return result.all()
 
@@ -93,7 +123,7 @@ async def pause_task(
     session.add(task)
     await session.commit()
     await session.refresh(task)
-    return task
+    return await _enrich_task(session, task)
 
 
 @router.post("/{task_id}/resume", response_model=TaskResponse)
@@ -113,7 +143,7 @@ async def resume_task(
     await session.refresh(task)
 
     asyncio.create_task(run_task(task.id))
-    return task
+    return await _enrich_task(session, task)
 
 
 @router.post("/{task_id}/cancel", response_model=TaskResponse)
@@ -129,7 +159,7 @@ async def cancel_task(
     session.add(task)
     await session.commit()
     await session.refresh(task)
-    return task
+    return await _enrich_task(session, task)
 
 
 @router.delete("/{task_id}", status_code=204)

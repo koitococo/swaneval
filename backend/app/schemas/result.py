@@ -20,6 +20,13 @@ class EvalResultResponse(BaseModel):
     created_at: datetime
 
 
+class PaginatedResultResponse(BaseModel):
+    items: list[EvalResultResponse]
+    total: int
+    page: int
+    page_size: int
+
+
 class LeaderboardEntry(BaseModel):
     model_id: uuid.UUID
     model_name: str

@@ -133,7 +133,8 @@ export default function TasksPage() {
   const deleteTask = useDeleteTask();
 
   const { data: models = [] } = useModels();
-  const { data: datasets = [] } = useDatasets();
+  const { data: datasetsData } = useDatasets();
+  const datasets = useMemo(() => datasetsData?.items ?? [], [datasetsData]);
   const { data: criteria = [] } = useCriteria();
 
   const [panel, setPanel] = useState<PanelMode>(null);
@@ -873,6 +874,46 @@ export default function TasksPage() {
                           {statusLabel[selectedTask.status] ??
                             selectedTask.status}
                         </Badge>
+                      }
+                    />
+                    <DetailRow
+                      label="模型"
+                      value={selectedTask.model_name || selectedTask.model_id}
+                    />
+                    <DetailRow
+                      label="数据集"
+                      value={
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {selectedTask.dataset_ids
+                            .split(",")
+                            .filter(Boolean)
+                            .map((id) => {
+                              const d = datasets.find((ds) => ds.id === id.trim());
+                              return (
+                                <Badge key={id} variant="outline" className="text-[10px]">
+                                  {d?.name ?? id.trim().slice(0, 8)}
+                                </Badge>
+                              );
+                            })}
+                        </div>
+                      }
+                    />
+                    <DetailRow
+                      label="评测标准"
+                      value={
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {selectedTask.criteria_ids
+                            .split(",")
+                            .filter(Boolean)
+                            .map((id) => {
+                              const c = criteria.find((cr) => cr.id === id.trim());
+                              return (
+                                <Badge key={id} variant="outline" className="text-[10px]">
+                                  {c?.name ?? id.trim().slice(0, 8)}
+                                </Badge>
+                              );
+                            })}
+                        </div>
                       }
                     />
                     <DetailRow

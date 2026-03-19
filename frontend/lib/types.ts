@@ -50,6 +50,7 @@ export interface EvalTask {
   name: string;
   status: "pending" | "running" | "paused" | "completed" | "failed";
   model_id: string;
+  model_name: string;
   dataset_ids: string;
   criteria_ids: string;
   params_json: string;
@@ -94,6 +95,13 @@ export interface LeaderboardEntry {
   avg_score: number;
   total_prompts: number;
   avg_latency_ms: number;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
 }
 
 export interface TaskSummaryEntry {

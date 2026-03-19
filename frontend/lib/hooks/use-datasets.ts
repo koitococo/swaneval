@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { Dataset } from "@/lib/types";
+import type { Dataset, PaginatedResponse } from "@/lib/types";
 
-export function useDatasets(tag?: string) {
+export function useDatasets(tag?: string, page = 1, pageSize = 200) {
   return useQuery({
-    queryKey: ["datasets", tag],
+    queryKey: ["datasets", tag, page, pageSize],
     queryFn: async () => {
-      const params: Record<string, string> = {};
+      const params: Record<string, string | number> = { page, page_size: pageSize };
       if (tag) params.tag = tag;
-      const res = await api.get<Dataset[]>("/datasets", { params });
+      const res = await api.get<PaginatedResponse<Dataset>>("/datasets", { params });
       return res.data;
     },
   });
