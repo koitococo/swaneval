@@ -34,7 +34,9 @@ async def register(body: RegisterRequest, session: AsyncSession = Depends(get_db
 async def login(body: LoginRequest, session: AsyncSession = Depends(get_db)):
     stmt = select(User).where(User.username == body.username)
     user = (await session.exec(stmt)).first()
-    if not user or not verify_password(body.password, user.hashed_password):
+    if not user:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    if not verify_password(body.password, user.hashed_password):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Account disabled")

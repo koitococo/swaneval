@@ -48,7 +48,12 @@ export default function LoginPage() {
           ? (err as { response?: { data?: { detail?: string } } }).response
               ?.data?.detail
           : undefined;
-      setError(detail || "用户名或密码错误");
+      if (detail === "User not found") {
+        setError("该用户不存在，请先注册账号");
+        setMode("register");
+      } else {
+        setError(detail || "用户名或密码错误");
+      }
       setLoading(false);
     }
   };

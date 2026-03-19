@@ -291,8 +291,9 @@ export default function OverviewPage() {
             </div>
             <div className="flex-1 overflow-auto" ref={leftScrollRef}>
               {recentTasks.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-xs text-muted-foreground">
+                <div className="flex flex-col items-center justify-center h-full gap-2">
+                  <Clock className="h-5 w-5 text-muted-foreground/30" />
+                  <p className="text-xs text-muted-foreground/50">
                     暂无任务。{" "}
                     <Link
                       href="/tasks"
