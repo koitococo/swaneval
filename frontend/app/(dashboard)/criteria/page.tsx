@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -140,14 +140,20 @@ export default function CriteriaPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [form, setForm] = useState({ ...emptyForm });
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const [createPos, setCreatePos] = useState<{ top: number; right: number } | null>(null);
 
   const selectedId = panel?.kind === "view" ? panel.id : null;
   const isCreating = panel?.kind === "create";
   const selectedCriterion = criteria.find((c) => c.id === selectedId);
-  const panelOpen = !!panel;
+  const viewPanelOpen = panel?.kind === "view";
 
   const openCreate = () => {
     setForm({ ...emptyForm });
+    if (addBtnRef.current) {
+      const rect = addBtnRef.current.getBoundingClientRect();
+      setCreatePos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
     setPanel({ kind: "create" });
   };
   const openView = (id: string) => {
@@ -373,8 +379,17 @@ export default function CriteriaPage() {
             ))}
           </div>
         </div>
-        <Button size="sm" onClick={openCreate} disabled={isCreating}>
-          <Plus className="mr-1 h-4 w-4" /> 新建标准
+        <Button
+          ref={addBtnRef}
+          size="sm"
+          onClick={isCreating ? closePanel : openCreate}
+          variant={isCreating ? "outline" : "default"}
+        >
+          {isCreating ? (
+            <><X className="mr-1 h-4 w-4" /> 取消</>
+          ) : (
+            <><Plus className="mr-1 h-4 w-4" /> 新建标准</>
+          )}
         </Button>
       </div>
 
@@ -420,46 +435,12 @@ export default function CriteriaPage() {
             </button>
           ))}
         </div>
-        {Object.keys(rowSelection).length > 0 && (
-          <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
-            <span>
-              已选择{" "}
-              <span className="font-semibold text-foreground tabular-nums">
-                {Object.keys(rowSelection).length}
-              </span>{" "}
-              项
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={async () => {
-                const ids = Object.keys(rowSelection).map(
-                  (idx) => filteredData[parseInt(idx)]?.id,
-                ).filter(Boolean);
-                for (const id of ids) {
-                  try { await deleteMut.mutateAsync(id); } catch { /* skip */ }
-                }
-                setRowSelection({});
-              }}
-            >
-              <Trash2 className="mr-1 h-3 w-3" />
-              删除
-            </Button>
-            <button
-              className="text-xs hover:text-foreground transition-colors"
-              onClick={() => setRowSelection({})}
-            >
-              取消
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Main: table + side panel */}
       <div className="flex gap-4 min-h-0">
         {/* Table */}
-        <Card className={panelOpen ? "flex-1 min-w-0" : "w-full"}>
+        <Card className={viewPanelOpen ? "flex-1 min-w-0" : "w-full"}>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="py-12 text-center text-muted-foreground">
@@ -609,15 +590,13 @@ export default function CriteriaPage() {
           </CardContent>
         </Card>
 
-        {/* Side panel */}
-        {panelOpen && (
-          <div className="w-96 shrink-0">
-            <Card className="sticky top-4">
+        {/* Side panel — view only */}
+        {viewPanelOpen && selectedCriterion && (
+          <div className="w-1/2 shrink-0">
+            <Card className="sticky top-4 max-h-[calc(100vh-6rem)] overflow-auto">
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <h3 className="text-sm font-semibold truncate">
-                  {isCreating
-                    ? "新建评估标准"
-                    : (selectedCriterion?.name ?? "")}
+                  {selectedCriterion.name}
                 </h3>
                 <Button
                   variant="ghost"
@@ -629,399 +608,449 @@ export default function CriteriaPage() {
                 </Button>
               </div>
 
-              {/* Create mode */}
-              {isCreating && (
-                <CardContent className="pt-0">
-                  <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
-                    <button
-                      type="button"
-                      className="hover:text-foreground transition-colors"
-                      onClick={async () => {
-                        try {
-                          const text = await navigator.clipboard.readText();
-                          importCriterionJson(text);
-                        } catch {
-                          setImportError("无法读取剪贴板");
-                          setTimeout(() => setImportError(""), 3000);
-                        }
-                      }}
-                    >
-                      从剪贴板导入
-                    </button>
-                    <span className="text-border">|</span>
-                    <label className="hover:text-foreground transition-colors cursor-pointer">
-                      <input
-                        type="file"
-                        accept=".json"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = () =>
-                            importCriterionJson(reader.result as string);
-                          reader.readAsText(file);
-                          e.target.value = "";
-                        }}
-                      />
-                      从 JSON 导入
-                    </label>
-                    {importError && (
-                      <span className="text-destructive">{importError}</span>
-                    )}
-                  </div>
-
-                  <form onSubmit={handleCreate} className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <PanelField label="名称" required>
-                        <Input
-                          value={form.name}
-                          onChange={(e) =>
-                            setForm({ ...form, name: e.target.value })
-                          }
-                          placeholder="精确匹配"
-                          required
-                        />
-                      </PanelField>
-                      <PanelField label="类型">
-                        <Select
-                          value={form.type}
-                          onValueChange={(v) => setForm({ ...form, type: v })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="preset">预设指标</SelectItem>
-                            <SelectItem value="regex">正则表达式</SelectItem>
-                            <SelectItem value="script">自定义脚本</SelectItem>
-                            <SelectItem value="llm_judge">LLM 评判</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </PanelField>
-                    </div>
-
-                    <p className="text-xs text-muted-foreground">
-                      {typeDescriptions[form.type]}
-                    </p>
-
-                    {form.type === "preset" && (
-                      <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">
-                          指标
-                        </Label>
-                        <div className="space-y-1.5">
-                          {presetMetrics.map((m) => (
-                            <button
-                              key={m.value}
-                              type="button"
-                              onClick={() =>
-                                setForm({ ...form, metric: m.value })
-                              }
-                              className={`w-full rounded-md border p-2.5 text-left transition-colors ${
-                                form.metric === m.value
-                                  ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                  : "hover:bg-muted"
-                              }`}
-                            >
-                              <p className="text-sm font-medium">{m.label}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {m.desc}
-                              </p>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {form.type === "regex" && (
-                      <PanelField label="正则表达式" required>
-                        <RegexInput
-                          value={form.pattern}
-                          onChange={(v) =>
-                            setForm({ ...form, pattern: v })
-                          }
-                          placeholder="\\d+\\.?\\d*"
-                        />
-                      </PanelField>
-                    )}
-
-                    {form.type === "script" && (
-                      <>
-                        <PanelField label="脚本路径" required>
-                          <Input
-                            value={form.script_path}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                script_path: e.target.value,
-                              })
-                            }
-                            placeholder="/path/to/eval_script.py"
-                            className="font-mono"
-                            required
-                          />
-                        </PanelField>
-                        <PanelField label="入口函数">
-                          <Input
-                            value={form.entrypoint}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                entrypoint: e.target.value,
-                              })
-                            }
-                            placeholder="evaluate"
-                            className="font-mono"
-                          />
-                          <p className="text-[11px] text-muted-foreground mt-1">
-                            默认为 evaluate。留空使用默认值。
-                          </p>
-                        </PanelField>
-                        <PanelField label="额外参数 (JSON)">
-                          <Input
-                            value={form.script_args}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                script_args: e.target.value,
-                              })
-                            }
-                            placeholder='{"threshold": 0.8}'
-                            className="font-mono"
-                          />
-                          <p className="text-[11px] text-muted-foreground mt-1">
-                            可选。将作为 config 参数传入脚本函数。
-                          </p>
-                        </PanelField>
-                        <div className="rounded-md bg-muted p-2.5 text-[11px] font-mono text-muted-foreground space-y-0.5">
-                          <p className="text-foreground/70 font-sans text-xs font-medium mb-1">
-                            脚本函数签名示例
-                          </p>
-                          <p>def evaluate(expected, actual, config=None):</p>
-                          <p>    # 返回 0.0 - 1.0 之间的浮点数</p>
-                          <p>    return 1.0 if expected in actual else 0.0</p>
-                        </div>
-                      </>
-                    )}
-
-                    {form.type === "llm_judge" && (
-                      <>
-                        <PanelField label="评判模型" required>
-                          <Select
-                            value={form.judge_model_id}
-                            onValueChange={(v) =>
-                              setForm({ ...form, judge_model_id: v })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="选择用于评判的模型" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {models.map((m) => (
-                                <SelectItem key={m.id} value={m.id}>
-                                  {m.name}
-                                  {m.model_name && (
-                                    <span className="text-muted-foreground ml-1">
-                                      ({m.model_name})
-                                    </span>
-                                  )}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {models.length === 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              请先在模型页面添加一个模型。
-                            </p>
-                          )}
-                        </PanelField>
-                        <PanelField label="系统提示词" required>
-                          <textarea
-                            value={form.judge_prompt}
-                            onChange={(e) =>
-                              setForm({
-                                ...form,
-                                judge_prompt: e.target.value,
-                              })
-                            }
-                            placeholder="你是一个评估专家。请根据以下标准对回答打分（0-1）..."
-                            className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                            required
-                          />
-                        </PanelField>
-                      </>
-                    )}
-
-                    <div className="pt-1">
-                      <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={create.isPending}
+              <CardContent className="pt-0 space-y-4">
+                <div className="space-y-2.5">
+                  <DetailRow
+                    label="类型"
+                    value={
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-normal"
                       >
-                        {create.isPending ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Plus className="mr-2 h-4 w-4" />
-                        )}
-                        {create.isPending ? "创建中..." : "创建标准"}
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              )}
-
-              {/* View mode */}
-              {selectedCriterion && !isCreating && (
-                <CardContent className="pt-0 space-y-4">
-                  <div className="space-y-2.5">
-                    <DetailRow
-                      label="类型"
-                      value={
-                        <Badge
-                          variant="outline"
-                          className="text-xs font-normal"
-                        >
-                          {typeLabel[selectedCriterion.type] ??
-                            selectedCriterion.type}
-                        </Badge>
+                        {typeLabel[selectedCriterion.type] ??
+                          selectedCriterion.type}
+                      </Badge>
+                    }
+                  />
+                  {(() => {
+                    try {
+                      const cfg = JSON.parse(selectedCriterion.config_json);
+                      if (selectedCriterion.type === "preset")
+                        return (
+                          <DetailRow
+                            label="指标"
+                            value={<code className="font-mono text-xs">{cfg.metric}</code>}
+                          />
+                        );
+                      if (selectedCriterion.type === "regex")
+                        return (
+                          <DetailRow
+                            label="正则"
+                            value={<code className="font-mono text-xs">{cfg.pattern}</code>}
+                          />
+                        );
+                      if (selectedCriterion.type === "script")
+                        return (
+                          <>
+                            <DetailRow
+                              label="脚本"
+                              value={<code className="font-mono text-xs truncate block max-w-[180px]">{cfg.script_path}</code>}
+                            />
+                            {cfg.entrypoint && (
+                              <DetailRow
+                                label="入口"
+                                value={<code className="font-mono text-xs">{cfg.entrypoint}</code>}
+                              />
+                            )}
+                          </>
+                        );
+                      if (selectedCriterion.type === "llm_judge") {
+                        const judgeModel = models.find((m) => m.id === cfg.judge_model_id);
+                        return (
+                          <>
+                            {judgeModel && (
+                              <DetailRow label="评判模型" value={judgeModel.name} />
+                            )}
+                            {cfg.system_prompt && (
+                              <DetailRow
+                                label="提示词"
+                                value={
+                                  <span className="text-xs truncate block max-w-[180px]">
+                                    {cfg.system_prompt.slice(0, 60)}
+                                    {cfg.system_prompt.length > 60 ? "..." : ""}
+                                  </span>
+                                }
+                              />
+                            )}
+                          </>
+                        );
                       }
-                    />
+                      return (
+                        <DetailRow
+                          label="配置"
+                          value={<code className="font-mono text-xs">{configSummary(selectedCriterion.config_json, selectedCriterion.type)}</code>}
+                        />
+                      );
+                    } catch {
+                      return (
+                        <DetailRow
+                          label="配置"
+                          value={<code className="font-mono text-xs">{selectedCriterion.config_json}</code>}
+                        />
+                      );
+                    }
+                  })()}
+                  <DetailRow
+                    label="创建时间"
+                    value={
+                      utc(selectedCriterion.created_at)?.toLocaleString() ??
+                      "\u2014"
+                    }
+                  />
+                </div>
+
+                {/* Raw config */}
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">配置 JSON</p>
+                  <pre className="rounded-md bg-muted p-2.5 text-xs font-mono overflow-auto max-h-32">
                     {(() => {
                       try {
-                        const cfg = JSON.parse(selectedCriterion.config_json);
-                        if (selectedCriterion.type === "preset")
-                          return (
-                            <DetailRow
-                              label="指标"
-                              value={<code className="font-mono text-xs">{cfg.metric}</code>}
-                            />
-                          );
-                        if (selectedCriterion.type === "regex")
-                          return (
-                            <DetailRow
-                              label="正则"
-                              value={<code className="font-mono text-xs">{cfg.pattern}</code>}
-                            />
-                          );
-                        if (selectedCriterion.type === "script")
-                          return (
-                            <>
-                              <DetailRow
-                                label="脚本"
-                                value={<code className="font-mono text-xs truncate block max-w-[180px]">{cfg.script_path}</code>}
-                              />
-                              {cfg.entrypoint && (
-                                <DetailRow
-                                  label="入口"
-                                  value={<code className="font-mono text-xs">{cfg.entrypoint}</code>}
-                                />
-                              )}
-                            </>
-                          );
-                        if (selectedCriterion.type === "llm_judge") {
-                          const judgeModel = models.find((m) => m.id === cfg.judge_model_id);
-                          return (
-                            <>
-                              {judgeModel && (
-                                <DetailRow label="评判模型" value={judgeModel.name} />
-                              )}
-                              {cfg.system_prompt && (
-                                <DetailRow
-                                  label="提示词"
-                                  value={
-                                    <span className="text-xs truncate block max-w-[180px]">
-                                      {cfg.system_prompt.slice(0, 60)}
-                                      {cfg.system_prompt.length > 60 ? "..." : ""}
-                                    </span>
-                                  }
-                                />
-                              )}
-                            </>
-                          );
-                        }
-                        return (
-                          <DetailRow
-                            label="配置"
-                            value={<code className="font-mono text-xs">{configSummary(selectedCriterion.config_json, selectedCriterion.type)}</code>}
-                          />
+                        return JSON.stringify(
+                          JSON.parse(selectedCriterion.config_json),
+                          null,
+                          2,
                         );
                       } catch {
-                        return (
-                          <DetailRow
-                            label="配置"
-                            value={<code className="font-mono text-xs">{selectedCriterion.config_json}</code>}
-                          />
-                        );
+                        return selectedCriterion.config_json;
                       }
                     })()}
-                    <DetailRow
-                      label="创建时间"
-                      value={
-                        utc(selectedCriterion.created_at)?.toLocaleString() ??
-                        "\u2014"
-                      }
-                    />
-                  </div>
+                  </pre>
+                </div>
 
-                  {/* Raw config */}
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">配置 JSON</p>
-                    <pre className="rounded-md bg-muted p-2.5 text-xs font-mono overflow-auto max-h-32">
-                      {(() => {
-                        try {
-                          return JSON.stringify(
-                            JSON.parse(selectedCriterion.config_json),
-                            null,
-                            2,
-                          );
-                        } catch {
-                          return selectedCriterion.config_json;
-                        }
-                      })()}
-                    </pre>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => {
-                        setTestId(selectedCriterion.id);
-                        setTestResult(null);
-                        setTestForm({
-                          prompt: "",
-                          expected: "",
-                          actual: "",
-                        });
-                        setTestOpen(true);
-                      }}
-                    >
-                      <FlaskConical className="mr-1.5 h-3.5 w-3.5" />
-                      测试
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/5"
-                      onClick={() =>
-                        setDeleteTarget({
-                          id: selectedCriterion.id,
-                          name: selectedCriterion.name,
-                        })
-                      }
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </CardContent>
-              )}
+                {/* Actions */}
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      setTestId(selectedCriterion.id);
+                      setTestResult(null);
+                      setTestForm({
+                        prompt: "",
+                        expected: "",
+                        actual: "",
+                      });
+                      setTestOpen(true);
+                    }}
+                  >
+                    <FlaskConical className="mr-1.5 h-3.5 w-3.5" />
+                    测试
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/5"
+                    onClick={() =>
+                      setDeleteTarget({
+                        id: selectedCriterion.id,
+                        name: selectedCriterion.name,
+                      })
+                    }
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </CardContent>
             </Card>
           </div>
         )}
       </div>
+
+      {/* Create modal */}
+      {isCreating && createPos && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40 animate-backdrop-in" onClick={closePanel} />
+          <div
+            className="fixed z-50 animate-modal-expand"
+            style={{ top: createPos.top, right: createPos.right, transformOrigin: "top right" }}
+          >
+            <Card className="w-[28rem] shadow-xl">
+              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                <h3 className="text-sm font-semibold">新建评估标准</h3>
+              </div>
+              <CardContent className="pt-0 max-h-[70vh] overflow-auto">
+                <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                  <button
+                    type="button"
+                    className="hover:text-foreground transition-colors"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        importCriterionJson(text);
+                      } catch {
+                        setImportError("无法读取剪贴板");
+                        setTimeout(() => setImportError(""), 3000);
+                      }
+                    }}
+                  >
+                    从剪贴板导入
+                  </button>
+                  <span className="text-border">|</span>
+                  <label className="hover:text-foreground transition-colors cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () =>
+                          importCriterionJson(reader.result as string);
+                        reader.readAsText(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    从 JSON 导入
+                  </label>
+                  {importError && (
+                    <span className="text-destructive">{importError}</span>
+                  )}
+                </div>
+
+                <form onSubmit={handleCreate} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <PanelField label="名称" required>
+                      <Input
+                        value={form.name}
+                        onChange={(e) =>
+                          setForm({ ...form, name: e.target.value })
+                        }
+                        placeholder="精确匹配"
+                        required
+                      />
+                    </PanelField>
+                    <PanelField label="类型">
+                      <Select
+                        value={form.type}
+                        onValueChange={(v) => setForm({ ...form, type: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="preset">预设指标</SelectItem>
+                          <SelectItem value="regex">正则表达式</SelectItem>
+                          <SelectItem value="script">自定义脚本</SelectItem>
+                          <SelectItem value="llm_judge">LLM 评判</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </PanelField>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    {typeDescriptions[form.type]}
+                  </p>
+
+                  {form.type === "preset" && (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">
+                        指标
+                      </Label>
+                      <div className="space-y-1.5">
+                        {presetMetrics.map((m) => (
+                          <button
+                            key={m.value}
+                            type="button"
+                            onClick={() =>
+                              setForm({ ...form, metric: m.value })
+                            }
+                            className={`w-full rounded-md border p-2.5 text-left transition-colors ${
+                              form.metric === m.value
+                                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                                : "hover:bg-muted"
+                            }`}
+                          >
+                            <p className="text-sm font-medium">{m.label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {m.desc}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {form.type === "regex" && (
+                    <PanelField label="正则表达式" required>
+                      <RegexInput
+                        value={form.pattern}
+                        onChange={(v) =>
+                          setForm({ ...form, pattern: v })
+                        }
+                        placeholder="\\d+\\.?\\d*"
+                      />
+                    </PanelField>
+                  )}
+
+                  {form.type === "script" && (
+                    <>
+                      <PanelField label="脚本路径" required>
+                        <Input
+                          value={form.script_path}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              script_path: e.target.value,
+                            })
+                          }
+                          placeholder="/path/to/eval_script.py"
+                          className="font-mono"
+                          required
+                        />
+                      </PanelField>
+                      <PanelField label="入口函数">
+                        <Input
+                          value={form.entrypoint}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              entrypoint: e.target.value,
+                            })
+                          }
+                          placeholder="evaluate"
+                          className="font-mono"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          默认为 evaluate。留空使用默认值。
+                        </p>
+                      </PanelField>
+                      <PanelField label="额外参数 (JSON)">
+                        <Input
+                          value={form.script_args}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              script_args: e.target.value,
+                            })
+                          }
+                          placeholder='{"threshold": 0.8}'
+                          className="font-mono"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          可选。将作为 config 参数传入脚本函数。
+                        </p>
+                      </PanelField>
+                      <div className="rounded-md bg-muted p-2.5 text-[11px] font-mono text-muted-foreground space-y-0.5">
+                        <p className="text-foreground/70 font-sans text-xs font-medium mb-1">
+                          脚本函数签名示例
+                        </p>
+                        <p>def evaluate(expected, actual, config=None):</p>
+                        <p>    # 返回 0.0 - 1.0 之间的浮点数</p>
+                        <p>    return 1.0 if expected in actual else 0.0</p>
+                      </div>
+                    </>
+                  )}
+
+                  {form.type === "llm_judge" && (
+                    <>
+                      <PanelField label="评判模型" required>
+                        <Select
+                          value={form.judge_model_id}
+                          onValueChange={(v) =>
+                            setForm({ ...form, judge_model_id: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="选择用于评判的模型" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {models.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                {m.name}
+                                {m.model_name && (
+                                  <span className="text-muted-foreground ml-1">
+                                    ({m.model_name})
+                                  </span>
+                                )}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {models.length === 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            请先在模型页面添加一个模型。
+                          </p>
+                        )}
+                      </PanelField>
+                      <PanelField label="系统提示词" required>
+                        <textarea
+                          value={form.judge_prompt}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              judge_prompt: e.target.value,
+                            })
+                          }
+                          placeholder="你是一个评估专家。请根据以下标准对回答打分（0-1）..."
+                          className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          required
+                        />
+                      </PanelField>
+                    </>
+                  )}
+
+                  <div className="pt-1">
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={create.isPending}
+                    >
+                      {create.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="mr-2 h-4 w-4" />
+                      )}
+                      {create.isPending ? "创建中..." : "创建标准"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* Floating selection bar */}
+      {Object.keys(rowSelection).length > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-30 animate-float-up">
+          <div className="flex items-center gap-3 bg-background border rounded-full shadow-lg px-5 py-2.5 text-sm">
+            <span className="text-muted-foreground">
+              已选择{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {Object.keys(rowSelection).length}
+              </span>{" "}
+              项
+            </span>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 rounded-full text-xs"
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteMut.mutateAsync(id); } catch { /* skip */ }
+                }
+                setRowSelection({});
+              }}
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              删除
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-full text-xs"
+              onClick={() => setRowSelection({})}
+            >
+              取消
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       <Dialog

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -111,14 +111,20 @@ export default function ModelsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [form, setForm] = useState({ ...emptyForm });
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const [createPos, setCreatePos] = useState<{ top: number; right: number } | null>(null);
 
   const selectedId = panel?.kind === "view" ? panel.id : null;
   const isCreating = panel?.kind === "create";
   const selectedModel = models.find((m) => m.id === selectedId);
-  const panelOpen = !!panel;
+  const viewPanelOpen = panel?.kind === "view";
 
   const openCreate = () => {
     setForm({ ...emptyForm });
+    if (addBtnRef.current) {
+      const rect = addBtnRef.current.getBoundingClientRect();
+      setCreatePos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
     setPanel({ kind: "create" });
   };
 
@@ -392,8 +398,17 @@ export default function ModelsPage() {
             ))}
           </div>
         </div>
-        <Button size="sm" onClick={openCreate} disabled={isCreating}>
-          <Plus className="mr-1 h-4 w-4" /> 添加模型
+        <Button
+          ref={addBtnRef}
+          size="sm"
+          onClick={isCreating ? closePanel : openCreate}
+          variant={isCreating ? "outline" : "default"}
+        >
+          {isCreating ? (
+            <><X className="mr-1 h-4 w-4" /> 取消</>
+          ) : (
+            <><Plus className="mr-1 h-4 w-4" /> 添加模型</>
+          )}
         </Button>
       </div>
 
@@ -439,46 +454,12 @@ export default function ModelsPage() {
             </button>
           ))}
         </div>
-        {Object.keys(rowSelection).length > 0 && (
-          <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
-            <span>
-              已选择{" "}
-              <span className="font-semibold text-foreground tabular-nums">
-                {Object.keys(rowSelection).length}
-              </span>{" "}
-              项
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={async () => {
-                const ids = Object.keys(rowSelection).map(
-                  (idx) => filteredData[parseInt(idx)]?.id,
-                ).filter(Boolean);
-                for (const id of ids) {
-                  try { await deleteMut.mutateAsync(id); } catch { /* skip failed */ }
-                }
-                setRowSelection({});
-              }}
-            >
-              <Trash2 className="mr-1 h-3 w-3" />
-              删除
-            </Button>
-            <button
-              className="text-xs hover:text-foreground transition-colors"
-              onClick={() => setRowSelection({})}
-            >
-              取消
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Main: table + side panel */}
       <div className="flex gap-4 min-h-0">
         {/* Table */}
-        <Card className={panelOpen ? "flex-1 min-w-0" : "w-full"}>
+        <Card className={viewPanelOpen ? "flex-1 min-w-0" : "w-full"}>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="py-12 text-center text-muted-foreground">
@@ -623,15 +604,12 @@ export default function ModelsPage() {
           </CardContent>
         </Card>
 
-        {/* Side panel: view OR create — same surface */}
-        {panelOpen && (
-          <div className="w-80 shrink-0">
-            <Card className="sticky top-4">
-              {/* Panel header */}
+        {/* View panel — right half */}
+        {viewPanelOpen && selectedModel && (
+          <div className="w-1/2 shrink-0">
+            <Card className="sticky top-4 max-h-[calc(100vh-6rem)] overflow-auto">
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
-                <h3 className="text-sm font-semibold truncate">
-                  {isCreating ? "添加模型" : (selectedModel?.name ?? "")}
-                </h3>
+                <h3 className="text-sm font-semibold truncate">{selectedModel.name}</h3>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -641,199 +619,7 @@ export default function ModelsPage() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-
-              {/* Create mode */}
-              {isCreating && (
-                <CardContent className="pt-0">
-                  <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
-                    <button
-                      type="button"
-                      className="hover:text-foreground transition-colors"
-                      onClick={importFromClipboard}
-                    >
-                      从剪贴板导入
-                    </button>
-                    <span className="text-border">|</span>
-                    <label className="hover:text-foreground transition-colors cursor-pointer">
-                      <input
-                        type="file"
-                        accept=".json"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = () =>
-                            importFromJson(reader.result as string);
-                          reader.readAsText(file);
-                          e.target.value = "";
-                        }}
-                      />
-                      从 JSON 导入
-                    </label>
-                    {importError && (
-                      <span className="text-destructive">{importError}</span>
-                    )}
-                  </div>
-
-                  <form onSubmit={handleCreate} className="space-y-3">
-                    <PanelField label="显示名称" required>
-                      <Input
-                        value={form.name}
-                        onChange={(e) =>
-                          setForm({ ...form, name: e.target.value })
-                        }
-                        placeholder="GPT-4o"
-                        required
-                      />
-                    </PanelField>
-                    <div className="grid grid-cols-2 gap-2">
-                      <PanelField label="提供商" required>
-                        <Input
-                          value={form.provider}
-                          onChange={(e) =>
-                            setForm({ ...form, provider: e.target.value })
-                          }
-                          placeholder="openai"
-                          required
-                        />
-                      </PanelField>
-                      <PanelField label="类型">
-                        <Select
-                          value={form.model_type}
-                          onValueChange={(v) =>
-                            setForm({ ...form, model_type: v })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="api">API</SelectItem>
-                            <SelectItem value="local">本地</SelectItem>
-                            <SelectItem value="huggingface">HuggingFace</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </PanelField>
-                    </div>
-                    {form.model_type === "huggingface" ? (
-                      <>
-                        <PanelField label="HuggingFace 模型 ID" required>
-                          <Input
-                            value={form.model_name}
-                            onChange={(e) =>
-                              setForm({ ...form, model_name: e.target.value })
-                            }
-                            placeholder="Qwen/Qwen2.5-0.5B-Instruct"
-                            className="font-mono"
-                            required
-                          />
-                          <p className="text-[11px] text-muted-foreground mt-1">
-                            HuggingFace 模型仓库 ID，将通过 Inference API 调用
-                          </p>
-                        </PanelField>
-                        <PanelField label="HF Token">
-                          <Input
-                            type="password"
-                            value={form.api_key}
-                            onChange={(e) =>
-                              setForm({ ...form, api_key: e.target.value })
-                            }
-                            placeholder="hf_..."
-                          />
-                        </PanelField>
-                      </>
-                    ) : (
-                      <>
-                        <PanelField label="API 协议">
-                          <Select
-                            value={form.api_format}
-                            onValueChange={(v) =>
-                              setForm({ ...form, api_format: v })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="openai">OpenAI</SelectItem>
-                              <SelectItem value="anthropic">Anthropic</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </PanelField>
-                        <PanelField label="模型 ID">
-                          <Input
-                            value={form.model_name}
-                            onChange={(e) =>
-                              setForm({ ...form, model_name: e.target.value })
-                            }
-                            placeholder="gpt-4o-2024-08-06"
-                            className="font-mono"
-                          />
-                        </PanelField>
-                        <PanelField label="端点 URL" required>
-                          <Input
-                            value={form.endpoint_url}
-                            onChange={(e) =>
-                              setForm({ ...form, endpoint_url: e.target.value })
-                            }
-                            placeholder="https://api.openai.com/v1/..."
-                            className="font-mono"
-                            required
-                          />
-                        </PanelField>
-                        <PanelField label="API 密钥">
-                          <Input
-                            type="password"
-                            value={form.api_key}
-                            onChange={(e) =>
-                              setForm({ ...form, api_key: e.target.value })
-                            }
-                            placeholder="sk-..."
-                          />
-                        </PanelField>
-                      </>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
-                      <PanelField label="最大 Token">
-                        <Input
-                          type="number"
-                          value={form.max_tokens}
-                          onChange={(e) =>
-                            setForm({ ...form, max_tokens: e.target.value })
-                          }
-                        />
-                      </PanelField>
-                    </div>
-                    <PanelField label="描述">
-                      <Input
-                        value={form.description}
-                        onChange={(e) =>
-                          setForm({ ...form, description: e.target.value })
-                        }
-                        placeholder="备注（可选）"
-                      />
-                    </PanelField>
-                    <div className="pt-1">
-                      <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={create.isPending}
-                      >
-                        {create.isPending ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Plus className="mr-2 h-4 w-4" />
-                        )}
-                        {create.isPending ? "添加中..." : "添加模型"}
-                      </Button>
-                    </div>
-                  </form>
-                </CardContent>
-              )}
-
-              {/* View mode — inline editable */}
-              {selectedModel && !isCreating && (
+              {selectedModel && (
                 <CardContent className="pt-0 space-y-4">
                   {selectedModel.description && (
                     <p className="text-xs text-muted-foreground">
@@ -988,6 +774,256 @@ export default function ModelsPage() {
           </div>
         )}
       </div>
+
+      {/* Create modal — expands from Add button */}
+      {isCreating && createPos && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/40 z-40 animate-backdrop-in"
+            onClick={closePanel}
+          />
+          <div
+            className="fixed z-50 animate-modal-expand"
+            style={{
+              top: createPos.top,
+              right: createPos.right,
+              transformOrigin: "top right",
+            }}
+          >
+            <Card className="w-96 shadow-xl">
+              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                <h3 className="text-sm font-semibold">添加模型</h3>
+              </div>
+              <CardContent className="pt-0 max-h-[70vh] overflow-auto">
+                <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                  <button
+                    type="button"
+                    className="hover:text-foreground transition-colors"
+                    onClick={importFromClipboard}
+                  >
+                    从剪贴板导入
+                  </button>
+                  <span className="text-border">|</span>
+                  <label className="hover:text-foreground transition-colors cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () =>
+                          importFromJson(reader.result as string);
+                        reader.readAsText(file);
+                        e.target.value = "";
+                      }}
+                    />
+                    从 JSON 导入
+                  </label>
+                  {importError && (
+                    <span className="text-destructive">{importError}</span>
+                  )}
+                </div>
+
+                <form onSubmit={handleCreate} className="space-y-3">
+                  <PanelField label="显示名称" required>
+                    <Input
+                      value={form.name}
+                      onChange={(e) =>
+                        setForm({ ...form, name: e.target.value })
+                      }
+                      placeholder="GPT-4o"
+                      required
+                    />
+                  </PanelField>
+                  <div className="grid grid-cols-2 gap-2">
+                    <PanelField label="提供商" required>
+                      <Input
+                        value={form.provider}
+                        onChange={(e) =>
+                          setForm({ ...form, provider: e.target.value })
+                        }
+                        placeholder="openai"
+                        required
+                      />
+                    </PanelField>
+                    <PanelField label="类型">
+                      <Select
+                        value={form.model_type}
+                        onValueChange={(v) =>
+                          setForm({ ...form, model_type: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="api">API</SelectItem>
+                          <SelectItem value="local">本地</SelectItem>
+                          <SelectItem value="huggingface">HuggingFace</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </PanelField>
+                  </div>
+                  {form.model_type === "huggingface" ? (
+                    <>
+                      <PanelField label="HuggingFace 模型 ID" required>
+                        <Input
+                          value={form.model_name}
+                          onChange={(e) =>
+                            setForm({ ...form, model_name: e.target.value })
+                          }
+                          placeholder="Qwen/Qwen2.5-0.5B-Instruct"
+                          className="font-mono"
+                          required
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          HuggingFace 模型仓库 ID，将通过 Inference API 调用
+                        </p>
+                      </PanelField>
+                      <PanelField label="HF Token">
+                        <Input
+                          type="password"
+                          value={form.api_key}
+                          onChange={(e) =>
+                            setForm({ ...form, api_key: e.target.value })
+                          }
+                          placeholder="hf_..."
+                        />
+                      </PanelField>
+                    </>
+                  ) : (
+                    <>
+                      <PanelField label="API 协议">
+                        <Select
+                          value={form.api_format}
+                          onValueChange={(v) =>
+                            setForm({ ...form, api_format: v })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="openai">OpenAI</SelectItem>
+                            <SelectItem value="anthropic">Anthropic</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </PanelField>
+                      <PanelField label="模型 ID">
+                        <Input
+                          value={form.model_name}
+                          onChange={(e) =>
+                            setForm({ ...form, model_name: e.target.value })
+                          }
+                          placeholder="gpt-4o-2024-08-06"
+                          className="font-mono"
+                        />
+                      </PanelField>
+                      <PanelField label="端点 URL" required>
+                        <Input
+                          value={form.endpoint_url}
+                          onChange={(e) =>
+                            setForm({ ...form, endpoint_url: e.target.value })
+                          }
+                          placeholder="https://api.openai.com/v1/..."
+                          className="font-mono"
+                          required
+                        />
+                      </PanelField>
+                      <PanelField label="API 密钥">
+                        <Input
+                          type="password"
+                          value={form.api_key}
+                          onChange={(e) =>
+                            setForm({ ...form, api_key: e.target.value })
+                          }
+                          placeholder="sk-..."
+                        />
+                      </PanelField>
+                    </>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <PanelField label="最大 Token">
+                      <Input
+                        type="number"
+                        value={form.max_tokens}
+                        onChange={(e) =>
+                          setForm({ ...form, max_tokens: e.target.value })
+                        }
+                      />
+                    </PanelField>
+                  </div>
+                  <PanelField label="描述">
+                    <Input
+                      value={form.description}
+                      onChange={(e) =>
+                        setForm({ ...form, description: e.target.value })
+                      }
+                      placeholder="备注（可选）"
+                    />
+                  </PanelField>
+                  <div className="pt-1">
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={create.isPending}
+                    >
+                      {create.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="mr-2 h-4 w-4" />
+                      )}
+                      {create.isPending ? "添加中..." : "添加模型"}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* Floating selection bar */}
+      {Object.keys(rowSelection).length > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-30 animate-float-up">
+          <div className="flex items-center gap-3 bg-background border rounded-full shadow-lg px-5 py-2.5 text-sm">
+            <span className="text-muted-foreground">
+              已选择{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {Object.keys(rowSelection).length}
+              </span>{" "}
+              项
+            </span>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 rounded-full text-xs"
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteMut.mutateAsync(id); } catch { /* skip */ }
+                }
+                setRowSelection({});
+              }}
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              删除
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-full text-xs"
+              onClick={() => setRowSelection({})}
+            >
+              取消
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       <Dialog

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   useReactTable,
@@ -160,16 +160,22 @@ export default function TasksPage() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ ...emptyForm });
   const [showConfigPreview, setShowConfigPreview] = useState(false);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const [createPos, setCreatePos] = useState<{ top: number; right: number } | null>(null);
 
   const selectedId = panel?.kind === "view" ? panel.id : null;
   const isCreating = panel?.kind === "create";
   const selectedTask = tasks.find((t) => t.id === selectedId);
-  const panelOpen = !!panel;
+  const viewPanelOpen = panel?.kind === "view";
 
   const openCreate = () => {
     setForm({ ...emptyForm, dataset_ids: [], criteria_ids: [] });
     setStep(0);
     setShowConfigPreview(false);
+    if (addBtnRef.current) {
+      const rect = addBtnRef.current.getBoundingClientRect();
+      setCreatePos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
     setPanel({ kind: "create" });
   };
 
@@ -366,8 +372,17 @@ export default function TasksPage() {
             ))}
           </div>
         </div>
-        <Button size="sm" onClick={openCreate} disabled={isCreating}>
-          <Plus className="mr-1 h-4 w-4" /> 新建任务
+        <Button
+          ref={addBtnRef}
+          size="sm"
+          onClick={isCreating ? closePanel : openCreate}
+          variant={isCreating ? "outline" : "default"}
+        >
+          {isCreating ? (
+            <><X className="mr-1 h-4 w-4" /> 取消</>
+          ) : (
+            <><Plus className="mr-1 h-4 w-4" /> 新建任务</>
+          )}
         </Button>
       </div>
 
@@ -415,46 +430,12 @@ export default function TasksPage() {
             </button>
           ))}
         </div>
-        {Object.keys(rowSelection).length > 0 && (
-          <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
-            <span>
-              已选择{" "}
-              <span className="font-semibold text-foreground tabular-nums">
-                {Object.keys(rowSelection).length}
-              </span>{" "}
-              项
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={async () => {
-                const ids = Object.keys(rowSelection).map(
-                  (idx) => filteredData[parseInt(idx)]?.id,
-                ).filter(Boolean);
-                for (const id of ids) {
-                  try { await deleteTask.mutateAsync(id); } catch { /* skip */ }
-                }
-                setRowSelection({});
-              }}
-            >
-              <Trash2 className="mr-1 h-3 w-3" />
-              删除
-            </Button>
-            <button
-              className="text-xs hover:text-foreground transition-colors"
-              onClick={() => setRowSelection({})}
-            >
-              取消
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Main: table + side panel */}
       <div className="flex gap-4 min-h-0">
         {/* Table */}
-        <Card className={panelOpen ? "flex-1 min-w-0" : "w-full"}>
+        <Card className={viewPanelOpen ? "flex-1 min-w-0" : "w-full"}>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="py-12 text-center text-muted-foreground">
@@ -556,14 +537,14 @@ export default function TasksPage() {
           </CardContent>
         </Card>
 
-        {/* Side panel: view OR create */}
-        {panelOpen && (
-          <div className="w-80 shrink-0">
-            <Card className="sticky top-4">
+        {/* Side panel: view only */}
+        {viewPanelOpen && selectedTask && (
+          <div className="w-1/2 shrink-0">
+            <Card className="sticky top-4 max-h-[calc(100vh-6rem)] overflow-auto">
               {/* Panel header */}
               <div className="flex items-center justify-between px-5 pt-5 pb-1">
                 <h3 className="text-sm font-semibold truncate">
-                  {isCreating ? "新建任务" : selectedTask?.name ?? ""}
+                  {selectedTask.name}
                 </h3>
                 <Button
                   variant="ghost"
@@ -575,598 +556,646 @@ export default function TasksPage() {
                 </Button>
               </div>
 
-              {/* Stepper indicator */}
-              {isCreating && (
-                <div className="px-5 pb-3 pt-2">
-                  <div className="flex items-center">
-                    {STEPS.map((s, i) => (
-                      <div key={i} className="flex items-center flex-1 last:flex-none">
-                        <button
-                          type="button"
-                          onClick={() => i < step && setStep(i)}
-                          className={`relative flex items-center justify-center h-7 w-7 rounded-full text-xs font-medium shrink-0 transition-all ${
-                            i < step
-                              ? "bg-primary text-primary-foreground cursor-pointer"
-                              : i === step
-                                ? "bg-primary text-primary-foreground ring-4 ring-primary/15"
-                                : "bg-muted text-muted-foreground"
-                          }`}
-                          title={s.title}
-                        >
-                          {i < step ? (
-                            <Check className="h-3.5 w-3.5" />
-                          ) : (
-                            i + 1
-                          )}
-                        </button>
-                        {i < STEPS.length - 1 && (
-                          <div
-                            className={`flex-1 h-0.5 mx-1.5 rounded-full transition-colors ${
-                              i < step ? "bg-primary" : "bg-border"
-                            }`}
-                          />
-                        )}
+              {/* View mode */}
+              <CardContent className="pt-0 space-y-4">
+                <div className="space-y-2.5">
+                  <DetailRow
+                    label="状态"
+                    value={
+                      <Badge
+                        variant={
+                          statusBadgeVariant[selectedTask.status] ?? "outline"
+                        }
+                        className="text-xs font-normal"
+                      >
+                        {statusLabel[selectedTask.status] ??
+                          selectedTask.status}
+                      </Badge>
+                    }
+                  />
+                  <DetailRow
+                    label="模型"
+                    value={selectedTask.model_name || selectedTask.model_id}
+                  />
+                  <DetailRow
+                    label="数据集"
+                    value={
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        {selectedTask.dataset_ids
+                          .split(",")
+                          .filter(Boolean)
+                          .map((id) => {
+                            const d = datasets.find((ds) => ds.id === id.trim());
+                            return (
+                              <Badge key={id} variant="outline" className="text-[10px]">
+                                {d?.name ?? id.trim().slice(0, 8)}
+                              </Badge>
+                            );
+                          })}
                       </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2 text-center">
-                    {STEPS[step].title}
-                  </p>
-                </div>
-              )}
-
-              {/* Create mode -- wizard */}
-              {isCreating && (
-                <CardContent className="pt-0">
-                  <div className="space-y-3">
-                    {/* Step 0: Select model */}
-                    {step === 0 && (
-                      <PanelField label="选择模型" required>
-                        <Select
-                          value={form.model_id}
-                          onValueChange={(v) =>
-                            setForm({ ...form, model_id: v })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="选择一个模型" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {models.map((m) => (
-                              <SelectItem key={m.id} value={m.id}>
-                                {m.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {models.length === 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            暂无已注册模型，请先在模型页面添加。
-                          </p>
-                        )}
-                      </PanelField>
-                    )}
-
-                    {/* Step 1: Select datasets + criteria */}
-                    {step === 1 && (
+                    }
+                  />
+                  <DetailRow
+                    label="评测标准"
+                    value={
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        {selectedTask.criteria_ids
+                          .split(",")
+                          .filter(Boolean)
+                          .map((id) => {
+                            const c = criteria.find((cr) => cr.id === id.trim());
+                            return (
+                              <Badge key={id} variant="outline" className="text-[10px]">
+                                {c?.name ?? id.trim().slice(0, 8)}
+                              </Badge>
+                            );
+                          })}
+                      </div>
+                    }
+                  />
+                  <DetailRow
+                    label="重复次数"
+                    value={
+                      <span className="font-mono">
+                        {selectedTask.repeat_count}
+                      </span>
+                    }
+                  />
+                  <DetailRow
+                    label="种子策略"
+                    value={
+                      selectedTask.seed_strategy === "fixed" ? "固定" : "随机"
+                    }
+                  />
+                  {(() => {
+                    const params = parseParams(selectedTask.params_json);
+                    return (
                       <>
-                        <PanelField label="选择数据集" required>
-                          <div className="flex flex-wrap gap-1.5">
-                            {datasets.map((d) => (
-                              <button
-                                key={d.id}
-                                type="button"
-                                onClick={() => {
-                                  const ids = form.dataset_ids.includes(d.id)
-                                    ? form.dataset_ids.filter(
-                                        (id) => id !== d.id,
-                                      )
-                                    : [...form.dataset_ids, d.id];
-                                  setForm({ ...form, dataset_ids: ids });
-                                }}
-                                className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                                  form.dataset_ids.includes(d.id)
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "text-muted-foreground hover:bg-muted"
-                                }`}
-                              >
-                                {d.name}
-                              </button>
-                            ))}
-                            {datasets.length === 0 && (
-                              <span className="text-xs text-muted-foreground">
-                                暂无数据集
-                              </span>
-                            )}
-                          </div>
-                        </PanelField>
-                        <PanelField label="选择评测标准" required>
-                          <div className="flex flex-wrap gap-1.5">
-                            {criteria.map((c) => (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => {
-                                  const ids = form.criteria_ids.includes(c.id)
-                                    ? form.criteria_ids.filter(
-                                        (id) => id !== c.id,
-                                      )
-                                    : [...form.criteria_ids, c.id];
-                                  setForm({ ...form, criteria_ids: ids });
-                                }}
-                                className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                                  form.criteria_ids.includes(c.id)
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "text-muted-foreground hover:bg-muted"
-                                }`}
-                              >
-                                {c.name}
-                              </button>
-                            ))}
-                            {criteria.length === 0 && (
-                              <span className="text-xs text-muted-foreground">
-                                暂无评测标准
-                              </span>
-                            )}
-                          </div>
-                        </PanelField>
-                      </>
-                    )}
-
-                    {/* Step 2: Params */}
-                    {step === 2 && (
-                      <>
-                        <PanelField label="任务名称" required>
-                          <Input
-                            value={form.name}
-                            onChange={(e) =>
-                              setForm({ ...form, name: e.target.value })
-                            }
-                            placeholder="评测任务名称"
-                            required
-                          />
-                        </PanelField>
-                        <div className="grid grid-cols-2 gap-2">
-                          <PanelField label="温度">
-                            <Input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              max="2"
-                              value={form.temperature}
-                              onChange={(e) =>
-                                setForm({
-                                  ...form,
-                                  temperature: e.target.value,
-                                })
-                              }
-                            />
-                          </PanelField>
-                          <PanelField label="最大 Token">
-                            <Input
-                              type="number"
-                              value={form.max_tokens}
-                              onChange={(e) =>
-                                setForm({
-                                  ...form,
-                                  max_tokens: e.target.value,
-                                })
-                              }
-                            />
-                          </PanelField>
-                        </div>
-                        <PanelField label="数据量限制">
-                          <Input
-                            type="number"
-                            value={form.limit}
-                            onChange={(e) =>
-                              setForm({ ...form, limit: e.target.value })
-                            }
-                            placeholder="不限制"
-                          />
-                        </PanelField>
-                        <div className="grid grid-cols-2 gap-2">
-                          <PanelField label="重复次数">
-                            <Input
-                              type="number"
-                              min="1"
-                              value={form.repeat_count}
-                              onChange={(e) =>
-                                setForm({
-                                  ...form,
-                                  repeat_count: e.target.value,
-                                })
-                              }
-                            />
-                          </PanelField>
-                          <PanelField label="种子策略">
-                            <Select
-                              value={form.seed_strategy}
-                              onValueChange={(v) =>
-                                setForm({ ...form, seed_strategy: v })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="fixed">固定</SelectItem>
-                                <SelectItem value="random">随机</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </PanelField>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Step 3: Review */}
-                    {step === 3 && (
-                      <>
-                        <div className="space-y-2.5">
-                          <DetailRow label="任务名称" value={form.name} />
-                          <DetailRow label="模型" value={selectedModelName} />
-                          <DetailRow
-                            label="数据集"
-                            value={
-                              <div className="flex flex-wrap gap-1 justify-end">
-                                {form.dataset_ids.map((id) => {
-                                  const d = datasets.find(
-                                    (ds) => ds.id === id,
-                                  );
-                                  return (
-                                    <Badge
-                                      key={id}
-                                      variant="outline"
-                                      className="text-[10px]"
-                                    >
-                                      {d?.name ?? id}
-                                    </Badge>
-                                  );
-                                })}
-                              </div>
-                            }
-                          />
-                          <DetailRow
-                            label="评测标准"
-                            value={
-                              <div className="flex flex-wrap gap-1 justify-end">
-                                {form.criteria_ids.map((id) => {
-                                  const c = criteria.find(
-                                    (cr) => cr.id === id,
-                                  );
-                                  return (
-                                    <Badge
-                                      key={id}
-                                      variant="outline"
-                                      className="text-[10px]"
-                                    >
-                                      {c?.name ?? id}
-                                    </Badge>
-                                  );
-                                })}
-                              </div>
-                            }
-                          />
+                        {params.temperature !== undefined && (
                           <DetailRow
                             label="温度"
-                            value={form.temperature}
-                          />
-                          <DetailRow
-                            label="最大 Token"
-                            value={form.max_tokens}
-                          />
-                          {form.limit && (
-                            <DetailRow label="数据量限制" value={form.limit} />
-                          )}
-                          <DetailRow
-                            label="重复次数"
-                            value={form.repeat_count}
-                          />
-                          <DetailRow
-                            label="种子策略"
                             value={
-                              form.seed_strategy === "fixed" ? "固定" : "随机"
+                              <span className="font-mono">
+                                {params.temperature}
+                              </span>
                             }
                           />
-                        </div>
-
-                        {/* Config JSON preview toggle */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setShowConfigPreview(!showConfigPreview)
-                          }
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <Code2 className="h-3 w-3" />
-                          {showConfigPreview ? "隐藏" : "查看"} JSON 配置
-                        </button>
-                        {showConfigPreview && (
-                          <pre className="text-[11px] bg-muted rounded-md p-3 overflow-auto max-h-40 font-mono">
-                            {JSON.stringify(
-                              {
-                                name: form.name,
-                                model_id: form.model_id,
-                                dataset_ids: form.dataset_ids,
-                                criteria_ids: form.criteria_ids,
-                                params_json: {
-                                  temperature: parseFloat(form.temperature),
-                                  max_tokens: parseInt(form.max_tokens),
-                                  ...(form.limit
-                                    ? { limit: parseInt(form.limit) }
-                                    : {}),
-                                },
-                                repeat_count: parseInt(form.repeat_count),
-                                seed_strategy: form.seed_strategy,
-                              },
-                              null,
-                              2,
-                            )}
-                          </pre>
+                        )}
+                        {params.max_tokens !== undefined && (
+                          <DetailRow
+                            label="最大 Token"
+                            value={
+                              <span className="font-mono">
+                                {params.max_tokens.toLocaleString()}
+                              </span>
+                            }
+                          />
                         )}
                       </>
-                    )}
+                    );
+                  })()}
+                  <DetailRow
+                    label="创建时间"
+                    value={utc(selectedTask.created_at)?.toLocaleString() ?? "\u2014"}
+                  />
+                  <DetailRow
+                    label="开始时间"
+                    value={utc(selectedTask.started_at)?.toLocaleString() ?? "\u2014"}
+                  />
+                  <DetailRow
+                    label="结束时间"
+                    value={utc(selectedTask.finished_at)?.toLocaleString() ?? "\u2014"}
+                  />
+                  <DetailRow
+                    label="耗时"
+                    value={
+                      <span className="font-mono">
+                        {formatDuration(
+                          selectedTask.started_at,
+                          selectedTask.finished_at,
+                        )}
+                      </span>
+                    }
+                  />
+                </div>
 
-                    {/* Navigation */}
-                    <div className="flex gap-2 pt-1">
-                      {step > 0 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => setStep(step - 1)}
-                        >
-                          <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-                          上一步
-                        </Button>
-                      )}
-                      {step < STEPS.length - 1 ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="flex-1"
-                          disabled={!canNext()}
-                          onClick={() => setStep(step + 1)}
-                        >
-                          下一步
-                          <ChevronRight className="ml-1 h-3.5 w-3.5" />
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="flex-1"
-                          disabled={createTask.isPending}
-                          onClick={handleSubmit}
-                        >
-                          {createTask.isPending ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Plus className="mr-2 h-4 w-4" />
-                          )}
-                          {createTask.isPending ? "提交中..." : "提交任务"}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              )}
-
-              {/* View mode */}
-              {selectedTask && !isCreating && (
-                <CardContent className="pt-0 space-y-4">
-                  <div className="space-y-2.5">
-                    <DetailRow
-                      label="状态"
-                      value={
-                        <Badge
-                          variant={
-                            statusBadgeVariant[selectedTask.status] ?? "outline"
-                          }
-                          className="text-xs font-normal"
-                        >
-                          {statusLabel[selectedTask.status] ??
-                            selectedTask.status}
-                        </Badge>
-                      }
-                    />
-                    <DetailRow
-                      label="模型"
-                      value={selectedTask.model_name || selectedTask.model_id}
-                    />
-                    <DetailRow
-                      label="数据集"
-                      value={
-                        <div className="flex flex-wrap gap-1 justify-end">
-                          {selectedTask.dataset_ids
-                            .split(",")
-                            .filter(Boolean)
-                            .map((id) => {
-                              const d = datasets.find((ds) => ds.id === id.trim());
-                              return (
-                                <Badge key={id} variant="outline" className="text-[10px]">
-                                  {d?.name ?? id.trim().slice(0, 8)}
-                                </Badge>
-                              );
-                            })}
-                        </div>
-                      }
-                    />
-                    <DetailRow
-                      label="评测标准"
-                      value={
-                        <div className="flex flex-wrap gap-1 justify-end">
-                          {selectedTask.criteria_ids
-                            .split(",")
-                            .filter(Boolean)
-                            .map((id) => {
-                              const c = criteria.find((cr) => cr.id === id.trim());
-                              return (
-                                <Badge key={id} variant="outline" className="text-[10px]">
-                                  {c?.name ?? id.trim().slice(0, 8)}
-                                </Badge>
-                              );
-                            })}
-                        </div>
-                      }
-                    />
-                    <DetailRow
-                      label="重复次数"
-                      value={
-                        <span className="font-mono">
-                          {selectedTask.repeat_count}
-                        </span>
-                      }
-                    />
-                    <DetailRow
-                      label="种子策略"
-                      value={
-                        selectedTask.seed_strategy === "fixed" ? "固定" : "随机"
-                      }
-                    />
-                    {(() => {
-                      const params = parseParams(selectedTask.params_json);
-                      return (
-                        <>
-                          {params.temperature !== undefined && (
-                            <DetailRow
-                              label="温度"
-                              value={
-                                <span className="font-mono">
-                                  {params.temperature}
-                                </span>
-                              }
-                            />
-                          )}
-                          {params.max_tokens !== undefined && (
-                            <DetailRow
-                              label="最大 Token"
-                              value={
-                                <span className="font-mono">
-                                  {params.max_tokens.toLocaleString()}
-                                </span>
-                              }
-                            />
-                          )}
-                        </>
-                      );
-                    })()}
-                    <DetailRow
-                      label="创建时间"
-                      value={utc(selectedTask.created_at)?.toLocaleString() ?? "\u2014"}
-                    />
-                    <DetailRow
-                      label="开始时间"
-                      value={utc(selectedTask.started_at)?.toLocaleString() ?? "\u2014"}
-                    />
-                    <DetailRow
-                      label="结束时间"
-                      value={utc(selectedTask.finished_at)?.toLocaleString() ?? "\u2014"}
-                    />
-                    <DetailRow
-                      label="耗时"
-                      value={
-                        <span className="font-mono">
-                          {formatDuration(
-                            selectedTask.started_at,
-                            selectedTask.finished_at,
-                          )}
-                        </span>
-                      }
-                    />
-                  </div>
-
-                  {/* Action buttons */}
-                  {(selectedTask.status === "running" ||
-                    selectedTask.status === "paused" ||
-                    selectedTask.status === "failed" ||
-                    selectedTask.status === "pending") && (
-                    <div className="flex gap-2">
-                      {selectedTask.status === "running" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => pauseTask.mutate(selectedTask.id)}
-                          disabled={pauseTask.isPending}
-                        >
-                          {pauseTask.isPending ? (
-                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Pause className="mr-1.5 h-3.5 w-3.5" />
-                          )}
-                          暂停
-                        </Button>
-                      )}
-                      {(selectedTask.status === "paused" ||
-                        selectedTask.status === "failed") && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={() => resumeTask.mutate(selectedTask.id)}
-                          disabled={resumeTask.isPending}
-                        >
-                          {resumeTask.isPending ? (
-                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Play className="mr-1.5 h-3.5 w-3.5" />
-                          )}
-                          恢复
-                        </Button>
-                      )}
-                      {(selectedTask.status === "running" ||
-                        selectedTask.status === "pending") && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/5"
-                          onClick={() => cancelTask.mutate(selectedTask.id)}
-                          disabled={cancelTask.isPending}
-                        >
-                          {cancelTask.isPending ? (
-                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Ban className="mr-1.5 h-3.5 w-3.5" />
-                          )}
-                          取消
-                        </Button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* View detail + delete */}
+                {/* Action buttons */}
+                {(selectedTask.status === "running" ||
+                  selectedTask.status === "paused" ||
+                  selectedTask.status === "failed" ||
+                  selectedTask.status === "pending") && (
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => router.push(`/tasks/${selectedTask.id}`)}
-                    >
-                      <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                      查看详情
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/5"
-                      onClick={() =>
-                        setDeleteTarget({
-                          id: selectedTask.id,
-                          name: selectedTask.name,
-                        })
-                      }
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    {selectedTask.status === "running" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => pauseTask.mutate(selectedTask.id)}
+                        disabled={pauseTask.isPending}
+                      >
+                        {pauseTask.isPending ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Pause className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        暂停
+                      </Button>
+                    )}
+                    {(selectedTask.status === "paused" ||
+                      selectedTask.status === "failed") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => resumeTask.mutate(selectedTask.id)}
+                        disabled={resumeTask.isPending}
+                      >
+                        {resumeTask.isPending ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Play className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        恢复
+                      </Button>
+                    )}
+                    {(selectedTask.status === "running" ||
+                      selectedTask.status === "pending") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/5"
+                        onClick={() => cancelTask.mutate(selectedTask.id)}
+                        disabled={cancelTask.isPending}
+                      >
+                        {cancelTask.isPending ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Ban className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        取消
+                      </Button>
+                    )}
                   </div>
-                </CardContent>
-              )}
+                )}
+
+                {/* View detail + delete */}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => router.push(`/tasks/${selectedTask.id}`)}
+                  >
+                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                    查看详情
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/5"
+                    onClick={() =>
+                      setDeleteTarget({
+                        id: selectedTask.id,
+                        name: selectedTask.name,
+                      })
+                    }
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </CardContent>
             </Card>
           </div>
         )}
       </div>
+
+      {/* Create modal */}
+      {isCreating && createPos && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40 animate-backdrop-in" onClick={closePanel} />
+          <div
+            className="fixed z-50 animate-modal-expand"
+            style={{ top: createPos.top, right: createPos.right, transformOrigin: "top right" }}
+          >
+            <Card className="w-96 shadow-xl">
+              <div className="flex items-center justify-between px-5 pt-5 pb-1">
+                <h3 className="text-sm font-semibold">新建任务</h3>
+              </div>
+              {/* Stepper indicator */}
+              <div className="px-5 pb-3 pt-2">
+                <div className="flex items-center">
+                  {STEPS.map((s, i) => (
+                    <div key={i} className="flex items-center flex-1 last:flex-none">
+                      <button
+                        type="button"
+                        onClick={() => i < step && setStep(i)}
+                        className={`relative flex items-center justify-center h-7 w-7 rounded-full text-xs font-medium shrink-0 transition-all ${
+                          i < step
+                            ? "bg-primary text-primary-foreground cursor-pointer"
+                            : i === step
+                              ? "bg-primary text-primary-foreground ring-4 ring-primary/15"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                        title={s.title}
+                      >
+                        {i < step ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : (
+                          i + 1
+                        )}
+                      </button>
+                      {i < STEPS.length - 1 && (
+                        <div
+                          className={`flex-1 h-0.5 mx-1.5 rounded-full transition-colors ${
+                            i < step ? "bg-primary" : "bg-border"
+                          }`}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  {STEPS[step].title}
+                </p>
+              </div>
+              <CardContent className="pt-0 max-h-[60vh] overflow-auto">
+                <div className="space-y-3">
+                  {/* Step 0: Select model */}
+                  {step === 0 && (
+                    <PanelField label="选择模型" required>
+                      <Select
+                        value={form.model_id}
+                        onValueChange={(v) =>
+                          setForm({ ...form, model_id: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="选择一个模型" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {models.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {models.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          暂无已注册模型，请先在模型页面添加。
+                        </p>
+                      )}
+                    </PanelField>
+                  )}
+
+                  {/* Step 1: Select datasets + criteria */}
+                  {step === 1 && (
+                    <>
+                      <PanelField label="选择数据集" required>
+                        <div className="flex flex-wrap gap-1.5">
+                          {datasets.map((d) => (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => {
+                                const ids = form.dataset_ids.includes(d.id)
+                                  ? form.dataset_ids.filter(
+                                      (id) => id !== d.id,
+                                    )
+                                  : [...form.dataset_ids, d.id];
+                                setForm({ ...form, dataset_ids: ids });
+                              }}
+                              className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                                form.dataset_ids.includes(d.id)
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "text-muted-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {d.name}
+                            </button>
+                          ))}
+                          {datasets.length === 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              暂无数据集
+                            </span>
+                          )}
+                        </div>
+                      </PanelField>
+                      <PanelField label="选择评测标准" required>
+                        <div className="flex flex-wrap gap-1.5">
+                          {criteria.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                const ids = form.criteria_ids.includes(c.id)
+                                  ? form.criteria_ids.filter(
+                                      (id) => id !== c.id,
+                                    )
+                                  : [...form.criteria_ids, c.id];
+                                setForm({ ...form, criteria_ids: ids });
+                              }}
+                              className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                                form.criteria_ids.includes(c.id)
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "text-muted-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {c.name}
+                            </button>
+                          ))}
+                          {criteria.length === 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              暂无评测标准
+                            </span>
+                          )}
+                        </div>
+                      </PanelField>
+                    </>
+                  )}
+
+                  {/* Step 2: Params */}
+                  {step === 2 && (
+                    <>
+                      <PanelField label="任务名称" required>
+                        <Input
+                          value={form.name}
+                          onChange={(e) =>
+                            setForm({ ...form, name: e.target.value })
+                          }
+                          placeholder="评测任务名称"
+                          required
+                        />
+                      </PanelField>
+                      <div className="grid grid-cols-2 gap-2">
+                        <PanelField label="温度">
+                          <Input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="2"
+                            value={form.temperature}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                temperature: e.target.value,
+                              })
+                            }
+                          />
+                        </PanelField>
+                        <PanelField label="最大 Token">
+                          <Input
+                            type="number"
+                            value={form.max_tokens}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                max_tokens: e.target.value,
+                              })
+                            }
+                          />
+                        </PanelField>
+                      </div>
+                      <PanelField label="数据量限制">
+                        <Input
+                          type="number"
+                          value={form.limit}
+                          onChange={(e) =>
+                            setForm({ ...form, limit: e.target.value })
+                          }
+                          placeholder="不限制"
+                        />
+                      </PanelField>
+                      <div className="grid grid-cols-2 gap-2">
+                        <PanelField label="重复次数">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={form.repeat_count}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                repeat_count: e.target.value,
+                              })
+                            }
+                          />
+                        </PanelField>
+                        <PanelField label="种子策略">
+                          <Select
+                            value={form.seed_strategy}
+                            onValueChange={(v) =>
+                              setForm({ ...form, seed_strategy: v })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fixed">固定</SelectItem>
+                              <SelectItem value="random">随机</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </PanelField>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Step 3: Review */}
+                  {step === 3 && (
+                    <>
+                      <div className="space-y-2.5">
+                        <DetailRow label="任务名称" value={form.name} />
+                        <DetailRow label="模型" value={selectedModelName} />
+                        <DetailRow
+                          label="数据集"
+                          value={
+                            <div className="flex flex-wrap gap-1 justify-end">
+                              {form.dataset_ids.map((id) => {
+                                const d = datasets.find(
+                                  (ds) => ds.id === id,
+                                );
+                                return (
+                                  <Badge
+                                    key={id}
+                                    variant="outline"
+                                    className="text-[10px]"
+                                  >
+                                    {d?.name ?? id}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          }
+                        />
+                        <DetailRow
+                          label="评测标准"
+                          value={
+                            <div className="flex flex-wrap gap-1 justify-end">
+                              {form.criteria_ids.map((id) => {
+                                const c = criteria.find(
+                                  (cr) => cr.id === id,
+                                );
+                                return (
+                                  <Badge
+                                    key={id}
+                                    variant="outline"
+                                    className="text-[10px]"
+                                  >
+                                    {c?.name ?? id}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          }
+                        />
+                        <DetailRow
+                          label="温度"
+                          value={form.temperature}
+                        />
+                        <DetailRow
+                          label="最大 Token"
+                          value={form.max_tokens}
+                        />
+                        {form.limit && (
+                          <DetailRow label="数据量限制" value={form.limit} />
+                        )}
+                        <DetailRow
+                          label="重复次数"
+                          value={form.repeat_count}
+                        />
+                        <DetailRow
+                          label="种子策略"
+                          value={
+                            form.seed_strategy === "fixed" ? "固定" : "随机"
+                          }
+                        />
+                      </div>
+
+                      {/* Config JSON preview toggle */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowConfigPreview(!showConfigPreview)
+                        }
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Code2 className="h-3 w-3" />
+                        {showConfigPreview ? "隐藏" : "查看"} JSON 配置
+                      </button>
+                      {showConfigPreview && (
+                        <pre className="text-[11px] bg-muted rounded-md p-3 overflow-auto max-h-40 font-mono">
+                          {JSON.stringify(
+                            {
+                              name: form.name,
+                              model_id: form.model_id,
+                              dataset_ids: form.dataset_ids,
+                              criteria_ids: form.criteria_ids,
+                              params_json: {
+                                temperature: parseFloat(form.temperature),
+                                max_tokens: parseInt(form.max_tokens),
+                                ...(form.limit
+                                  ? { limit: parseInt(form.limit) }
+                                  : {}),
+                              },
+                              repeat_count: parseInt(form.repeat_count),
+                              seed_strategy: form.seed_strategy,
+                            },
+                            null,
+                            2,
+                          )}
+                        </pre>
+                      )}
+                    </>
+                  )}
+
+                  {/* Navigation */}
+                  <div className="flex gap-2 pt-1">
+                    {step > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setStep(step - 1)}
+                      >
+                        <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                        上一步
+                      </Button>
+                    )}
+                    {step < STEPS.length - 1 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="flex-1"
+                        disabled={!canNext()}
+                        onClick={() => setStep(step + 1)}
+                      >
+                        下一步
+                        <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="flex-1"
+                        disabled={createTask.isPending}
+                        onClick={handleSubmit}
+                      >
+                        {createTask.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Plus className="mr-2 h-4 w-4" />
+                        )}
+                        {createTask.isPending ? "提交中..." : "提交任务"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* Floating selection bar */}
+      {Object.keys(rowSelection).length > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-30 animate-float-up">
+          <div className="flex items-center gap-3 bg-background border rounded-full shadow-lg px-5 py-2.5 text-sm">
+            <span className="text-muted-foreground">
+              已选择{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {Object.keys(rowSelection).length}
+              </span>{" "}
+              项
+            </span>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 rounded-full text-xs"
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteTask.mutateAsync(id); } catch { /* skip */ }
+                }
+                setRowSelection({});
+              }}
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              删除
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-full text-xs"
+              onClick={() => setRowSelection({})}
+            >
+              取消
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       <Dialog open={!!deleteTarget} onOpenChange={() => { setDeleteTarget(null); setDeleteError(""); }}>

@@ -112,17 +112,23 @@ export default function DatasetsPage() {
   const [uploadForm, setUploadForm] = useState({ ...emptyUploadForm });
   const [mountForm, setMountForm] = useState({ ...emptyMountForm });
   const fileRef = useRef<HTMLInputElement>(null);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const [createPos, setCreatePos] = useState<{ top: number; right: number } | null>(null);
 
   const preview = useDatasetPreview(previewId ?? "", !!previewId);
 
   const selectedId = panel?.kind === "view" ? panel.id : null;
   const isCreating = panel?.kind === "create";
   const selectedDataset = datasets.find((d) => d.id === selectedId);
-  const panelOpen = !!panel;
+  const viewPanelOpen = panel?.kind === "view";
 
   const openCreate = () => {
     setUploadForm({ ...emptyUploadForm });
     setMountForm({ ...emptyMountForm });
+    if (addBtnRef.current) {
+      const rect = addBtnRef.current.getBoundingClientRect();
+      setCreatePos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+    }
     setPanel({ kind: "create" });
   };
 
@@ -376,8 +382,17 @@ export default function DatasetsPage() {
             ))}
           </div>
         </div>
-        <Button size="sm" onClick={openCreate} disabled={isCreating}>
-          <Plus className="mr-1 h-4 w-4" /> 添加数据集
+        <Button
+          ref={addBtnRef}
+          size="sm"
+          onClick={isCreating ? closePanel : openCreate}
+          variant={isCreating ? "outline" : "default"}
+        >
+          {isCreating ? (
+            <><X className="mr-1 h-4 w-4" /> 取消</>
+          ) : (
+            <><Plus className="mr-1 h-4 w-4" /> 添加数据集</>
+          )}
         </Button>
       </div>
 
@@ -423,46 +438,12 @@ export default function DatasetsPage() {
             </button>
           ))}
         </div>
-        {Object.keys(rowSelection).length > 0 && (
-          <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
-            <span>
-              已选择{" "}
-              <span className="font-semibold text-foreground tabular-nums">
-                {Object.keys(rowSelection).length}
-              </span>{" "}
-              项
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={async () => {
-                const ids = Object.keys(rowSelection).map(
-                  (idx) => filteredData[parseInt(idx)]?.id,
-                ).filter(Boolean);
-                for (const id of ids) {
-                  try { await deleteMut.mutateAsync(id); } catch { /* skip */ }
-                }
-                setRowSelection({});
-              }}
-            >
-              <Trash2 className="mr-1 h-3 w-3" />
-              删除
-            </Button>
-            <button
-              className="text-xs hover:text-foreground transition-colors"
-              onClick={() => setRowSelection({})}
-            >
-              取消
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Main: table + side panel */}
       <div className="flex gap-4 min-h-0">
         {/* Table */}
-        <Card className={panelOpen ? "flex-1 min-w-0" : "w-full"}>
+        <Card className={viewPanelOpen ? "flex-1 min-w-0" : "w-full"}>
           <CardContent className="p-0">
             {isLoading ? (
               <div className="py-12 text-center text-muted-foreground">
@@ -601,14 +582,14 @@ export default function DatasetsPage() {
           </CardContent>
         </Card>
 
-        {/* Side panel: view OR create */}
-        {panelOpen && (
-          <div className="w-80 shrink-0">
-            <Card className="sticky top-4">
+        {/* Side panel: view only */}
+        {viewPanelOpen && selectedDataset && (
+          <div className="w-1/2 shrink-0">
+            <Card className="sticky top-4 max-h-[calc(100vh-6rem)] overflow-auto">
               {/* Panel header */}
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <h3 className="text-sm font-semibold truncate">
-                  {isCreating ? "添加数据集" : (selectedDataset?.name ?? "")}
+                  {selectedDataset.name}
                 </h3>
                 <Button
                   variant="ghost"
@@ -620,325 +601,335 @@ export default function DatasetsPage() {
                 </Button>
               </div>
 
-              {/* Create mode */}
-              {isCreating && (
-                <CardContent className="pt-0">
-                  <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
-                    <button
-                      type="button"
-                      className="hover:text-foreground transition-colors"
-                      onClick={async () => {
-                        try {
-                          const text = await navigator.clipboard.readText();
-                          importDatasetJson(text);
-                        } catch {
-                          setImportError("无法读取剪贴板");
-                          setTimeout(() => setImportError(""), 3000);
-                        }
+              <CardContent className="pt-0 space-y-4">
+                <div className="space-y-2.5">
+                  <DetailRow label="名称" value={selectedDataset.name} />
+                  {selectedDataset.description && (
+                    <DetailRow
+                      label="描述"
+                      value={
+                        <span className="text-xs">
+                          {selectedDataset.description}
+                        </span>
+                      }
+                    />
+                  )}
+                  <DetailRow
+                    label="来源类型"
+                    value={
+                      <Badge
+                        variant="outline"
+                        className="text-xs font-normal"
+                      >
+                        {sourceTypeLabel[selectedDataset.source_type] ??
+                          selectedDataset.source_type}
+                      </Badge>
+                    }
+                  />
+                  {selectedDataset.source_uri && (
+                    <DetailRow
+                      label="来源路径"
+                      value={
+                        <CopyableCode
+                          text={selectedDataset.source_uri}
+                          field="source_uri"
+                          copiedField={copiedField}
+                          onCopy={copyToClipboard}
+                          small
+                        />
+                      }
+                    />
+                  )}
+                  <DetailRow label="格式" value={selectedDataset.format} />
+                  <DetailRow
+                    label="行数"
+                    value={
+                      <span className="font-mono">
+                        {selectedDataset.row_count.toLocaleString()}
+                      </span>
+                    }
+                  />
+                  <DetailRow
+                    label="大小"
+                    value={
+                      <span className="font-mono">
+                        {formatBytes(selectedDataset.size_bytes)}
+                      </span>
+                    }
+                  />
+                  <DetailRow
+                    label="版本"
+                    value={`v${selectedDataset.version}`}
+                  />
+                  {selectedDataset.tags && (
+                    <DetailRow
+                      label="标签"
+                      value={
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {selectedDataset.tags.split(",").map((t) => (
+                            <Badge
+                              key={t.trim()}
+                              variant="secondary"
+                              className="text-xs font-normal"
+                            >
+                              {t.trim()}
+                            </Badge>
+                          ))}
+                        </div>
+                      }
+                    />
+                  )}
+                  <DetailRow
+                    label="创建时间"
+                    value={utc(selectedDataset.created_at)?.toLocaleString()}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setPreviewId(selectedDataset.id)}
+                  >
+                    <Eye className="mr-1.5 h-3.5 w-3.5" />
+                    预览
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/5"
+                    onClick={() =>
+                      setDeleteTarget({
+                        id: selectedDataset.id,
+                        name: selectedDataset.name,
+                      })
+                    }
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
+
+      {/* Create modal */}
+      {isCreating && createPos && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-40 animate-backdrop-in" onClick={closePanel} />
+          <div
+            className="fixed z-50 animate-modal-expand"
+            style={{ top: createPos.top, right: createPos.right, transformOrigin: "top right" }}
+          >
+            <Card className="w-96 shadow-xl">
+              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                <h3 className="text-sm font-semibold">添加数据集</h3>
+              </div>
+              <CardContent className="pt-0 max-h-[70vh] overflow-auto">
+                <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                  <button
+                    type="button"
+                    className="hover:text-foreground transition-colors"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        importDatasetJson(text);
+                      } catch {
+                        setImportError("无法读取剪贴板");
+                        setTimeout(() => setImportError(""), 3000);
+                      }
+                    }}
+                  >
+                    从剪贴板导入
+                  </button>
+                  <span className="text-border">|</span>
+                  <label className="hover:text-foreground transition-colors cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () =>
+                          importDatasetJson(reader.result as string);
+                        reader.readAsText(file);
+                        e.target.value = "";
                       }}
-                    >
-                      从剪贴板导入
-                    </button>
-                    <span className="text-border">|</span>
-                    <label className="hover:text-foreground transition-colors cursor-pointer">
-                      <input
-                        type="file"
-                        accept=".json"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = () =>
-                            importDatasetJson(reader.result as string);
-                          reader.readAsText(file);
-                          e.target.value = "";
-                        }}
-                      />
-                      从 JSON 导入
-                    </label>
-                    {importError && (
-                      <span className="text-destructive">{importError}</span>
-                    )}
-                  </div>
+                    />
+                    从 JSON 导入
+                  </label>
+                  {importError && (
+                    <span className="text-destructive">{importError}</span>
+                  )}
+                </div>
 
-                  <Tabs defaultValue="upload">
-                    <TabsList className="w-full">
-                      <TabsTrigger value="upload" className="flex-1">
-                        <Upload className="mr-1 h-3.5 w-3.5" /> 上传文件
-                      </TabsTrigger>
-                      <TabsTrigger value="mount" className="flex-1">
-                        <FolderOpen className="mr-1 h-3.5 w-3.5" /> 服务器路径
-                      </TabsTrigger>
-                    </TabsList>
+                <Tabs defaultValue="upload">
+                  <TabsList className="w-full">
+                    <TabsTrigger value="upload" className="flex-1">
+                      <Upload className="mr-1 h-3.5 w-3.5" /> 上传文件
+                    </TabsTrigger>
+                    <TabsTrigger value="mount" className="flex-1">
+                      <FolderOpen className="mr-1 h-3.5 w-3.5" /> 服务器路径
+                    </TabsTrigger>
+                  </TabsList>
 
-                    <TabsContent value="upload">
-                      <form onSubmit={handleUpload} className="space-y-3">
-                        <PanelField label="文件 (JSONL / CSV / JSON)" required>
+                  <TabsContent value="upload">
+                    <form onSubmit={handleUpload} className="space-y-3">
+                      <PanelField label="文件 (JSONL / CSV / JSON)" required>
+                        <Input
+                          ref={fileRef}
+                          type="file"
+                          accept=".jsonl,.csv,.json"
+                          required
+                        />
+                      </PanelField>
+                      <PanelField label="名称">
+                        <Input
+                          value={uploadForm.name}
+                          onChange={(e) =>
+                            setUploadForm({
+                              ...uploadForm,
+                              name: e.target.value,
+                            })
+                          }
+                          placeholder="默认使用文件名"
+                        />
+                      </PanelField>
+                      <PanelField label="标签">
+                        <Input
+                          value={uploadForm.tags}
+                          onChange={(e) =>
+                            setUploadForm({
+                              ...uploadForm,
+                              tags: e.target.value,
+                            })
+                          }
+                          placeholder="math,reasoning"
+                        />
+                      </PanelField>
+                      <PanelField label="描述">
+                        <Input
+                          value={uploadForm.description}
+                          onChange={(e) =>
+                            setUploadForm({
+                              ...uploadForm,
+                              description: e.target.value,
+                            })
+                          }
+                          placeholder="备注（可选）"
+                        />
+                      </PanelField>
+                      <div className="pt-1">
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={upload.isPending}
+                        >
+                          {upload.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Upload className="mr-2 h-4 w-4" />
+                          )}
+                          {upload.isPending ? "上传中..." : "上传"}
+                        </Button>
+                      </div>
+                    </form>
+                  </TabsContent>
+
+                  <TabsContent value="mount">
+                    <form onSubmit={handleMount} className="space-y-3">
+                      <PanelField label="服务器路径" required>
+                        <Input
+                          value={mountForm.server_path}
+                          onChange={(e) =>
+                            setMountForm({
+                              ...mountForm,
+                              server_path: e.target.value,
+                            })
+                          }
+                          placeholder="/data/datasets/eval.jsonl"
+                          className="font-mono"
+                          required
+                        />
+                      </PanelField>
+                      <PanelField label="名称" required>
+                        <Input
+                          value={mountForm.name}
+                          onChange={(e) =>
+                            setMountForm({
+                              ...mountForm,
+                              name: e.target.value,
+                            })
+                          }
+                          placeholder="数据集名称"
+                          required
+                        />
+                      </PanelField>
+                      <div className="grid grid-cols-2 gap-2">
+                        <PanelField label="格式">
                           <Input
-                            ref={fileRef}
-                            type="file"
-                            accept=".jsonl,.csv,.json"
-                            required
-                          />
-                        </PanelField>
-                        <PanelField label="名称">
-                          <Input
-                            value={uploadForm.name}
+                            value={mountForm.format}
                             onChange={(e) =>
-                              setUploadForm({
-                                ...uploadForm,
-                                name: e.target.value,
+                              setMountForm({
+                                ...mountForm,
+                                format: e.target.value,
                               })
                             }
-                            placeholder="默认使用文件名"
+                            placeholder="jsonl"
                           />
                         </PanelField>
                         <PanelField label="标签">
                           <Input
-                            value={uploadForm.tags}
+                            value={mountForm.tags}
                             onChange={(e) =>
-                              setUploadForm({
-                                ...uploadForm,
+                              setMountForm({
+                                ...mountForm,
                                 tags: e.target.value,
                               })
                             }
                             placeholder="math,reasoning"
                           />
                         </PanelField>
-                        <PanelField label="描述">
-                          <Input
-                            value={uploadForm.description}
-                            onChange={(e) =>
-                              setUploadForm({
-                                ...uploadForm,
-                                description: e.target.value,
-                              })
-                            }
-                            placeholder="备注（可选）"
-                          />
-                        </PanelField>
-                        <div className="pt-1">
-                          <Button
-                            type="submit"
-                            className="w-full"
-                            disabled={upload.isPending}
-                          >
-                            {upload.isPending ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Upload className="mr-2 h-4 w-4" />
-                            )}
-                            {upload.isPending ? "上传中..." : "上传"}
-                          </Button>
-                        </div>
-                      </form>
-                    </TabsContent>
-
-                    <TabsContent value="mount">
-                      <form onSubmit={handleMount} className="space-y-3">
-                        <PanelField label="服务器路径" required>
-                          <Input
-                            value={mountForm.server_path}
-                            onChange={(e) =>
-                              setMountForm({
-                                ...mountForm,
-                                server_path: e.target.value,
-                              })
-                            }
-                            placeholder="/data/datasets/eval.jsonl"
-                            className="font-mono"
-                            required
-                          />
-                        </PanelField>
-                        <PanelField label="名称" required>
-                          <Input
-                            value={mountForm.name}
-                            onChange={(e) =>
-                              setMountForm({
-                                ...mountForm,
-                                name: e.target.value,
-                              })
-                            }
-                            placeholder="数据集名称"
-                            required
-                          />
-                        </PanelField>
-                        <div className="grid grid-cols-2 gap-2">
-                          <PanelField label="格式">
-                            <Input
-                              value={mountForm.format}
-                              onChange={(e) =>
-                                setMountForm({
-                                  ...mountForm,
-                                  format: e.target.value,
-                                })
-                              }
-                              placeholder="jsonl"
-                            />
-                          </PanelField>
-                          <PanelField label="标签">
-                            <Input
-                              value={mountForm.tags}
-                              onChange={(e) =>
-                                setMountForm({
-                                  ...mountForm,
-                                  tags: e.target.value,
-                                })
-                              }
-                              placeholder="math,reasoning"
-                            />
-                          </PanelField>
-                        </div>
-                        <PanelField label="描述">
-                          <Input
-                            value={mountForm.description}
-                            onChange={(e) =>
-                              setMountForm({
-                                ...mountForm,
-                                description: e.target.value,
-                              })
-                            }
-                            placeholder="备注（可选）"
-                          />
-                        </PanelField>
-                        <div className="pt-1">
-                          <Button
-                            type="submit"
-                            className="w-full"
-                            disabled={mount.isPending}
-                          >
-                            {mount.isPending ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <FolderOpen className="mr-2 h-4 w-4" />
-                            )}
-                            {mount.isPending ? "挂载中..." : "挂载路径"}
-                          </Button>
-                        </div>
-                      </form>
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              )}
-
-              {/* View mode */}
-              {selectedDataset && !isCreating && (
-                <CardContent className="pt-0 space-y-4">
-                  <div className="space-y-2.5">
-                    <DetailRow label="名称" value={selectedDataset.name} />
-                    {selectedDataset.description && (
-                      <DetailRow
-                        label="描述"
-                        value={
-                          <span className="text-xs">
-                            {selectedDataset.description}
-                          </span>
-                        }
-                      />
-                    )}
-                    <DetailRow
-                      label="来源类型"
-                      value={
-                        <Badge
-                          variant="outline"
-                          className="text-xs font-normal"
+                      </div>
+                      <PanelField label="描述">
+                        <Input
+                          value={mountForm.description}
+                          onChange={(e) =>
+                            setMountForm({
+                              ...mountForm,
+                              description: e.target.value,
+                            })
+                          }
+                          placeholder="备注（可选）"
+                        />
+                      </PanelField>
+                      <div className="pt-1">
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={mount.isPending}
                         >
-                          {sourceTypeLabel[selectedDataset.source_type] ??
-                            selectedDataset.source_type}
-                        </Badge>
-                      }
-                    />
-                    {selectedDataset.source_uri && (
-                      <DetailRow
-                        label="来源路径"
-                        value={
-                          <CopyableCode
-                            text={selectedDataset.source_uri}
-                            field="source_uri"
-                            copiedField={copiedField}
-                            onCopy={copyToClipboard}
-                            small
-                          />
-                        }
-                      />
-                    )}
-                    <DetailRow label="格式" value={selectedDataset.format} />
-                    <DetailRow
-                      label="行数"
-                      value={
-                        <span className="font-mono">
-                          {selectedDataset.row_count.toLocaleString()}
-                        </span>
-                      }
-                    />
-                    <DetailRow
-                      label="大小"
-                      value={
-                        <span className="font-mono">
-                          {formatBytes(selectedDataset.size_bytes)}
-                        </span>
-                      }
-                    />
-                    <DetailRow
-                      label="版本"
-                      value={`v${selectedDataset.version}`}
-                    />
-                    {selectedDataset.tags && (
-                      <DetailRow
-                        label="标签"
-                        value={
-                          <div className="flex flex-wrap gap-1 justify-end">
-                            {selectedDataset.tags.split(",").map((t) => (
-                              <Badge
-                                key={t.trim()}
-                                variant="secondary"
-                                className="text-xs font-normal"
-                              >
-                                {t.trim()}
-                              </Badge>
-                            ))}
-                          </div>
-                        }
-                      />
-                    )}
-                    <DetailRow
-                      label="创建时间"
-                      value={utc(selectedDataset.created_at)?.toLocaleString()}
-                    />
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => setPreviewId(selectedDataset.id)}
-                    >
-                      <Eye className="mr-1.5 h-3.5 w-3.5" />
-                      预览
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/5"
-                      onClick={() =>
-                        setDeleteTarget({
-                          id: selectedDataset.id,
-                          name: selectedDataset.name,
-                        })
-                      }
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </CardContent>
-              )}
+                          {mount.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <FolderOpen className="mr-2 h-4 w-4" />
+                          )}
+                          {mount.isPending ? "挂载中..." : "挂载路径"}
+                        </Button>
+                      </div>
+                    </form>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
             </Card>
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Preview Dialog */}
       <Dialog open={!!previewId} onOpenChange={() => setPreviewId(null)}>
@@ -984,6 +975,46 @@ export default function DatasetsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Floating selection bar */}
+      {Object.keys(rowSelection).length > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-30 animate-float-up">
+          <div className="flex items-center gap-3 bg-background border rounded-full shadow-lg px-5 py-2.5 text-sm">
+            <span className="text-muted-foreground">
+              已选择{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {Object.keys(rowSelection).length}
+              </span>{" "}
+              项
+            </span>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="h-7 rounded-full text-xs"
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteMut.mutateAsync(id); } catch { /* skip */ }
+                }
+                setRowSelection({});
+              }}
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              删除
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-full text-xs"
+              onClick={() => setRowSelection({})}
+            >
+              取消
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       <Dialog
