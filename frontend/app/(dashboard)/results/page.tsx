@@ -53,6 +53,10 @@ import {
   Crown,
   FileText,
   FileDown,
+  Medal,
+  BarChart3,
+  Hexagon,
+  List,
 } from "lucide-react";
 import {
   BarChart,
@@ -547,19 +551,13 @@ export default function ResultsPage() {
       {/* Tabs */}
       <Tabs defaultValue="leaderboard">
         <TabsList>
-          <TabsTrigger value="leaderboard">排行榜</TabsTrigger>
-          <TabsTrigger value="champion">
-            <Trophy className="mr-1 h-3.5 w-3.5" /> 天梯榜
-          </TabsTrigger>
-          <TabsTrigger value="compare">对比</TabsTrigger>
-          <TabsTrigger value="radar">雷达图</TabsTrigger>
-          <TabsTrigger value="external">
-            <Globe className="mr-1 h-3.5 w-3.5" /> 外部数据
-          </TabsTrigger>
-          <TabsTrigger value="reports">
-            <FileText className="mr-1 h-3.5 w-3.5" /> 报告
-          </TabsTrigger>
-          <TabsTrigger value="detail">明细</TabsTrigger>
+          <TabsTrigger value="leaderboard"><Medal className="mr-1 h-3.5 w-3.5" /> 排行榜</TabsTrigger>
+          <TabsTrigger value="champion"><Trophy className="mr-1 h-3.5 w-3.5" /> 天梯榜</TabsTrigger>
+          <TabsTrigger value="compare"><BarChart3 className="mr-1 h-3.5 w-3.5" /> 对比</TabsTrigger>
+          <TabsTrigger value="radar"><Hexagon className="mr-1 h-3.5 w-3.5" /> 雷达图</TabsTrigger>
+          <TabsTrigger value="external"><Globe className="mr-1 h-3.5 w-3.5" /> 外部数据</TabsTrigger>
+          <TabsTrigger value="reports"><FileText className="mr-1 h-3.5 w-3.5" /> 报告</TabsTrigger>
+          <TabsTrigger value="detail"><List className="mr-1 h-3.5 w-3.5" /> 明细</TabsTrigger>
         </TabsList>
 
         {/* ── 排行榜 ── */}
