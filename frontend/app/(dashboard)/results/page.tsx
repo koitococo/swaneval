@@ -51,6 +51,8 @@ import {
   Globe,
   Trash2,
   Crown,
+  FileText,
+  FileDown,
 } from "lucide-react";
 import {
   BarChart,
@@ -69,6 +71,7 @@ import {
 } from "recharts";
 import { useLeaderboard, useResults } from "@/lib/hooks/use-results";
 import { useBenchmarks, useCreateBenchmarkBatch, useDeleteBenchmark } from "@/lib/hooks/use-benchmarks";
+import { useReport, useExportReport, type ReportType } from "@/lib/hooks/use-reports";
 import { useCriteria } from "@/lib/hooks/use-criteria";
 import { useTasks } from "@/lib/hooks/use-tasks";
 import type { LeaderboardEntry, EvalResult } from "@/lib/types";
@@ -124,6 +127,14 @@ export default function ResultsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [importJson, setImportJson] = useState("");
   const [importError, setImportError] = useState("");
+
+  // Report tab state
+  const [reportTaskId, setReportTaskId] = useState<string>("");
+  const [reportType, setReportType] = useState<ReportType>("performance");
+  const { data: reportData, isLoading: reportLoading } = useReport(
+    reportTaskId, reportType,
+  );
+  const exportReport = useExportReport();
 
   // Detail tab state
   const [detailTaskId, setDetailTaskId] = useState<string>("");
@@ -545,6 +556,9 @@ export default function ResultsPage() {
           <TabsTrigger value="external">
             <Globe className="mr-1 h-3.5 w-3.5" /> 外部数据
           </TabsTrigger>
+          <TabsTrigger value="reports">
+            <FileText className="mr-1 h-3.5 w-3.5" /> 报告
+          </TabsTrigger>
           <TabsTrigger value="detail">明细</TabsTrigger>
         </TabsList>
 
@@ -777,6 +791,247 @@ export default function ResultsPage() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── 报告生成器 ── */}
+        <TabsContent value="reports">
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              {/* Controls */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground shrink-0">任务</span>
+                  <Select value={reportTaskId} onValueChange={setReportTaskId}>
+                    <SelectTrigger className="h-9 w-[200px]">
+                      <SelectValue placeholder="选择任务..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tasks.filter((t) => t.status === "completed").map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center h-9 border rounded-md overflow-hidden">
+                  {([
+                    { key: "performance" as const, label: "性能" },
+                    { key: "safety" as const, label: "安全" },
+                    { key: "cost" as const, label: "成本" },
+                    { key: "value" as const, label: "性价比" },
+                  ]).map((item, i) => (
+                    <button
+                      key={item.key}
+                      onClick={() => setReportType(item.key)}
+                      className={`h-full px-3.5 text-xs font-medium transition-colors ${
+                        i < 3 ? "border-r" : ""
+                      } ${
+                        reportType === item.key
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+                {reportTaskId && (
+                  <div className="flex items-center gap-1 ml-auto">
+                    {(["docx", "html", "csv"] as const).map((fmt) => (
+                      <Button
+                        key={fmt}
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        disabled={exportReport.isPending || !reportData}
+                        onClick={() => exportReport.mutate({ taskId: reportTaskId, reportType, format: fmt })}
+                      >
+                        <FileDown className="mr-1 h-3 w-3" />
+                        {fmt.toUpperCase()}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Report content */}
+              {!reportTaskId ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  请选择一个已完成的任务生成报告
+                </div>
+              ) : reportLoading ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                  生成报告中...
+                </div>
+              ) : !reportData ? (
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  暂无数据
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Report header */}
+                  <div className="border-b pb-3">
+                    <h3 className="text-base font-semibold">{String(reportData.title)}</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      模型：{String(reportData.model_name)} · 生成时间：{new Date(String(reportData.generated_at)).toLocaleString()}
+                    </p>
+                  </div>
+
+                  {/* Performance report */}
+                  {reportType === "performance" && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-xs text-muted-foreground">综合得分</p>
+                          <p className={`text-2xl font-bold font-mono ${scoreColor(Number(reportData.overall_score))}`}>
+                            {(Number(reportData.overall_score) * 100).toFixed(1)}%
+                          </p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-xs text-muted-foreground">评测样本</p>
+                          <p className="text-2xl font-bold font-mono">{Number(reportData.total_samples).toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium mb-2">各标准得分</p>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>标准</TableHead>
+                              <TableHead>平均分</TableHead>
+                              <TableHead>最低</TableHead>
+                              <TableHead>最高</TableHead>
+                              <TableHead>样本</TableHead>
+                              <TableHead>延迟</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(reportData.criteria_breakdown as Array<Record<string, unknown>>)?.map((c, i) => (
+                              <TableRow key={i}>
+                                <TableCell className="font-medium">{String(c.criterion)}</TableCell>
+                                <TableCell className={`font-mono ${scoreColor(Number(c.avg_score))}`}>{(Number(c.avg_score) * 100).toFixed(1)}%</TableCell>
+                                <TableCell className="font-mono text-muted-foreground">{(Number(c.min_score) * 100).toFixed(1)}%</TableCell>
+                                <TableCell className="font-mono text-muted-foreground">{(Number(c.max_score) * 100).toFixed(1)}%</TableCell>
+                                <TableCell className="text-muted-foreground">{Number(c.sample_count)}</TableCell>
+                                <TableCell className="font-mono text-xs text-muted-foreground">{Number(c.avg_latency_ms).toFixed(0)} ms</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Safety report */}
+                  {reportType === "safety" && (
+                    <>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-xs text-muted-foreground">错误率</p>
+                          <p className={`text-2xl font-bold font-mono ${Number(reportData.error_rate) < 0.1 ? "text-emerald-600" : Number(reportData.error_rate) < 0.3 ? "text-amber-600" : "text-red-600"}`}>
+                            {(Number(reportData.error_rate) * 100).toFixed(1)}%
+                          </p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-xs text-muted-foreground">风险等级</p>
+                          <p className="text-lg font-bold">{String(reportData.risk_level)}</p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-xs text-muted-foreground">错误数 / 总数</p>
+                          <p className="text-lg font-bold font-mono">{Number(reportData.error_count)} / {Number(reportData.total_samples)}</p>
+                        </div>
+                      </div>
+                      {(reportData.error_cases as Array<Record<string, unknown>>)?.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium mb-2">错误案例（得分最低优先）</p>
+                          <div className="space-y-2 max-h-[400px] overflow-auto">
+                            {(reportData.error_cases as Array<Record<string, unknown>>).map((c, i) => (
+                              <div key={i} className="rounded-md border p-3 text-xs space-y-1.5">
+                                <div><span className="text-muted-foreground">Prompt：</span>{String(c.prompt).slice(0, 200)}</div>
+                                <div><span className="text-muted-foreground">预期：</span><span className="text-emerald-700">{String(c.expected).slice(0, 200)}</span></div>
+                                <div><span className="text-muted-foreground">实际：</span><span className="text-red-700">{String(c.actual).slice(0, 200)}</span></div>
+                                <div className="text-right"><Badge variant="outline" className={`text-[10px] ${scoreColor(Number(c.score))}`}>{(Number(c.score) * 100).toFixed(1)}%</Badge></div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Cost report */}
+                  {reportType === "cost" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: "平均延迟", value: `${Number(reportData.avg_latency_ms).toFixed(0)} ms` },
+                        { label: "首字延迟", value: `${Number(reportData.avg_first_token_ms).toFixed(0)} ms` },
+                        { label: "吞吐量", value: `${Number(reportData.throughput_tokens_per_sec).toFixed(1)} tokens/s` },
+                        { label: "总 Token 数", value: Number(reportData.total_tokens).toLocaleString() },
+                        { label: "最低延迟", value: `${Number(reportData.min_latency_ms).toFixed(0)} ms` },
+                        { label: "最高延迟", value: `${Number(reportData.max_latency_ms).toFixed(0)} ms` },
+                        { label: "平均生成长度", value: `${Number(reportData.avg_tokens_per_response).toFixed(0)} tokens` },
+                        { label: "运行时长", value: `${Number(reportData.duration_seconds).toFixed(0)} 秒` },
+                        { label: "GPU", value: String(reportData.gpu_ids) },
+                        { label: "评测样本", value: Number(reportData.total_samples).toLocaleString() },
+                      ].map((item) => (
+                        <div key={item.label} className="rounded-lg border p-3">
+                          <p className="text-xs text-muted-foreground">{item.label}</p>
+                          <p className="text-lg font-bold font-mono">{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Value report */}
+                  {reportType === "value" && (
+                    <>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-xs text-muted-foreground">性价比指数</p>
+                          <p className="text-2xl font-bold font-mono text-primary">{Number(reportData.value_index).toFixed(2)}</p>
+                          <p className="text-[11px] text-muted-foreground">得分 / 秒延迟</p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-xs text-muted-foreground">综合得分</p>
+                          <p className={`text-2xl font-bold font-mono ${scoreColor(Number(reportData.overall_score))}`}>
+                            {(Number(reportData.overall_score) * 100).toFixed(1)}%
+                          </p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                          <p className="text-xs text-muted-foreground">吞吐量</p>
+                          <p className="text-2xl font-bold font-mono">{Number(reportData.throughput_tokens_per_sec).toFixed(1)}</p>
+                          <p className="text-[11px] text-muted-foreground">tokens/s</p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium mb-2">各标准性价比</p>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>标准</TableHead>
+                              <TableHead>得分</TableHead>
+                              <TableHead>延迟</TableHead>
+                              <TableHead>样本</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(reportData.criteria_breakdown as Array<Record<string, unknown>>)?.map((c, i) => (
+                              <TableRow key={i}>
+                                <TableCell className="font-medium">{String(c.criterion)}</TableCell>
+                                <TableCell className={`font-mono ${scoreColor(Number(c.avg_score))}`}>{(Number(c.avg_score) * 100).toFixed(1)}%</TableCell>
+                                <TableCell className="font-mono text-xs text-muted-foreground">{Number(c.avg_latency_ms).toFixed(0)} ms</TableCell>
+                                <TableCell className="text-muted-foreground">{Number(c.sample_count)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
