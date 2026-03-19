@@ -4,8 +4,10 @@ Revision ID: d4e5f6a7b8c9
 Revises: c3d4e5f6a7b8
 Create Date: 2026-03-19
 """
-from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect as sa_inspect
+
+from alembic import op
 
 revision = "d4e5f6a7b8c9"
 down_revision = "c3d4e5f6a7b8"
@@ -13,7 +15,14 @@ branch_labels = None
 depends_on = None
 
 
+def _has_table(table: str) -> bool:
+    bind = op.get_bind()
+    return table in sa_inspect(bind).get_table_names()
+
+
 def upgrade() -> None:
+    if _has_table("external_benchmarks"):
+        return
     op.create_table(
         "external_benchmarks",
         sa.Column("id", sa.Uuid(), nullable=False),
