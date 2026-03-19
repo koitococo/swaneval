@@ -3,19 +3,23 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import Link from "next/link";
 import Xarrow, { Xwrapper } from "react-xarrows";
+import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import {
   Cpu,
   Database,
-  PlayCircle,
   CheckCircle2,
   AlertTriangle,
   Clock,
   ArrowRight,
+  Activity,
+  Zap,
+  BarChart3,
 } from "lucide-react";
 import { useDatasets } from "@/lib/hooks/use-datasets";
 import { useModels } from "@/lib/hooks/use-models";
 import { useTasks } from "@/lib/hooks/use-tasks";
+import { useLeaderboard } from "@/lib/hooks/use-results";
 import type { EvalTask } from "@/lib/types";
 import { utc } from "@/lib/utils";
 
@@ -43,33 +47,43 @@ const statusLabel: Record<string, string> = {
   paused: "已暂停",
 };
 
-// Check if an element is visible within its scroll container
 function isVisibleInContainer(
   el: HTMLElement,
   container: HTMLElement,
 ): boolean {
   const elRect = el.getBoundingClientRect();
   const cRect = container.getBoundingClientRect();
-  // Element center must be inside the container's visible area (with some margin)
   const centerY = elRect.top + elRect.height / 2;
   return centerY > cRect.top + 10 && centerY < cRect.bottom - 10;
+}
+
+function formatDuration(start: string | null, end: string | null): string {
+  if (!start) return "—";
+  const s = utc(start)!.getTime();
+  const e = end ? utc(end)!.getTime() : Date.now();
+  const diff = Math.max(0, e - s);
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
 }
 
 export default function OverviewPage() {
   const datasets = useDatasets();
   const models = useModels();
   const tasks = useTasks();
+  const { data: leaderboard = [] } = useLeaderboard();
 
   const leftScrollRef = useRef<HTMLDivElement>(null);
   const rightScrollRef = useRef<HTMLDivElement>(null);
   const [, setTick] = useState(0);
 
-  // Force re-render arrows on scroll
   const handleScroll = useCallback(() => {
     setTick((t) => t + 1);
   }, []);
 
-  // Attach scroll listeners
   useEffect(() => {
     const left = leftScrollRef.current;
     const right = rightScrollRef.current;
@@ -82,26 +96,31 @@ export default function OverviewPage() {
     };
   }, [handleScroll]);
 
+  // Live tick for running task durations
   const allTasks = tasks.data ?? [];
-  const recentTasks = allTasks.slice(0, 20);
-  const failedTasks = allTasks
-    .filter((t) => t.status === "failed")
-    .slice(0, 20);
-  const runningCount = allTasks.filter((t) => t.status === "running").length;
-  const completedCount = allTasks.filter(
-    (t) => t.status === "completed",
-  ).length;
-  const failedCount = failedTasks.length;
+  const hasRunning = allTasks.some((t) => t.status === "running");
+  useEffect(() => {
+    if (!hasRunning) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [hasRunning]);
 
-  // IDs of failed tasks that appear in both lists
+  const recentTasks = allTasks.slice(0, 20);
+  const runningTasks = allTasks.filter((t) => t.status === "running");
+  const failedTasks = allTasks.filter((t) => t.status === "failed").slice(0, 20);
+  const completedCount = allTasks.filter((t) => t.status === "completed").length;
+  const totalCount = allTasks.length;
+
+  // Top model from leaderboard
+  const topModel = leaderboard.length > 0 ? leaderboard[0] : null;
+
+  // Connection lines
   const failedIdsInRecent = new Set(
     recentTasks.filter((t) => t.status === "failed").map((t) => t.id),
   );
   const connectedIds = failedTasks
     .filter((t) => failedIdsInRecent.has(t.id))
     .map((t) => t.id);
-
-  // Determine which connections have both ends visible
   const visibleConnections = connectedIds.filter((id) => {
     const leftEl = document.getElementById(`task-left-${id}`);
     const rightEl = document.getElementById(`task-right-${id}`);
@@ -114,116 +133,161 @@ export default function OverviewPage() {
     );
   });
 
+  // Success rate
+  const successRate = totalCount > 0
+    ? Math.round((completedCount / totalCount) * 100)
+    : 0;
+
   return (
     <Xwrapper>
       <div className="dashboard-hero-bg flex flex-col h-[calc(100vh-3.5rem)] -m-6">
         <div className="d-blob" />
 
-        {/* ── Hero: title + HUD metrics ── */}
-        <div className="relative z-10 flex flex-col items-center justify-center pt-14 pb-10 my-10 px-6 shrink-0">
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-bold tracking-tight text-foreground/90">
-              概览
-            </h1>
-          </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            AI Model Evaluation
-          </p>
-
-          {/* Floating HUD metrics */}
-          <div className="flex items-center gap-10 mt-12">
-            <Link
-              href="/models"
-              className="group flex flex-col items-center gap-1"
-            >
-              <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-foreground transition-colors">
-                <Cpu className="h-3.5 w-3.5" />
-                <span className="text-xs">模型</span>
+        {/* ── Top HUD bar ── */}
+        <div className="relative z-10 shrink-0 px-6 pt-5 pb-3">
+          <div className="flex items-start justify-between">
+            {/* Left: brand + subtitle */}
+            <div className="flex items-center gap-3">
+              <Logo className="h-8 w-8 text-primary/60" />
+              <div>
+                <h1 className="text-lg font-bold tracking-tight text-foreground/90 leading-none">
+                  概览
+                </h1>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  系统状态总览
+                </p>
               </div>
-              <span className="text-2xl font-semibold tabular-nums">
-                {models.data?.length ?? 0}
-              </span>
-            </Link>
+            </div>
 
-            <div className="w-px h-8 bg-border" />
-
-            <Link
-              href="/datasets"
-              className="group flex flex-col items-center gap-1"
-            >
-              <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-foreground transition-colors">
-                <Database className="h-3.5 w-3.5" />
-                <span className="text-xs">数据集</span>
-              </div>
-              <span className="text-2xl font-semibold tabular-nums">
-                {datasets.data?.total ?? datasets.data?.items?.length ?? 0}
-              </span>
-            </Link>
-
-            <div className="w-px h-8 bg-border" />
-
-            <Link
-              href="/tasks"
-              className="group flex flex-col items-center gap-1"
-            >
-              <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-foreground transition-colors">
-                <PlayCircle className="h-3.5 w-3.5" />
-                <span className="text-xs">运行中</span>
-              </div>
-              <span className="text-2xl font-semibold tabular-nums">
-                {runningCount}
-              </span>
-            </Link>
-
-            <div className="w-px h-8 bg-border" />
-
-            <Link
-              href="/results"
-              className="group flex flex-col items-center gap-1"
-            >
-              <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-foreground transition-colors">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span className="text-xs">已完成</span>
-              </div>
-              <span className="text-2xl font-semibold tabular-nums">
-                {completedCount}
-              </span>
-            </Link>
-
-            {failedCount > 0 && (
-              <>
-                <div className="w-px h-8 bg-border" />
+            {/* Right: HUD metric chips */}
+            <div className="flex items-center gap-1">
+              {[
+                {
+                  icon: Cpu,
+                  label: "模型",
+                  value: models.data?.length ?? 0,
+                  href: "/models",
+                },
+                {
+                  icon: Database,
+                  label: "数据集",
+                  value:
+                    (datasets.data as { total?: number })?.total ??
+                    (datasets.data as { items?: unknown[] })?.items?.length ??
+                    0,
+                  href: "/datasets",
+                },
+                {
+                  icon: Activity,
+                  label: "任务",
+                  value: totalCount,
+                  href: "/tasks",
+                },
+                {
+                  icon: CheckCircle2,
+                  label: "完成",
+                  value: completedCount,
+                  href: "/results",
+                },
+              ].map((m) => (
                 <Link
-                  href="/tasks"
-                  className="group flex flex-col items-center gap-1"
+                  key={m.label}
+                  href={m.href}
+                  className="group flex items-center gap-1.5 rounded-md border border-transparent hover:border-border bg-card/40 hover:bg-card/70 backdrop-blur-sm px-3 py-1.5 transition-all"
                 >
-                  <div className="flex items-center gap-1.5 text-destructive/70 group-hover:text-destructive transition-colors">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    <span className="text-xs">失败</span>
-                  </div>
-                  <span className="text-2xl font-semibold tabular-nums text-destructive/80">
-                    {failedCount}
+                  <m.icon className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                  <span className="text-lg font-semibold tabular-nums leading-none">
+                    {m.value}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {m.label}
                   </span>
                 </Link>
-              </>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Middle: status strip ── */}
+        <div className="relative z-10 shrink-0 px-6 pb-4">
+          <div className="flex items-center gap-6">
+            {/* Success rate bar */}
+            <div className="flex items-center gap-3 flex-1 max-w-xs">
+              <div className="flex-1 space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground">成功率</span>
+                  <span className="font-semibold tabular-nums">
+                    {successRate}%
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary/70 transition-all duration-500"
+                    style={{ width: `${successRate}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Running indicator */}
+            {runningTasks.length > 0 && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary/60" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                </span>
+                <span>
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {runningTasks.length}
+                  </span>{" "}
+                  个任务运行中
+                </span>
+              </div>
+            )}
+
+            {/* Failed indicator */}
+            {failedTasks.length > 0 && (
+              <div className="flex items-center gap-1.5 text-xs text-destructive/70">
+                <AlertTriangle className="h-3 w-3" />
+                <span className="tabular-nums">{failedTasks.length} 失败</span>
+              </div>
+            )}
+
+            {/* Top model from leaderboard */}
+            {topModel && (
+              <Link
+                href="/results"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors ml-auto"
+              >
+                <BarChart3 className="h-3 w-3" />
+                <span>
+                  最佳:{" "}
+                  <span className="font-medium text-foreground">
+                    {topModel.model_name}
+                  </span>{" "}
+                  <span className="tabular-nums">
+                    {(topModel.avg_score * 100).toFixed(1)}%
+                  </span>
+                </span>
+              </Link>
             )}
           </div>
         </div>
 
-        {/* ── Two-pane task lists ── */}
-        <div className="relative z-10 flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-4 px-6 pb-6">
-          {/* Left: recent tasks */}
-          <div className="flex flex-col min-h-0 rounded-lg border bg-card/60 backdrop-blur-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+        {/* ── Main: 3-column grid ── */}
+        <div className="relative z-10 flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-3 px-6 pb-5">
+          {/* Col 1: Recent tasks */}
+          <div className="flex flex-col min-h-0 rounded-lg border border-border/50 bg-card/40 backdrop-blur-sm">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Clock className="h-3 w-3" />
                 最近任务
               </div>
               <Link
                 href="/tasks"
-                className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                className="text-[10px] text-muted-foreground/60 hover:text-foreground flex items-center gap-0.5 transition-colors"
               >
-                查看全部 <ArrowRight className="h-3 w-3" />
+                全部 <ArrowRight className="h-2.5 w-2.5" />
               </Link>
             </div>
             <div className="flex-1 overflow-auto" ref={leftScrollRef}>
@@ -240,23 +304,25 @@ export default function OverviewPage() {
                   </p>
                 </div>
               ) : (
-                <div className="p-2 space-y-1">
+                <div className="p-1.5 space-y-0.5">
                   {recentTasks.map((t) => (
                     <Link
                       key={t.id}
                       id={`task-left-${t.id}`}
                       href={`/tasks/${t.id}`}
-                      className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-accent/50 transition-colors"
+                      className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-accent/40 transition-colors group"
                     >
-                      <div className="min-w-0 flex-1 mr-3">
-                        <p className="truncate text-sm font-medium">{t.name}</p>
-                        <p className="text-xs text-muted-foreground tabular-nums">
+                      <div className="min-w-0 flex-1 mr-2">
+                        <p className="truncate text-xs font-medium leading-tight">
+                          {t.name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/60 tabular-nums">
                           {utc(t.created_at)?.toLocaleString()}
                         </p>
                       </div>
                       <Badge
                         variant={statusVariant(t.status)}
-                        className="shrink-0"
+                        className="shrink-0 text-[10px] h-5"
                       >
                         {statusLabel[t.status] ?? t.status}
                       </Badge>
@@ -267,42 +333,95 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Right: failed tasks */}
-          <div className="flex flex-col min-h-0 rounded-lg border bg-card/60 backdrop-blur-sm">
-            <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <AlertTriangle className="h-3.5 w-3.5 text-destructive/70" />
+          {/* Col 2: Running tasks with live progress */}
+          <div className="flex flex-col min-h-0 rounded-lg border border-border/50 bg-card/40 backdrop-blur-sm">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Zap className="h-3 w-3" />
+                运行中
+                {runningTasks.length > 0 && (
+                  <span className="tabular-nums text-foreground">
+                    {runningTasks.length}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {runningTasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-2">
+                  <Activity className="h-5 w-5 text-muted-foreground/30" />
+                  <p className="text-xs text-muted-foreground/50">
+                    暂无运行中的任务
+                  </p>
+                </div>
+              ) : (
+                <div className="p-2 space-y-2">
+                  {runningTasks.map((t) => (
+                    <Link
+                      key={t.id}
+                      href={`/tasks/${t.id}`}
+                      className="block rounded-md border border-border/40 p-2.5 hover:border-primary/30 transition-colors"
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-xs font-medium truncate flex-1 mr-2">
+                          {t.name}
+                        </p>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                          {formatDuration(t.started_at, null)}
+                        </span>
+                      </div>
+                      <div className="h-1 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-primary/60 animate-pulse" style={{ width: "60%" }} />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Col 3: Failed tasks */}
+          <div className="flex flex-col min-h-0 rounded-lg border border-border/50 bg-card/40 backdrop-blur-sm">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 shrink-0">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <AlertTriangle className="h-3 w-3 text-destructive/50" />
                 失败任务
               </div>
-              {failedCount > 0 && (
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  {failedCount} 项
+              {failedTasks.length > 0 && (
+                <span className="text-[10px] text-destructive/60 tabular-nums">
+                  {failedTasks.length} 项
                 </span>
               )}
             </div>
             <div className="flex-1 overflow-auto" ref={rightScrollRef}>
               {failedTasks.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-xs text-muted-foreground">
-                    暂无失败任务。
+                <div className="flex flex-col items-center justify-center h-full gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-muted-foreground/30" />
+                  <p className="text-xs text-muted-foreground/50">
+                    暂无失败任务
                   </p>
                 </div>
               ) : (
-                <div className="p-2 space-y-1">
+                <div className="p-1.5 space-y-0.5">
                   {failedTasks.map((t) => (
                     <Link
                       key={t.id}
                       id={`task-right-${t.id}`}
                       href={`/tasks/${t.id}`}
-                      className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-destructive/5 transition-colors"
+                      className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-destructive/5 transition-colors"
                     >
-                      <div className="min-w-0 flex-1 mr-3">
-                        <p className="truncate text-sm font-medium">{t.name}</p>
-                        <p className="text-xs text-muted-foreground tabular-nums">
+                      <div className="min-w-0 flex-1 mr-2">
+                        <p className="truncate text-xs font-medium leading-tight">
+                          {t.name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground/60 tabular-nums">
                           {utc(t.created_at)?.toLocaleString()}
                         </p>
                       </div>
-                      <Badge variant="destructive" className="shrink-0">
+                      <Badge
+                        variant="destructive"
+                        className="shrink-0 text-[10px] h-5"
+                      >
                         失败
                       </Badge>
                     </Link>
@@ -312,15 +431,15 @@ export default function OverviewPage() {
             </div>
           </div>
 
-          {/* Connection lines between matching failed tasks */}
+          {/* Connection lines */}
           {visibleConnections.map((id) => (
             <Xarrow
               key={id}
               start={`task-left-${id}`}
               end={`task-right-${id}`}
-              color="hsl(0 72% 51% / 0.15)"
-              strokeWidth={1.5}
-              curveness={0.4}
+              color="hsl(0 72% 51% / 0.12)"
+              strokeWidth={1}
+              curveness={0.3}
               startAnchor="right"
               endAnchor="left"
               showHead={false}

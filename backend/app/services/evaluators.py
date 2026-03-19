@@ -130,7 +130,7 @@ def evaluate_llm_judge(config: dict, expected: str, actual: str) -> float:
     )
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    anthropic_mode = _is_anthropic_endpoint(endpoint_url)
+    anthropic_mode = config.get("api_format") == "anthropic" or _is_anthropic_endpoint(endpoint_url)
     if anthropic_mode:
         headers["anthropic-version"] = "2023-06-01"
 

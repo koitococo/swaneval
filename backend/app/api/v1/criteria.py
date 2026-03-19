@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,6 +9,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.deps import get_current_user, get_db
 from app.models.criterion import Criterion
 from app.models.eval_result import EvalResult
+from app.models.llm_model import LLMModel
 from app.models.user import User
 from app.schemas.criterion import (
     CriterionCreate,
@@ -110,5 +112,26 @@ async def test_criterion(
     if not c:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Criterion not found")
 
-    score = run_criterion(c.type, c.config_json, body.expected, body.actual)
+    # For llm_judge, resolve judge_model_id to actual credentials
+    config_json = c.config_json
+    if c.type == "llm_judge":
+        try:
+            cfg = json.loads(config_json) if config_json else {}
+            judge_model_id = cfg.get("judge_model_id")
+            if judge_model_id:
+                judge_model = await session.get(LLMModel, uuid.UUID(judge_model_id))
+                if judge_model:
+                    cfg["endpoint_url"] = judge_model.endpoint_url
+                    cfg["api_key"] = judge_model.api_key
+                    cfg["model_name"] = judge_model.model_name or judge_model.name
+                    if getattr(judge_model, "api_format", "openai") == "anthropic":
+                        cfg["api_format"] = "anthropic"
+                    config_json = json.dumps(cfg)
+        except Exception:
+            pass
+
+    try:
+        score = run_criterion(c.type, config_json, body.expected, body.actual)
+    except Exception as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"测试失败: {e}")
     return {"score": score, "criterion": c.name, "type": c.type}
