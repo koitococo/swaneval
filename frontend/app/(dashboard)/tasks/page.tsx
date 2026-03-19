@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   useReactTable,
@@ -10,6 +10,7 @@ import {
   flexRender,
   type ColumnDef,
   type SortingState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -137,6 +138,15 @@ export default function TasksPage() {
   const datasets = useMemo(() => datasetsData?.items ?? [], [datasetsData]);
   const { data: criteria = [] } = useCriteria();
 
+  // 1-second tick so elapsed time updates live for running tasks
+  const [, setTick] = useState(0);
+  const hasRunning = tasks.some((t) => t.status === "running");
+  useEffect(() => {
+    if (!hasRunning) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [hasRunning]);
+
   const [panel, setPanel] = useState<PanelMode>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
@@ -146,6 +156,7 @@ export default function TasksPage() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("__all__");
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ ...emptyForm });
   const [showConfigPreview, setShowConfigPreview] = useState(false);
@@ -206,6 +217,32 @@ export default function TasksPage() {
 
   const columns = useMemo<ColumnDef<EvalTask>[]>(
     () => [
+      {
+        id: "select",
+        size: 32,
+        enableSorting: false,
+        enableResizing: false,
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            checked={table.getIsAllPageRowsSelected()}
+            onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            checked={row.getIsSelected()}
+            onChange={(e) => {
+              e.stopPropagation();
+              row.toggleSelected(e.target.checked);
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+      },
       {
         accessorKey: "name",
         header: "名称",
@@ -276,9 +313,11 @@ export default function TasksPage() {
   const table = useReactTable({
     data: filteredData,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting, globalFilter, rowSelection },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -376,6 +415,40 @@ export default function TasksPage() {
             </button>
           ))}
         </div>
+        {Object.keys(rowSelection).length > 0 && (
+          <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
+            <span>
+              已选择{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {Object.keys(rowSelection).length}
+              </span>{" "}
+              项
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteTask.mutateAsync(id); } catch { /* skip */ }
+                }
+                setRowSelection({});
+              }}
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              删除
+            </Button>
+            <button
+              className="text-xs hover:text-foreground transition-colors"
+              onClick={() => setRowSelection({})}
+            >
+              取消
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main: table + side panel */}
@@ -409,7 +482,8 @@ export default function TasksPage() {
                       {hg.headers.map((header) => (
                         <TableHead
                           key={header.id}
-                          className="cursor-pointer select-none"
+                          style={header.column.id === "select" ? { width: 40 } : undefined}
+                          className={header.column.getCanSort() ? "cursor-pointer select-none" : ""}
                           onClick={header.column.getToggleSortingHandler()}
                         >
                           <span className="flex items-center gap-1">
@@ -431,7 +505,7 @@ export default function TasksPage() {
                   {table.getRowModel().rows.map((row) => (
                     <TableRow
                       key={row.id}
-                      className={`cursor-pointer transition-colors ${
+                      className={`cursor-pointer transition-colors group/row ${
                         selectedId === row.original.id
                           ? "bg-accent"
                           : "hover:bg-muted/50"
@@ -439,7 +513,7 @@ export default function TasksPage() {
                       onClick={() => openView(row.original.id)}
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className="py-2.5">
+                        <TableCell key={cell.id} className="py-2.5" style={cell.column.id === "select" ? { width: 40 } : undefined}>
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext(),
@@ -447,11 +521,32 @@ export default function TasksPage() {
                         </TableCell>
                       ))}
                       <TableCell className="py-2.5">
-                        <ChevronRight
-                          className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${
-                            selectedId === row.original.id ? "rotate-90" : ""
-                          }`}
-                        />
+                        <div className="flex items-center justify-end gap-0.5">
+                          <div
+                            className="opacity-0 group-hover/row:opacity-100 transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title="删除"
+                              onClick={() =>
+                                setDeleteTarget({
+                                  id: row.original.id,
+                                  name: row.original.name,
+                                })
+                              }
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <ChevronRight
+                            className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${
+                              selectedId === row.original.id ? "rotate-90" : ""
+                            }`}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -983,58 +1078,63 @@ export default function TasksPage() {
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex gap-2 pt-1">
-                    {selectedTask.status === "running" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => pauseTask.mutate(selectedTask.id)}
-                        disabled={pauseTask.isPending}
-                      >
-                        {pauseTask.isPending ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Pause className="mr-1.5 h-3.5 w-3.5" />
-                        )}
-                        暂停
-                      </Button>
-                    )}
-                    {(selectedTask.status === "paused" ||
-                      selectedTask.status === "failed") && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => resumeTask.mutate(selectedTask.id)}
-                        disabled={resumeTask.isPending}
-                      >
-                        {resumeTask.isPending ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Play className="mr-1.5 h-3.5 w-3.5" />
-                        )}
-                        恢复
-                      </Button>
-                    )}
-                    {(selectedTask.status === "running" ||
-                      selectedTask.status === "pending") && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/5"
-                        onClick={() => cancelTask.mutate(selectedTask.id)}
-                        disabled={cancelTask.isPending}
-                      >
-                        {cancelTask.isPending ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Ban className="mr-1.5 h-3.5 w-3.5" />
-                        )}
-                        取消
-                      </Button>
-                    )}
-                  </div>
+                  {(selectedTask.status === "running" ||
+                    selectedTask.status === "paused" ||
+                    selectedTask.status === "failed" ||
+                    selectedTask.status === "pending") && (
+                    <div className="flex gap-2">
+                      {selectedTask.status === "running" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => pauseTask.mutate(selectedTask.id)}
+                          disabled={pauseTask.isPending}
+                        >
+                          {pauseTask.isPending ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Pause className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          暂停
+                        </Button>
+                      )}
+                      {(selectedTask.status === "paused" ||
+                        selectedTask.status === "failed") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => resumeTask.mutate(selectedTask.id)}
+                          disabled={resumeTask.isPending}
+                        >
+                          {resumeTask.isPending ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Play className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          恢复
+                        </Button>
+                      )}
+                      {(selectedTask.status === "running" ||
+                        selectedTask.status === "pending") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/5"
+                          onClick={() => cancelTask.mutate(selectedTask.id)}
+                          disabled={cancelTask.isPending}
+                        >
+                          {cancelTask.isPending ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Ban className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          取消
+                        </Button>
+                      )}
+                    </div>
+                  )}
 
                   {/* View detail + delete */}
                   <div className="flex gap-2">

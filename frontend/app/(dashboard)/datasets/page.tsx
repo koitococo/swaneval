@@ -9,6 +9,7 @@ import {
   flexRender,
   type ColumnDef,
   type SortingState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -103,9 +104,11 @@ export default function DatasetsPage() {
   const [deleteError, setDeleteError] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [copiedRowId, setCopiedRowId] = useState<string | null>(null);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState<string>("__all__");
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [uploadForm, setUploadForm] = useState({ ...emptyUploadForm });
   const [mountForm, setMountForm] = useState({ ...emptyMountForm });
   const fileRef = useRef<HTMLInputElement>(null);
@@ -124,10 +127,40 @@ export default function DatasetsPage() {
   };
 
   const openView = (id: string) => {
-    setPanel(panel?.kind === "view" && panel.id === id ? null : { kind: "view", id });
+    setPanel(
+      panel?.kind === "view" && panel.id === id ? null : { kind: "view", id },
+    );
   };
 
   const closePanel = () => setPanel(null);
+  const [importError, setImportError] = useState("");
+
+  const importDatasetJson = (text: string) => {
+    setImportError("");
+    try {
+      const data = JSON.parse(text);
+      if (data.server_path || data.source_uri) {
+        setMountForm((f) => ({
+          ...f,
+          name: data.name ?? f.name,
+          server_path: data.server_path ?? data.source_uri ?? f.server_path,
+          format: data.format ?? f.format,
+          tags: data.tags ?? f.tags,
+          description: data.description ?? f.description,
+        }));
+      } else {
+        setUploadForm((f) => ({
+          ...f,
+          name: data.name ?? f.name,
+          tags: data.tags ?? f.tags,
+          description: data.description ?? f.description,
+        }));
+      }
+    } catch {
+      setImportError("无法解析 JSON");
+      setTimeout(() => setImportError(""), 3000);
+    }
+  };
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,6 +223,32 @@ export default function DatasetsPage() {
   const columns = useMemo<ColumnDef<Dataset>[]>(
     () => [
       {
+        id: "select",
+        size: 32,
+        enableSorting: false,
+        enableResizing: false,
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            checked={table.getIsAllPageRowsSelected()}
+            onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            checked={row.getIsSelected()}
+            onChange={(e) => {
+              e.stopPropagation();
+              row.toggleSelected(e.target.checked);
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+      },
+      {
         accessorKey: "name",
         header: "名称",
         cell: ({ row }) => (
@@ -242,11 +301,16 @@ export default function DatasetsPage() {
         header: "标签",
         cell: ({ getValue }) => {
           const tags = getValue<string>();
-          if (!tags) return <span className="text-xs text-muted-foreground">—</span>;
+          if (!tags)
+            return <span className="text-xs text-muted-foreground">—</span>;
           return (
             <div className="flex flex-wrap gap-1">
               {tags.split(",").map((t) => (
-                <Badge key={t.trim()} variant="secondary" className="text-xs font-normal">
+                <Badge
+                  key={t.trim()}
+                  variant="secondary"
+                  className="text-xs font-normal"
+                >
                   {t.trim()}
                 </Badge>
               ))}
@@ -258,7 +322,9 @@ export default function DatasetsPage() {
         accessorKey: "version",
         header: "版本",
         cell: ({ getValue }) => (
-          <span className="text-xs text-muted-foreground">v{getValue<number>()}</span>
+          <span className="text-xs text-muted-foreground">
+            v{getValue<number>()}
+          </span>
         ),
       },
     ],
@@ -268,9 +334,11 @@ export default function DatasetsPage() {
   const table = useReactTable({
     data: filteredData,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting, globalFilter, rowSelection },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -355,6 +423,40 @@ export default function DatasetsPage() {
             </button>
           ))}
         </div>
+        {Object.keys(rowSelection).length > 0 && (
+          <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
+            <span>
+              已选择{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {Object.keys(rowSelection).length}
+              </span>{" "}
+              项
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteMut.mutateAsync(id); } catch { /* skip */ }
+                }
+                setRowSelection({});
+              }}
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              删除
+            </Button>
+            <button
+              className="text-xs hover:text-foreground transition-colors"
+              onClick={() => setRowSelection({})}
+            >
+              取消
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main: table + side panel */}
@@ -388,7 +490,8 @@ export default function DatasetsPage() {
                       {hg.headers.map((header) => (
                         <TableHead
                           key={header.id}
-                          className="cursor-pointer select-none"
+                          style={header.column.id === "select" ? { width: 40 } : undefined}
+                          className={header.column.getCanSort() ? "cursor-pointer select-none" : ""}
                           onClick={header.column.getToggleSortingHandler()}
                         >
                           <span className="flex items-center gap-1">
@@ -410,7 +513,7 @@ export default function DatasetsPage() {
                   {table.getRowModel().rows.map((row) => (
                     <TableRow
                       key={row.id}
-                      className={`cursor-pointer transition-colors ${
+                      className={`cursor-pointer transition-colors group/row ${
                         selectedId === row.original.id
                           ? "bg-accent"
                           : "hover:bg-muted/50"
@@ -418,7 +521,7 @@ export default function DatasetsPage() {
                       onClick={() => openView(row.original.id)}
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className="py-2.5">
+                        <TableCell key={cell.id} className="py-2.5" style={cell.column.id === "select" ? { width: 40 } : undefined}>
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext(),
@@ -426,11 +529,69 @@ export default function DatasetsPage() {
                         </TableCell>
                       ))}
                       <TableCell className="py-2.5">
-                        <ChevronRight
-                          className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${
-                            selectedId === row.original.id ? "rotate-90" : ""
-                          }`}
-                        />
+                        <div className="flex items-center justify-end gap-0.5">
+                          <div
+                            className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="复制信息"
+                              onClick={() => {
+                                const d = row.original;
+                                const config = {
+                                  name: d.name,
+                                  source_type: d.source_type,
+                                  source_uri: d.source_uri,
+                                  format: d.format,
+                                  tags: d.tags,
+                                  row_count: d.row_count,
+                                };
+                                navigator.clipboard.writeText(
+                                  JSON.stringify(config, null, 2),
+                                );
+                                setCopiedRowId(d.id);
+                                setTimeout(() => setCopiedRowId(null), 1500);
+                              }}
+                            >
+                              {copiedRowId === row.original.id ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="预览"
+                              onClick={() => setPreviewId(row.original.id)}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title="删除"
+                              onClick={() =>
+                                setDeleteTarget({
+                                  id: row.original.id,
+                                  name: row.original.name,
+                                })
+                              }
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <ChevronRight
+                            className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${
+                              selectedId === row.original.id ? "rotate-90" : ""
+                            }`}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -447,9 +608,7 @@ export default function DatasetsPage() {
               {/* Panel header */}
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <h3 className="text-sm font-semibold truncate">
-                  {isCreating
-                    ? "添加数据集"
-                    : selectedDataset?.name ?? ""}
+                  {isCreating ? "添加数据集" : (selectedDataset?.name ?? "")}
                 </h3>
                 <Button
                   variant="ghost"
@@ -464,6 +623,45 @@ export default function DatasetsPage() {
               {/* Create mode */}
               {isCreating && (
                 <CardContent className="pt-0">
+                  <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                    <button
+                      type="button"
+                      className="hover:text-foreground transition-colors"
+                      onClick={async () => {
+                        try {
+                          const text = await navigator.clipboard.readText();
+                          importDatasetJson(text);
+                        } catch {
+                          setImportError("无法读取剪贴板");
+                          setTimeout(() => setImportError(""), 3000);
+                        }
+                      }}
+                    >
+                      从剪贴板导入
+                    </button>
+                    <span className="text-border">|</span>
+                    <label className="hover:text-foreground transition-colors cursor-pointer">
+                      <input
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = () =>
+                            importDatasetJson(reader.result as string);
+                          reader.readAsText(file);
+                          e.target.value = "";
+                        }}
+                      />
+                      从 JSON 导入
+                    </label>
+                    {importError && (
+                      <span className="text-destructive">{importError}</span>
+                    )}
+                  </div>
+
                   <Tabs defaultValue="upload">
                     <TabsList className="w-full">
                       <TabsTrigger value="upload" className="flex-1">
@@ -488,7 +686,10 @@ export default function DatasetsPage() {
                           <Input
                             value={uploadForm.name}
                             onChange={(e) =>
-                              setUploadForm({ ...uploadForm, name: e.target.value })
+                              setUploadForm({
+                                ...uploadForm,
+                                name: e.target.value,
+                              })
                             }
                             placeholder="默认使用文件名"
                           />
@@ -497,7 +698,10 @@ export default function DatasetsPage() {
                           <Input
                             value={uploadForm.tags}
                             onChange={(e) =>
-                              setUploadForm({ ...uploadForm, tags: e.target.value })
+                              setUploadForm({
+                                ...uploadForm,
+                                tags: e.target.value,
+                              })
                             }
                             placeholder="math,reasoning"
                           />
@@ -551,7 +755,10 @@ export default function DatasetsPage() {
                           <Input
                             value={mountForm.name}
                             onChange={(e) =>
-                              setMountForm({ ...mountForm, name: e.target.value })
+                              setMountForm({
+                                ...mountForm,
+                                name: e.target.value,
+                              })
                             }
                             placeholder="数据集名称"
                             required
@@ -562,7 +769,10 @@ export default function DatasetsPage() {
                             <Input
                               value={mountForm.format}
                               onChange={(e) =>
-                                setMountForm({ ...mountForm, format: e.target.value })
+                                setMountForm({
+                                  ...mountForm,
+                                  format: e.target.value,
+                                })
                               }
                               placeholder="jsonl"
                             />
@@ -571,7 +781,10 @@ export default function DatasetsPage() {
                             <Input
                               value={mountForm.tags}
                               onChange={(e) =>
-                                setMountForm({ ...mountForm, tags: e.target.value })
+                                setMountForm({
+                                  ...mountForm,
+                                  tags: e.target.value,
+                                })
                               }
                               placeholder="math,reasoning"
                             />
@@ -618,7 +831,9 @@ export default function DatasetsPage() {
                       <DetailRow
                         label="描述"
                         value={
-                          <span className="text-xs">{selectedDataset.description}</span>
+                          <span className="text-xs">
+                            {selectedDataset.description}
+                          </span>
                         }
                       />
                     )}
@@ -648,10 +863,7 @@ export default function DatasetsPage() {
                         }
                       />
                     )}
-                    <DetailRow
-                      label="格式"
-                      value={selectedDataset.format}
-                    />
+                    <DetailRow label="格式" value={selectedDataset.format} />
                     <DetailRow
                       label="行数"
                       value={
@@ -733,9 +945,7 @@ export default function DatasetsPage() {
         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-auto">
           <DialogHeader>
             <DialogTitle>数据集预览</DialogTitle>
-            <DialogDescription>
-              显示数据集的前几行数据
-            </DialogDescription>
+            <DialogDescription>显示数据集的前几行数据</DialogDescription>
           </DialogHeader>
           {preview.isLoading ? (
             <div className="py-8 text-center text-muted-foreground">
@@ -776,7 +986,13 @@ export default function DatasetsPage() {
       </Dialog>
 
       {/* Delete confirmation */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => { setDeleteTarget(null); setDeleteError(""); }}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={() => {
+          setDeleteTarget(null);
+          setDeleteError("");
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>删除数据集</DialogTitle>
@@ -788,7 +1004,13 @@ export default function DatasetsPage() {
             <p className="text-sm text-destructive px-1">{deleteError}</p>
           )}
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteError(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteError("");
+              }}
+            >
               取消
             </Button>
             <Button

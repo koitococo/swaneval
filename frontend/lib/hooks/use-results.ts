@@ -26,7 +26,7 @@ export function useLeaderboard(criterionId?: string) {
   });
 }
 
-export function useTaskSummary(taskId: string) {
+export function useTaskSummary(taskId: string, refetchInterval?: number | false) {
   return useQuery({
     queryKey: ["results", "summary", taskId],
     queryFn: async () => {
@@ -36,10 +36,11 @@ export function useTaskSummary(taskId: string) {
       return res.data;
     },
     enabled: !!taskId,
+    refetchInterval,
   });
 }
 
-export function useErrorResults(taskId: string, page = 1, pageSize = 50) {
+export function useErrorResults(taskId: string, page = 1, pageSize = 50, refetchInterval?: number | false) {
   return useQuery({
     queryKey: ["results", "errors", taskId, page, pageSize],
     queryFn: async () => {
@@ -49,5 +50,6 @@ export function useErrorResults(taskId: string, page = 1, pageSize = 50) {
       return res.data;
     },
     enabled: !!taskId,
+    refetchInterval,
   });
 }

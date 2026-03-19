@@ -9,6 +9,7 @@ import {
   flexRender,
   type ColumnDef,
   type SortingState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,12 +48,14 @@ import {
   ArrowUpDown,
   X,
   ChevronRight,
+  Pencil,
   Copy,
   Check,
 } from "lucide-react";
 import {
   useModels,
   useCreateModel,
+  useUpdateModel,
   useDeleteModel,
   useTestModel,
 } from "@/lib/hooks/use-models";
@@ -67,12 +70,18 @@ const typeLabel: Record<string, string> = {
 
 type PanelMode = { kind: "view"; id: string } | { kind: "create" } | null;
 
+const apiFormatLabel: Record<string, string> = {
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+};
+
 const emptyForm = {
   name: "",
   provider: "",
   endpoint_url: "",
   api_key: "",
   model_type: "api",
+  api_format: "openai",
   description: "",
   model_name: "",
   max_tokens: "4096",
@@ -81,6 +90,7 @@ const emptyForm = {
 export default function ModelsPage() {
   const { data: models = [], isLoading } = useModels();
   const create = useCreateModel();
+  const update = useUpdateModel();
   const deleteMut = useDeleteModel();
   const testModel = useTestModel();
 
@@ -94,10 +104,11 @@ export default function ModelsPage() {
   const [testResults, setTestResults] = useState<
     Record<string, { ok: boolean; message: string }>
   >({});
-  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [globalFilter, setGlobalFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("__all__");
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [form, setForm] = useState({ ...emptyForm });
 
   const selectedId = panel?.kind === "view" ? panel.id : null;
@@ -111,10 +122,61 @@ export default function ModelsPage() {
   };
 
   const openView = (id: string) => {
-    setPanel(panel?.kind === "view" && panel.id === id ? null : { kind: "view", id });
+    setPanel(
+      panel?.kind === "view" && panel.id === id ? null : { kind: "view", id },
+    );
   };
 
   const closePanel = () => setPanel(null);
+
+  const [importError, setImportError] = useState("");
+
+  const importFromClipboard = async () => {
+    setImportError("");
+    try {
+      const text = await navigator.clipboard.readText();
+      const data = JSON.parse(text);
+      setForm((f) => ({
+        ...f,
+        name: data.name ?? f.name,
+        provider: data.provider ?? f.provider,
+        endpoint_url: data.endpoint_url ?? f.endpoint_url,
+        api_key: data.api_key ?? f.api_key,
+        model_type: data.model_type ?? f.model_type,
+        api_format: data.api_format ?? f.api_format,
+        description: data.description ?? f.description,
+        model_name: data.model_name ?? f.model_name,
+        max_tokens:
+          data.max_tokens != null ? String(data.max_tokens) : f.max_tokens,
+      }));
+    } catch {
+      setImportError("剪贴板内容不是有效的 JSON");
+      setTimeout(() => setImportError(""), 3000);
+    }
+  };
+
+  const importFromJson = (text: string) => {
+    setImportError("");
+    try {
+      const data = JSON.parse(text);
+      setForm((f) => ({
+        ...f,
+        name: data.name ?? f.name,
+        provider: data.provider ?? f.provider,
+        endpoint_url: data.endpoint_url ?? f.endpoint_url,
+        api_key: data.api_key ?? f.api_key,
+        model_type: data.model_type ?? f.model_type,
+        api_format: data.api_format ?? f.api_format,
+        description: data.description ?? f.description,
+        model_name: data.model_name ?? f.model_name,
+        max_tokens:
+          data.max_tokens != null ? String(data.max_tokens) : f.max_tokens,
+      }));
+    } catch {
+      setImportError("无法解析 JSON");
+      setTimeout(() => setImportError(""), 3000);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +186,7 @@ export default function ModelsPage() {
       endpoint_url: form.endpoint_url,
       api_key: form.api_key || undefined,
       model_type: form.model_type,
+      api_format: form.api_format,
       description: form.description || undefined,
       model_name: form.model_name || undefined,
       max_tokens: form.max_tokens ? parseInt(form.max_tokens) : undefined,
@@ -170,12 +233,6 @@ export default function ModelsPage() {
     }
   };
 
-  const copyToClipboard = (text: string, field: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 1500);
-  };
-
   const filteredData = useMemo(
     () =>
       typeFilter === "__all__"
@@ -186,6 +243,32 @@ export default function ModelsPage() {
 
   const columns = useMemo<ColumnDef<LLMModel>[]>(
     () => [
+      {
+        id: "select",
+        size: 32,
+        enableSorting: false,
+        enableResizing: false,
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            checked={table.getIsAllPageRowsSelected()}
+            onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            checked={row.getIsSelected()}
+            onChange={(e) => {
+              e.stopPropagation();
+              row.toggleSelected(e.target.checked);
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+      },
       {
         accessorKey: "name",
         header: "名称",
@@ -231,9 +314,7 @@ export default function ModelsPage() {
         cell: ({ row }) => {
           const r = testResults[row.original.id];
           if (!r)
-            return (
-              <span className="text-xs text-muted-foreground">—</span>
-            );
+            return <span className="text-xs text-muted-foreground">—</span>;
           if (r.message === "测试中...")
             return (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
@@ -265,9 +346,11 @@ export default function ModelsPage() {
   const table = useReactTable({
     data: filteredData,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting, globalFilter, rowSelection },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -352,6 +435,40 @@ export default function ModelsPage() {
             </button>
           ))}
         </div>
+        {Object.keys(rowSelection).length > 0 && (
+          <div className="flex items-center gap-2 ml-auto text-xs text-muted-foreground">
+            <span>
+              已选择{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {Object.keys(rowSelection).length}
+              </span>{" "}
+              项
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteMut.mutateAsync(id); } catch { /* skip failed */ }
+                }
+                setRowSelection({});
+              }}
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+              删除
+            </Button>
+            <button
+              className="text-xs hover:text-foreground transition-colors"
+              onClick={() => setRowSelection({})}
+            >
+              取消
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main: table + side panel */}
@@ -385,7 +502,8 @@ export default function ModelsPage() {
                       {hg.headers.map((header) => (
                         <TableHead
                           key={header.id}
-                          className="cursor-pointer select-none"
+                          style={header.column.id === "select" ? { width: 40 } : undefined}
+                          className={header.column.getCanSort() ? "cursor-pointer select-none" : ""}
                           onClick={header.column.getToggleSortingHandler()}
                         >
                           <span className="flex items-center gap-1">
@@ -407,7 +525,7 @@ export default function ModelsPage() {
                   {table.getRowModel().rows.map((row) => (
                     <TableRow
                       key={row.id}
-                      className={`cursor-pointer transition-colors ${
+                      className={`cursor-pointer transition-colors group/row ${
                         selectedId === row.original.id
                           ? "bg-accent"
                           : "hover:bg-muted/50"
@@ -415,7 +533,7 @@ export default function ModelsPage() {
                       onClick={() => openView(row.original.id)}
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className="py-2.5">
+                        <TableCell key={cell.id} className="py-2.5" style={cell.column.id === "select" ? { width: 40 } : undefined}>
                           {flexRender(
                             cell.column.columnDef.cell,
                             cell.getContext(),
@@ -423,11 +541,75 @@ export default function ModelsPage() {
                         </TableCell>
                       ))}
                       <TableCell className="py-2.5">
-                        <ChevronRight
-                          className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${
-                            selectedId === row.original.id ? "rotate-90" : ""
-                          }`}
-                        />
+                        <div className="flex items-center justify-end gap-0.5">
+                          <div
+                            className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="复制配置"
+                              onClick={() => {
+                                const m = row.original;
+                                const config = {
+                                  name: m.name,
+                                  provider: m.provider,
+                                  model_type: m.model_type,
+                                  api_format: m.api_format,
+                                  model_name: m.model_name,
+                                  endpoint_url: m.endpoint_url,
+                                  max_tokens: m.max_tokens,
+                                };
+                                navigator.clipboard.writeText(
+                                  JSON.stringify(config, null, 2),
+                                );
+                                setCopiedId(m.id);
+                                setTimeout(() => setCopiedId(null), 1500);
+                              }}
+                            >
+                              {copiedId === row.original.id ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="测试连接"
+                              onClick={() => handleTest(row.original.id)}
+                              disabled={testingId === row.original.id}
+                            >
+                              {testingId === row.original.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Zap className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              title="删除"
+                              onClick={() =>
+                                setDeleteTarget({
+                                  id: row.original.id,
+                                  name: row.original.name,
+                                })
+                              }
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <ChevronRight
+                            className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${
+                              selectedId === row.original.id ? "rotate-90" : ""
+                            }`}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -444,9 +626,7 @@ export default function ModelsPage() {
               {/* Panel header */}
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <h3 className="text-sm font-semibold truncate">
-                  {isCreating
-                    ? "添加模型"
-                    : selectedModel?.name ?? ""}
+                  {isCreating ? "添加模型" : (selectedModel?.name ?? "")}
                 </h3>
                 <Button
                   variant="ghost"
@@ -461,6 +641,37 @@ export default function ModelsPage() {
               {/* Create mode */}
               {isCreating && (
                 <CardContent className="pt-0">
+                  <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                    <button
+                      type="button"
+                      className="hover:text-foreground transition-colors"
+                      onClick={importFromClipboard}
+                    >
+                      从剪贴板导入
+                    </button>
+                    <span className="text-border">|</span>
+                    <label className="hover:text-foreground transition-colors cursor-pointer">
+                      <input
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = () =>
+                            importFromJson(reader.result as string);
+                          reader.readAsText(file);
+                          e.target.value = "";
+                        }}
+                      />
+                      从 JSON 导入
+                    </label>
+                    {importError && (
+                      <span className="text-destructive">{importError}</span>
+                    )}
+                  </div>
+
                   <form onSubmit={handleCreate} className="space-y-3">
                     <PanelField label="显示名称" required>
                       <Input
@@ -503,6 +714,22 @@ export default function ModelsPage() {
                         </Select>
                       </PanelField>
                     </div>
+                    <PanelField label="API 协议">
+                      <Select
+                        value={form.api_format}
+                        onValueChange={(v) =>
+                          setForm({ ...form, api_format: v })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="openai">OpenAI</SelectItem>
+                          <SelectItem value="anthropic">Anthropic</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </PanelField>
                     <PanelField label="模型 ID">
                       <Input
                         value={form.model_name}
@@ -572,7 +799,7 @@ export default function ModelsPage() {
                 </CardContent>
               )}
 
-              {/* View mode */}
+              {/* View mode — inline editable */}
               {selectedModel && !isCreating && (
                 <CardContent className="pt-0 space-y-4">
                   {selectedModel.description && (
@@ -595,41 +822,74 @@ export default function ModelsPage() {
                         </Badge>
                       }
                     />
-                    {selectedModel.model_name && (
-                      <DetailRow
-                        label="模型 ID"
-                        value={
-                          <CopyableCode
-                            text={selectedModel.model_name}
-                            field="model_name"
-                            copiedField={copiedField}
-                            onCopy={copyToClipboard}
-                          />
-                        }
-                      />
-                    )}
-                    <DetailRow
-                      label="端点"
-                      value={
-                        <CopyableCode
-                          text={selectedModel.endpoint_url}
-                          field="endpoint"
-                          copiedField={copiedField}
-                          onCopy={copyToClipboard}
-                          small
-                        />
+                    <EditableSelect
+                      label="API 协议"
+                      value={selectedModel.api_format}
+                      displayValue={
+                        apiFormatLabel[selectedModel.api_format] ??
+                        selectedModel.api_format
+                      }
+                      options={[
+                        { value: "openai", label: "OpenAI" },
+                        { value: "anthropic", label: "Anthropic" },
+                      ]}
+                      onSave={(v) =>
+                        update.mutate({
+                          id: selectedModel.id,
+                          api_format: v,
+                        })
                       }
                     />
-                    {selectedModel.max_tokens && (
-                      <DetailRow
-                        label="最大 Token"
-                        value={
-                          <span className="font-mono">
-                            {selectedModel.max_tokens.toLocaleString()}
-                          </span>
-                        }
-                      />
-                    )}
+                    <EditableText
+                      label="模型 ID"
+                      value={selectedModel.model_name}
+                      mono
+                      onSave={(v) =>
+                        update.mutate({
+                          id: selectedModel.id,
+                          model_name: v,
+                        })
+                      }
+                    />
+                    <EditableText
+                      label="端点"
+                      value={selectedModel.endpoint_url}
+                      mono
+                      small
+                      onSave={(v) =>
+                        update.mutate({
+                          id: selectedModel.id,
+                          endpoint_url: v,
+                        })
+                      }
+                    />
+                    <EditableText
+                      label="最大 Token"
+                      value={
+                        selectedModel.max_tokens
+                          ? String(selectedModel.max_tokens)
+                          : ""
+                      }
+                      mono
+                      placeholder="未设置"
+                      onSave={(v) =>
+                        update.mutate({
+                          id: selectedModel.id,
+                          max_tokens: v ? parseInt(v) : null,
+                        })
+                      }
+                    />
+                    <EditableText
+                      label="描述"
+                      value={selectedModel.description}
+                      placeholder="无描述"
+                      onSave={(v) =>
+                        update.mutate({
+                          id: selectedModel.id,
+                          description: v,
+                        })
+                      }
+                    />
                     <DetailRow
                       label="注册时间"
                       value={utc(selectedModel.created_at)?.toLocaleString()}
@@ -688,7 +948,13 @@ export default function ModelsPage() {
       </div>
 
       {/* Delete confirmation */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => { setDeleteTarget(null); setDeleteError(""); }}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={() => {
+          setDeleteTarget(null);
+          setDeleteError("");
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>删除模型</DialogTitle>
@@ -700,7 +966,13 @@ export default function ModelsPage() {
             <p className="text-sm text-destructive px-1">{deleteError}</p>
           )}
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteError(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteError("");
+              }}
+            >
               取消
             </Button>
             <Button
@@ -754,39 +1026,135 @@ function DetailRow({
   );
 }
 
-function CopyableCode({
-  text,
-  field,
-  copiedField,
-  onCopy,
+function EditableText({
+  label,
+  value,
+  mono,
   small,
+  placeholder,
+  onSave,
 }: {
-  text: string;
-  field: string;
-  copiedField: string | null;
-  onCopy: (text: string, field: string) => void;
+  label: string;
+  value: string;
+  mono?: boolean;
   small?: boolean;
+  placeholder?: string;
+  onSave: (value: string) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  const commit = () => {
+    setEditing(false);
+    if (draft !== value) onSave(draft);
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-start justify-between gap-3 text-xs">
+        <span className="text-muted-foreground shrink-0 pt-1.5">{label}</span>
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") {
+              setDraft(value);
+              setEditing(false);
+            }
+          }}
+          className={`h-7 text-xs text-right ${mono ? "font-mono" : ""}`}
+          autoFocus
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-1 justify-end">
-      <code
-        className={`font-mono truncate max-w-[160px] ${small ? "text-[11px]" : ""}`}
-      >
-        {text}
-      </code>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onCopy(text, field);
-        }}
-        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-      >
-        {copiedField === field ? (
-          <Check className="h-3 w-3 text-emerald-500" />
+    <div
+      className="flex items-start justify-between gap-3 text-xs group/edit cursor-pointer rounded-sm px-1 -mx-1 py-0.5 -my-0.5 hover:bg-muted/60 transition-colors"
+      onClick={() => {
+        setDraft(value);
+        setEditing(true);
+      }}
+    >
+      <span className="text-muted-foreground shrink-0 pt-0.5">{label}</span>
+      <div className="flex items-center gap-1 min-w-0">
+        {value ? (
+          <span
+            className={`truncate max-w-[180px] ${mono ? "font-mono" : ""} ${small ? "text-[11px]" : ""}`}
+          >
+            {value}
+          </span>
         ) : (
-          <Copy className="h-3 w-3" />
+          <span className="text-muted-foreground/50 italic">
+            {placeholder ?? "—"}
+          </span>
         )}
-      </button>
+        <Pencil className="h-2.5 w-2.5 text-muted-foreground/30 group-hover/edit:text-muted-foreground/60 transition-colors shrink-0" />
+      </div>
+    </div>
+  );
+}
+
+function EditableSelect({
+  label,
+  value,
+  displayValue,
+  options,
+  onSave,
+}: {
+  label: string;
+  value: string;
+  displayValue: string;
+  options: { value: string; label: string }[];
+  onSave: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  if (editing) {
+    return (
+      <div className="flex items-start justify-between gap-3 text-xs">
+        <span className="text-muted-foreground shrink-0 pt-1.5">{label}</span>
+        <Select
+          value={value}
+          onValueChange={(v) => {
+            setEditing(false);
+            if (v !== value) onSave(v);
+          }}
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditing(false);
+          }}
+        >
+          <SelectTrigger className="h-7 text-xs w-auto min-w-[100px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex items-start justify-between gap-3 text-xs group/edit cursor-pointer rounded-sm px-1 -mx-1 py-0.5 -my-0.5 hover:bg-muted/60 transition-colors"
+      onClick={() => setEditing(true)}
+    >
+      <span className="text-muted-foreground shrink-0 pt-0.5">{label}</span>
+      <div className="flex items-center gap-1">
+        <Badge variant="outline" className="text-xs font-normal">
+          {displayValue}
+        </Badge>
+        <Pencil className="h-2.5 w-2.5 text-muted-foreground/30 group-hover/edit:text-muted-foreground/60 transition-colors shrink-0" />
+      </div>
     </div>
   );
 }

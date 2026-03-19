@@ -221,10 +221,10 @@ async def _call_model(
         model.endpoint_url or settings.DEFAULT_MODEL_ENDPOINT_URL
     )
     if not endpoint_url:
-        raise ValueError(
-            "Missing endpoint_url: set model.endpoint_url or DEFAULT_MODEL_ENDPOINT_URL"
-        )
-    anthropic_mode = _is_anthropic_endpoint(endpoint_url)
+        raise ValueError("Missing endpoint_url: set model.endpoint_url or DEFAULT_MODEL_ENDPOINT_URL")
+    anthropic_mode = getattr(model, "api_format", "openai") == "anthropic"
+    if not anthropic_mode:
+        anthropic_mode = _is_anthropic_endpoint(endpoint_url)
     if anthropic_mode:
         headers["anthropic-version"] = "2023-06-01"
 
@@ -327,10 +327,27 @@ async def run_task(task_id: uuid.UUID):
 
             # Load criteria
             criteria: list[Criterion] = []
+            enriched_configs: dict[str, str] = {}  # criterion_id -> enriched config_json
             for c_id in criteria_ids:
                 c = await session.get(Criterion, c_id)
                 if c:
                     criteria.append(c)
+                    # For llm_judge, resolve judge_model_id to actual credentials
+                    if c.type == "llm_judge":
+                        try:
+                            cfg = json.loads(c.config_json) if c.config_json else {}
+                            judge_model_id = cfg.get("judge_model_id")
+                            if judge_model_id:
+                                judge_model = await session.get(LLMModel, uuid.UUID(judge_model_id))
+                                if judge_model:
+                                    cfg["endpoint_url"] = judge_model.endpoint_url
+                                    cfg["api_key"] = judge_model.api_key
+                                    cfg["model_name"] = judge_model.model_name or judge_model.name
+                                    if getattr(judge_model, "api_format", "openai") == "anthropic":
+                                        cfg["api_format"] = "anthropic"
+                            enriched_configs[str(c.id)] = json.dumps(cfg)
+                        except Exception:
+                            enriched_configs[str(c.id)] = c.config_json
 
             if not criteria:
                 raise ValueError("No valid criteria found")
@@ -389,6 +406,7 @@ async def run_task(task_id: uuid.UUID):
                         )
 
                         for criterion in criteria:
+                            cfg_json = enriched_configs.get(str(criterion.id), criterion.config_json)
                             score = run_criterion(
                                 criterion.type,
                                 criterion.config_json,

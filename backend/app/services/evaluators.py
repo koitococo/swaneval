@@ -130,18 +130,18 @@ def evaluate_llm_judge(config: dict, expected: str, actual: str) -> float:
     )
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    anthropic_mode = _is_anthropic_endpoint(endpoint_url)
+    anthropic_mode = config.get("api_format") == "anthropic" or _is_anthropic_endpoint(endpoint_url)
     if anthropic_mode:
         headers["anthropic-version"] = "2023-06-01"
 
     payload = {
         "model": model_name,
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 16,
+        "max_tokens": 64,
         "temperature": 0.0,
     }
 
-    with httpx.Client(timeout=30.0) as client:
+    with httpx.Client(timeout=120.0) as client:
         resp = client.post(endpoint_url, json=payload, headers=headers)
         resp.raise_for_status()
         data = resp.json()
