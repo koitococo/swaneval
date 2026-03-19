@@ -40,6 +40,100 @@ def evaluate_numeric_closeness(expected: str, actual: str, tolerance: float = 0.
         return 0.0
 
 
+def evaluate_bleu(expected: str, actual: str) -> float:
+    """BLEU score — measures n-gram overlap between expected and actual."""
+    ref_tokens = expected.strip().split()
+    hyp_tokens = actual.strip().split()
+    if not ref_tokens or not hyp_tokens:
+        return 0.0
+
+    # Compute modified precision for n-grams 1..4
+    from collections import Counter
+    scores = []
+    for n in range(1, 5):
+        ref_ngrams = Counter(tuple(ref_tokens[i:i + n]) for i in range(len(ref_tokens) - n + 1))
+        hyp_ngrams = Counter(tuple(hyp_tokens[i:i + n]) for i in range(len(hyp_tokens) - n + 1))
+        if not hyp_ngrams:
+            scores.append(0.0)
+            continue
+        clipped = sum(min(c, ref_ngrams.get(ng, 0)) for ng, c in hyp_ngrams.items())
+        scores.append(clipped / max(sum(hyp_ngrams.values()), 1))
+
+    if any(s == 0 for s in scores):
+        return 0.0
+
+    import math
+    log_avg = sum(math.log(s) for s in scores) / 4
+    # Brevity penalty
+    ratio = len(ref_tokens) / max(len(hyp_tokens), 1)
+    bp = 1.0 if len(hyp_tokens) >= len(ref_tokens) else math.exp(1 - ratio)
+    return max(0.0, min(1.0, bp * math.exp(log_avg)))
+
+
+def evaluate_rouge_l(expected: str, actual: str) -> float:
+    """ROUGE-L — longest common subsequence F-measure."""
+    ref_tokens = expected.strip().split()
+    hyp_tokens = actual.strip().split()
+    if not ref_tokens or not hyp_tokens:
+        return 0.0
+
+    # LCS length via DP
+    m, n = len(ref_tokens), len(hyp_tokens)
+    prev = [0] * (n + 1)
+    for i in range(1, m + 1):
+        cur = [0] * (n + 1)
+        for j in range(1, n + 1):
+            if ref_tokens[i - 1] == hyp_tokens[j - 1]:
+                cur[j] = prev[j - 1] + 1
+            else:
+                cur[j] = max(cur[j - 1], prev[j])
+        prev = cur
+    lcs_len = prev[n]
+
+    precision = lcs_len / n
+    recall = lcs_len / m
+    if precision + recall == 0:
+        return 0.0
+    return 2 * precision * recall / (precision + recall)
+
+
+def evaluate_f1(expected: str, actual: str) -> float:
+    """Token-level F1 score — harmonic mean of token precision and recall."""
+    ref_tokens = set(expected.strip().lower().split())
+    hyp_tokens = set(actual.strip().lower().split())
+    if not ref_tokens or not hyp_tokens:
+        return 0.0
+    common = ref_tokens & hyp_tokens
+    if not common:
+        return 0.0
+    precision = len(common) / len(hyp_tokens)
+    recall = len(common) / len(ref_tokens)
+    return 2 * precision * recall / (precision + recall)
+
+
+def evaluate_cosine_similarity(expected: str, actual: str) -> float:
+    """Character n-gram cosine similarity (n=3)."""
+    import math
+    from collections import Counter
+
+    def char_ngrams(text: str, n: int = 3) -> Counter:
+        t = text.strip().lower()
+        return Counter(t[i:i + n] for i in range(max(0, len(t) - n + 1)))
+
+    vec_a = char_ngrams(expected)
+    vec_b = char_ngrams(actual)
+    if not vec_a or not vec_b:
+        return 0.0
+
+    keys = set(vec_a) | set(vec_b)
+    dot = sum(vec_a.get(k, 0) * vec_b.get(k, 0) for k in keys)
+    mag_a = math.sqrt(sum(v * v for v in vec_a.values()))
+    mag_b = math.sqrt(sum(v * v for v in vec_b.values()))
+    if mag_a == 0 or mag_b == 0:
+        return 0.0
+    return max(0.0, min(1.0, dot / (mag_a * mag_b)))
+
+
 def _is_anthropic_endpoint(endpoint_url: str) -> bool:
     path = (urlparse(endpoint_url).path or "").lower()
     return path.endswith("/v1/messages") or "/apps/anthropic" in path
@@ -170,6 +264,14 @@ def run_criterion(criterion_type: str, config_json: str, expected: str, actual: 
             return evaluate_contains(expected, actual)
         elif metric == "numeric":
             return evaluate_numeric_closeness(expected, actual, config.get("tolerance", 0.01))
+        elif metric == "bleu":
+            return evaluate_bleu(expected, actual)
+        elif metric == "rouge_l":
+            return evaluate_rouge_l(expected, actual)
+        elif metric == "f1":
+            return evaluate_f1(expected, actual)
+        elif metric == "cosine_similarity":
+            return evaluate_cosine_similarity(expected, actual)
         else:
             return evaluate_exact_match(expected, actual)
 
