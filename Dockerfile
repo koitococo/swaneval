@@ -52,4 +52,4 @@ RUN --mount=type=cache,id=uv-cache,target=/cache,uid=1000,gid=1000 \
 COPY ./backend/ .
 
 EXPOSE 8000
-CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"]
+CMD ["sh", "-c", "uv run --no-sync -- uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2"]
