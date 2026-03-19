@@ -12,8 +12,6 @@ services:
       POSTGRES_USER: evalscope
       POSTGRES_PASSWORD: evalscope
       POSTGRES_DB: evalscope
-    ports:
-      - "${PG_PORT:-6001}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -25,8 +23,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: evalscope-redis
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -36,12 +32,8 @@ services:
   # ── 应用服务 ──
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: registry.ltkk.run/swaneval/backend:latest
     container_name: evalscope-backend
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - evalscope_data:/data
     environment:
@@ -59,52 +51,16 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: registry.ltkk.run/swaneval/frontend:latest
     container_name: evalscope-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:${BACKEND_PORT:-8000}/api/v1"
+      API_ENDPOINT: http://backend:8000/
     depends_on:
       - backend
     restart: unless-stopped
 
-  # ── 可选服务（需要 --profile 启用）──
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: evalscope-ollama
-    ports:
-      - "${OLLAMA_PORT:-11434}:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    profiles:
-      - ollama
-
-  minio:
-    image: minio/minio:latest
-    container_name: evalscope-minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    profiles:
-      - s3
-
 volumes:
   postgres_data:
   evalscope_data:
-  ollama_data:
-  minio_data:
