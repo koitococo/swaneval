@@ -448,14 +448,14 @@ export default function ModelsPage() {
               size="sm"
               variant="ghost"
               className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => {
-                const selectedIds = Object.keys(rowSelection);
-                if (selectedIds.length === 1) {
-                  const m = models.find(
-                    (m) => m.id === filteredData[parseInt(selectedIds[0])]?.id,
-                  );
-                  if (m) setDeleteTarget({ id: m.id, name: m.name });
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteMut.mutateAsync(id); } catch { /* skip failed */ }
                 }
+                setRowSelection({});
               }}
             >
               <Trash2 className="mr-1 h-3 w-3" />

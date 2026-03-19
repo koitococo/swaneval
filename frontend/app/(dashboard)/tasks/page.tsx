@@ -428,7 +428,15 @@ export default function TasksPage() {
               size="sm"
               variant="ghost"
               className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => setRowSelection({})}
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteTask.mutateAsync(id); } catch { /* skip */ }
+                }
+                setRowSelection({});
+              }}
             >
               <Trash2 className="mr-1 h-3 w-3" />
               删除
@@ -1074,12 +1082,12 @@ export default function TasksPage() {
                     selectedTask.status === "paused" ||
                     selectedTask.status === "failed" ||
                     selectedTask.status === "pending") && (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="flex gap-2">
                       {selectedTask.status === "running" && (
                         <Button
                           size="sm"
                           variant="outline"
-                          className="w-full"
+                          className="flex-1"
                           onClick={() => pauseTask.mutate(selectedTask.id)}
                           disabled={pauseTask.isPending}
                         >
@@ -1096,7 +1104,7 @@ export default function TasksPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="w-full"
+                          className="flex-1"
                           onClick={() => resumeTask.mutate(selectedTask.id)}
                           disabled={resumeTask.isPending}
                         >
@@ -1113,7 +1121,7 @@ export default function TasksPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="w-full text-destructive hover:text-destructive hover:bg-destructive/5"
+                          className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/5"
                           onClick={() => cancelTask.mutate(selectedTask.id)}
                           disabled={cancelTask.isPending}
                         >

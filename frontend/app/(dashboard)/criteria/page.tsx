@@ -57,6 +57,7 @@ import {
   useDeleteCriterion,
   useTestCriterion,
 } from "@/lib/hooks/use-criteria";
+import { useModels } from "@/lib/hooks/use-models";
 import type { Criterion } from "@/lib/types";
 import { utc } from "@/lib/utils";
 
@@ -70,7 +71,7 @@ const typeLabel: Record<string, string> = {
 const typeDescriptions: Record<string, string> = {
   preset: "使用内置指标，如精确匹配、包含匹配或数值接近度。",
   regex: "使用正则表达式匹配模型输出。",
-  script: "运行自定义脚本评估模型输出。",
+  script: "运行服务器上的 Python 脚本评估模型输出。脚本需包含一个评估函数，接收 expected 和 actual 参数，返回 0-1 之间的浮点数。",
   llm_judge: "使用另一个大语言模型评判响应质量。",
 };
 
@@ -93,7 +94,9 @@ const emptyForm = {
   pattern: "",
   script_path: "",
   entrypoint: "",
+  script_args: "",
   judge_prompt: "",
+  judge_model_id: "",
 };
 
 function configSummary(configJson: string, type: string): string {
@@ -102,7 +105,7 @@ function configSummary(configJson: string, type: string): string {
     if (type === "preset") return cfg.metric;
     if (type === "regex") return cfg.pattern;
     if (type === "script") return cfg.script_path;
-    if (type === "llm_judge") return "LLM Judge";
+    if (type === "llm_judge") return cfg.system_prompt ? "自定义评判" : "LLM Judge";
     return configJson;
   } catch {
     return configJson;
@@ -111,6 +114,7 @@ function configSummary(configJson: string, type: string): string {
 
 export default function CriteriaPage() {
   const { data: criteria = [], isLoading } = useCriteria();
+  const { data: models = [] } = useModels();
   const create = useCreateCriterion();
   const deleteMut = useDeleteCriterion();
   const test = useTestCriterion();
@@ -129,6 +133,7 @@ export default function CriteriaPage() {
     actual: "",
   });
   const [testResult, setTestResult] = useState<{ score: number } | null>(null);
+  const [testError, setTestError] = useState("");
   const [copiedRowId, setCopiedRowId] = useState<string | null>(null);
   const [globalFilter, setGlobalFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("__all__");
@@ -169,8 +174,10 @@ export default function CriteriaPage() {
         metric: cfg.metric ?? f.metric,
         pattern: cfg.pattern ?? f.pattern,
         script_path: cfg.script_path ?? f.script_path,
+        script_args: f.script_args,
         entrypoint: cfg.entrypoint ?? f.entrypoint,
         judge_prompt: cfg.system_prompt ?? f.judge_prompt,
+        judge_model_id: cfg.judge_model_id ?? f.judge_model_id,
       }));
     } catch {
       setImportError("无法解析 JSON");
@@ -184,10 +191,22 @@ export default function CriteriaPage() {
     if (form.type === "preset") config = { metric: form.metric };
     else if (form.type === "regex")
       config = { pattern: form.pattern, match_mode: "contains" };
-    else if (form.type === "script")
-      config = { script_path: form.script_path, entrypoint: form.entrypoint };
+    else if (form.type === "script") {
+      config = {
+        script_path: form.script_path,
+        entrypoint: form.entrypoint,
+      };
+      if (form.script_args.trim()) {
+        try {
+          config = { ...config, ...JSON.parse(form.script_args) };
+        } catch { /* ignore invalid JSON in extra args */ }
+      }
+    }
     else if (form.type === "llm_judge")
-      config = { system_prompt: form.judge_prompt };
+      config = {
+        system_prompt: form.judge_prompt,
+        ...(form.judge_model_id ? { judge_model_id: form.judge_model_id } : {}),
+      };
 
     await create.mutateAsync({
       name: form.name,
@@ -216,11 +235,22 @@ export default function CriteriaPage() {
 
   const handleTest = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await test.mutateAsync({
-      criterion_id: testId,
-      ...testForm,
-    });
-    setTestResult(result);
+    setTestError("");
+    setTestResult(null);
+    try {
+      const result = await test.mutateAsync({
+        criterion_id: testId,
+        ...testForm,
+      });
+      setTestResult(result);
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response
+              ?.data?.detail
+          : undefined;
+      setTestError(detail || "测试失败，请检查评估标准配置。");
+    }
   };
 
   const filteredData = useMemo(
@@ -403,7 +433,15 @@ export default function CriteriaPage() {
               size="sm"
               variant="ghost"
               className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => setRowSelection({})}
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteMut.mutateAsync(id); } catch { /* skip */ }
+                }
+                setRowSelection({});
+              }}
             >
               <Trash2 className="mr-1 h-3 w-3" />
               删除
@@ -535,6 +573,7 @@ export default function CriteriaPage() {
                                   expected: "",
                                   actual: "",
                                 });
+                                setTestError("");
                                 setTestOpen(true);
                               }}
                             >
@@ -697,14 +736,12 @@ export default function CriteriaPage() {
 
                     {form.type === "regex" && (
                       <PanelField label="正则表达式" required>
-                        <Input
+                        <RegexInput
                           value={form.pattern}
-                          onChange={(e) =>
-                            setForm({ ...form, pattern: e.target.value })
+                          onChange={(v) =>
+                            setForm({ ...form, pattern: v })
                           }
                           placeholder="\\d+\\.?\\d*"
-                          className="font-mono"
-                          required
                         />
                       </PanelField>
                     )}
@@ -725,7 +762,7 @@ export default function CriteriaPage() {
                             required
                           />
                         </PanelField>
-                        <PanelField label="入口函数" required>
+                        <PanelField label="入口函数">
                           <Input
                             value={form.entrypoint}
                             onChange={(e) =>
@@ -736,27 +773,84 @@ export default function CriteriaPage() {
                             }
                             placeholder="evaluate"
                             className="font-mono"
-                            required
                           />
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            默认为 evaluate。留空使用默认值。
+                          </p>
                         </PanelField>
+                        <PanelField label="额外参数 (JSON)">
+                          <Input
+                            value={form.script_args}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                script_args: e.target.value,
+                              })
+                            }
+                            placeholder='{"threshold": 0.8}'
+                            className="font-mono"
+                          />
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            可选。将作为 config 参数传入脚本函数。
+                          </p>
+                        </PanelField>
+                        <div className="rounded-md bg-muted p-2.5 text-[11px] font-mono text-muted-foreground space-y-0.5">
+                          <p className="text-foreground/70 font-sans text-xs font-medium mb-1">
+                            脚本函数签名示例
+                          </p>
+                          <p>def evaluate(expected, actual, config=None):</p>
+                          <p>    # 返回 0.0 - 1.0 之间的浮点数</p>
+                          <p>    return 1.0 if expected in actual else 0.0</p>
+                        </div>
                       </>
                     )}
 
                     {form.type === "llm_judge" && (
-                      <PanelField label="系统提示词" required>
-                        <textarea
-                          value={form.judge_prompt}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              judge_prompt: e.target.value,
-                            })
-                          }
-                          placeholder="你是一个评估专家。请根据以下标准对回答打分（0-1）..."
-                          className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                          required
-                        />
-                      </PanelField>
+                      <>
+                        <PanelField label="评判模型" required>
+                          <Select
+                            value={form.judge_model_id}
+                            onValueChange={(v) =>
+                              setForm({ ...form, judge_model_id: v })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="选择用于评判的模型" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {models.map((m) => (
+                                <SelectItem key={m.id} value={m.id}>
+                                  {m.name}
+                                  {m.model_name && (
+                                    <span className="text-muted-foreground ml-1">
+                                      ({m.model_name})
+                                    </span>
+                                  )}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {models.length === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              请先在模型页面添加一个模型。
+                            </p>
+                          )}
+                        </PanelField>
+                        <PanelField label="系统提示词" required>
+                          <textarea
+                            value={form.judge_prompt}
+                            onChange={(e) =>
+                              setForm({
+                                ...form,
+                                judge_prompt: e.target.value,
+                              })
+                            }
+                            placeholder="你是一个评估专家。请根据以下标准对回答打分（0-1）..."
+                            className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            required
+                          />
+                        </PanelField>
+                      </>
                     )}
 
                     <div className="pt-1">
@@ -793,17 +887,74 @@ export default function CriteriaPage() {
                         </Badge>
                       }
                     />
-                    <DetailRow
-                      label="配置"
-                      value={
-                        <code className="font-mono text-xs">
-                          {configSummary(
-                            selectedCriterion.config_json,
-                            selectedCriterion.type,
-                          )}
-                        </code>
+                    {(() => {
+                      try {
+                        const cfg = JSON.parse(selectedCriterion.config_json);
+                        if (selectedCriterion.type === "preset")
+                          return (
+                            <DetailRow
+                              label="指标"
+                              value={<code className="font-mono text-xs">{cfg.metric}</code>}
+                            />
+                          );
+                        if (selectedCriterion.type === "regex")
+                          return (
+                            <DetailRow
+                              label="正则"
+                              value={<code className="font-mono text-xs">{cfg.pattern}</code>}
+                            />
+                          );
+                        if (selectedCriterion.type === "script")
+                          return (
+                            <>
+                              <DetailRow
+                                label="脚本"
+                                value={<code className="font-mono text-xs truncate block max-w-[180px]">{cfg.script_path}</code>}
+                              />
+                              {cfg.entrypoint && (
+                                <DetailRow
+                                  label="入口"
+                                  value={<code className="font-mono text-xs">{cfg.entrypoint}</code>}
+                                />
+                              )}
+                            </>
+                          );
+                        if (selectedCriterion.type === "llm_judge") {
+                          const judgeModel = models.find((m) => m.id === cfg.judge_model_id);
+                          return (
+                            <>
+                              {judgeModel && (
+                                <DetailRow label="评判模型" value={judgeModel.name} />
+                              )}
+                              {cfg.system_prompt && (
+                                <DetailRow
+                                  label="提示词"
+                                  value={
+                                    <span className="text-xs truncate block max-w-[180px]">
+                                      {cfg.system_prompt.slice(0, 60)}
+                                      {cfg.system_prompt.length > 60 ? "..." : ""}
+                                    </span>
+                                  }
+                                />
+                              )}
+                            </>
+                          );
+                        }
+                        return (
+                          <DetailRow
+                            label="配置"
+                            value={<code className="font-mono text-xs">{configSummary(selectedCriterion.config_json, selectedCriterion.type)}</code>}
+                          />
+                        );
+                      } catch {
+                        return (
+                          <DetailRow
+                            label="配置"
+                            value={<code className="font-mono text-xs">{selectedCriterion.config_json}</code>}
+                          />
+                        );
                       }
-                    />
+                    })()}
                     <DetailRow
                       label="创建时间"
                       value={
@@ -950,6 +1101,11 @@ export default function CriteriaPage() {
             <Button type="submit" className="w-full" disabled={test.isPending}>
               {test.isPending ? "测试中..." : "运行测试"}
             </Button>
+            {testError && (
+              <div className="rounded bg-destructive/10 p-3 text-xs text-destructive">
+                {testError}
+              </div>
+            )}
             {testResult !== null && (
               <div className="rounded bg-muted p-3 text-center">
                 <span className="text-xs text-muted-foreground">得分：</span>
@@ -1004,6 +1160,147 @@ function DetailRow({
     <div className="flex items-start justify-between gap-3 text-xs">
       <span className="text-muted-foreground shrink-0 pt-0.5">{label}</span>
       <div className="text-right min-w-0">{value}</div>
+    </div>
+  );
+}
+
+/* Tokenize a regex string into colored spans */
+function highlightRegex(pattern: string): React.ReactNode[] {
+  const tokens: React.ReactNode[] = [];
+  let i = 0;
+  while (i < pattern.length) {
+    const ch = pattern[i];
+
+    // Escape sequences: \d, \w, \s, \., etc.
+    if (ch === "\\" && i + 1 < pattern.length) {
+      const esc = pattern[i + 1];
+      const isShorthand = "dwsDbBWS".includes(esc);
+      tokens.push(
+        <span key={i} className={isShorthand ? "text-amber-500" : "text-sky-500"}>
+          {ch}{esc}
+        </span>,
+      );
+      i += 2;
+      continue;
+    }
+
+    // Character classes: [...]
+    if (ch === "[") {
+      let end = i + 1;
+      if (end < pattern.length && pattern[end] === "^") end++;
+      if (end < pattern.length && pattern[end] === "]") end++;
+      while (end < pattern.length && pattern[end] !== "]") end++;
+      const cls = pattern.slice(i, end + 1);
+      tokens.push(
+        <span key={i} className="text-emerald-500">{cls}</span>,
+      );
+      i = end + 1;
+      continue;
+    }
+
+    // Groups: ( and )
+    if (ch === "(" || ch === ")") {
+      tokens.push(
+        <span key={i} className="text-violet-500 font-semibold">{ch}</span>,
+      );
+      i++;
+      continue;
+    }
+
+    // Quantifiers: * + ? {n,m}
+    if ("*+?".includes(ch)) {
+      tokens.push(
+        <span key={i} className="text-rose-500">{ch}</span>,
+      );
+      i++;
+      continue;
+    }
+    if (ch === "{") {
+      let end = i + 1;
+      while (end < pattern.length && pattern[end] !== "}") end++;
+      tokens.push(
+        <span key={i} className="text-rose-500">{pattern.slice(i, end + 1)}</span>,
+      );
+      i = end + 1;
+      continue;
+    }
+
+    // Anchors and alternation: ^ $ |
+    if ("^$|".includes(ch)) {
+      tokens.push(
+        <span key={i} className="text-primary font-semibold">{ch}</span>,
+      );
+      i++;
+      continue;
+    }
+
+    // Dot (any char)
+    if (ch === ".") {
+      tokens.push(
+        <span key={i} className="text-amber-500">{ch}</span>,
+      );
+      i++;
+      continue;
+    }
+
+    // Literal characters
+    tokens.push(<span key={i}>{ch}</span>);
+    i++;
+  }
+  return tokens;
+}
+
+function RegexInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  const [valid, setValid] = useState(true);
+
+  const validate = (v: string) => {
+    try {
+      if (v) new RegExp(v);
+      setValid(true);
+    } catch {
+      setValid(false);
+    }
+  };
+
+  return (
+    <div className="space-y-1">
+      <div className="relative">
+        {/* Highlight layer */}
+        <div
+          className="absolute inset-0 flex items-center px-3 py-2 font-mono text-sm pointer-events-none overflow-hidden whitespace-pre"
+          aria-hidden
+        >
+          {value ? highlightRegex(value) : (
+            <span className="text-muted-foreground">{!focused ? placeholder : ""}</span>
+          )}
+        </div>
+        {/* Actual input — transparent text, visible caret */}
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            validate(e.target.value);
+          }}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder=""
+          required
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono text-transparent caret-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        />
+      </div>
+      {!valid && value && (
+        <p className="text-[11px] text-destructive">正则表达式语法错误</p>
+      )}
     </div>
   );
 }

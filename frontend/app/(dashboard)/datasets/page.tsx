@@ -436,7 +436,15 @@ export default function DatasetsPage() {
               size="sm"
               variant="ghost"
               className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => setRowSelection({})}
+              onClick={async () => {
+                const ids = Object.keys(rowSelection).map(
+                  (idx) => filteredData[parseInt(idx)]?.id,
+                ).filter(Boolean);
+                for (const id of ids) {
+                  try { await deleteMut.mutateAsync(id); } catch { /* skip */ }
+                }
+                setRowSelection({});
+              }}
             >
               <Trash2 className="mr-1 h-3 w-3" />
               删除
