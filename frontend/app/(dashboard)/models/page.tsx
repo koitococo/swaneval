@@ -799,7 +799,7 @@ export default function ModelsPage() {
               transformOrigin: "top right",
             }}
           >
-            <Card className="w-[33vw] shadow-xl">
+            <Card className="w-[33vw] ">
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <h3 className="text-sm font-semibold">添加模型</h3>
               </div>
@@ -997,7 +997,7 @@ export default function ModelsPage() {
       {/* Floating selection bar */}
       {Object.keys(rowSelection).length > 0 && (
         <div className="fixed bottom-6 left-0 right-0 z-30 flex justify-center pointer-events-none animate-float-up">
-          <div className="flex items-center gap-3 bg-background border rounded-full shadow-lg px-5 py-2.5 text-sm pointer-events-auto">
+          <div className="flex items-center gap-3 bg-background border rounded-full  px-5 py-2.5 text-sm pointer-events-auto">
             <span className="text-muted-foreground">
               已选择{" "}
               <span className="font-semibold text-foreground tabular-nums">
