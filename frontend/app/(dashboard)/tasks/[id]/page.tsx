@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -62,9 +63,11 @@ export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { data: task, isLoading } = useTask(id);
+  const isRunning = task?.status === "running" || task?.status === "pending";
+  const pollInterval = isRunning ? 3000 : false;
   const { data: subtasks = [] } = useSubtasks(id);
-  const { data: summary = [] } = useTaskSummary(id);
-  const { data: errorsData } = useErrorResults(id);
+  const { data: summary = [] } = useTaskSummary(id, pollInterval);
+  const { data: errorsData } = useErrorResults(id, 1, 50, pollInterval);
   const errors = errorsData?.items ?? [];
   const pause = usePauseTask();
   const resumeTask = useResumeTask();
@@ -72,6 +75,14 @@ export default function TaskDetailPage() {
   const deleteTask = useDeleteTask();
   const [showDelete, setShowDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  // 1-second tick for live elapsed time display
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!isRunning) return;
+    const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [isRunning]);
 
   if (isLoading || !task) {
     return (

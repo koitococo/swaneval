@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   useReactTable,
@@ -136,6 +136,15 @@ export default function TasksPage() {
   const { data: datasetsData } = useDatasets();
   const datasets = useMemo(() => datasetsData?.items ?? [], [datasetsData]);
   const { data: criteria = [] } = useCriteria();
+
+  // 1-second tick so elapsed time updates live for running tasks
+  const [, setTick] = useState(0);
+  const hasRunning = tasks.some((t) => t.status === "running");
+  useEffect(() => {
+    if (!hasRunning) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [hasRunning]);
 
   const [panel, setPanel] = useState<PanelMode>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -1004,58 +1013,63 @@ export default function TasksPage() {
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex gap-2 pt-1">
-                    {selectedTask.status === "running" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => pauseTask.mutate(selectedTask.id)}
-                        disabled={pauseTask.isPending}
-                      >
-                        {pauseTask.isPending ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Pause className="mr-1.5 h-3.5 w-3.5" />
-                        )}
-                        暂停
-                      </Button>
-                    )}
-                    {(selectedTask.status === "paused" ||
-                      selectedTask.status === "failed") && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => resumeTask.mutate(selectedTask.id)}
-                        disabled={resumeTask.isPending}
-                      >
-                        {resumeTask.isPending ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Play className="mr-1.5 h-3.5 w-3.5" />
-                        )}
-                        恢复
-                      </Button>
-                    )}
-                    {(selectedTask.status === "running" ||
-                      selectedTask.status === "pending") && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/5"
-                        onClick={() => cancelTask.mutate(selectedTask.id)}
-                        disabled={cancelTask.isPending}
-                      >
-                        {cancelTask.isPending ? (
-                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Ban className="mr-1.5 h-3.5 w-3.5" />
-                        )}
-                        取消
-                      </Button>
-                    )}
-                  </div>
+                  {(selectedTask.status === "running" ||
+                    selectedTask.status === "paused" ||
+                    selectedTask.status === "failed" ||
+                    selectedTask.status === "pending") && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedTask.status === "running" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => pauseTask.mutate(selectedTask.id)}
+                          disabled={pauseTask.isPending}
+                        >
+                          {pauseTask.isPending ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Pause className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          暂停
+                        </Button>
+                      )}
+                      {(selectedTask.status === "paused" ||
+                        selectedTask.status === "failed") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => resumeTask.mutate(selectedTask.id)}
+                          disabled={resumeTask.isPending}
+                        >
+                          {resumeTask.isPending ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Play className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          恢复
+                        </Button>
+                      )}
+                      {(selectedTask.status === "running" ||
+                        selectedTask.status === "pending") && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full text-destructive hover:text-destructive hover:bg-destructive/5"
+                          onClick={() => cancelTask.mutate(selectedTask.id)}
+                          disabled={cancelTask.isPending}
+                        >
+                          {cancelTask.isPending ? (
+                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Ban className="mr-1.5 h-3.5 w-3.5" />
+                          )}
+                          取消
+                        </Button>
+                      )}
+                    </div>
+                  )}
 
                   {/* View detail + delete */}
                   <div className="flex gap-2">
