@@ -21,6 +21,8 @@ class DatasetMountRequest(BaseModel):
 
 
 class DatasetResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
     id: uuid.UUID
     name: str
     description: str

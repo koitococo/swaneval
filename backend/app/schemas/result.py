@@ -5,6 +5,8 @@ from pydantic import BaseModel
 
 
 class EvalResultResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
     id: uuid.UUID
     task_id: uuid.UUID
     subtask_id: uuid.UUID
