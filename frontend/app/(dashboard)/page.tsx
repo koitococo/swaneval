@@ -106,8 +106,12 @@ export default function OverviewPage() {
 
   const recentTasks = allTasks.slice(0, 20);
   const runningTasks = allTasks.filter((t) => t.status === "running");
-  const failedTasks = allTasks.filter((t) => t.status === "failed").slice(0, 20);
-  const completedCount = allTasks.filter((t) => t.status === "completed").length;
+  const failedTasks = allTasks
+    .filter((t) => t.status === "failed")
+    .slice(0, 20);
+  const completedCount = allTasks.filter(
+    (t) => t.status === "completed",
+  ).length;
   const totalCount = allTasks.length;
 
   // Top model from leaderboard
@@ -133,9 +137,8 @@ export default function OverviewPage() {
   });
 
   // Success rate
-  const successRate = totalCount > 0
-    ? Math.round((completedCount / totalCount) * 100)
-    : 0;
+  const successRate =
+    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
     <Xwrapper>
@@ -147,12 +150,9 @@ export default function OverviewPage() {
           <div className="flex items-start justify-between">
             {/* Left: title */}
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-foreground/90 leading-none">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground/90 leading-none">
                 概览
               </h1>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                系统状态总览
-              </p>
             </div>
 
             {/* Right: HUD metric chips */}
@@ -209,7 +209,9 @@ export default function OverviewPage() {
           <div className="flex items-center gap-4 text-xs">
             {/* Success rate */}
             <div className="flex items-center gap-2.5">
-              <span className="text-muted-foreground whitespace-nowrap">成功率</span>
+              <span className="text-muted-foreground whitespace-nowrap">
+                成功率
+              </span>
               <div className="w-28 h-1.5 rounded-full bg-border/60 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-primary transition-all duration-500"
@@ -247,7 +249,9 @@ export default function OverviewPage() {
               <>
                 <div className="flex items-center gap-1.5 text-destructive/70">
                   <AlertTriangle className="h-3 w-3" />
-                  <span className="tabular-nums">{failedTasks.length} 失败</span>
+                  <span className="tabular-nums">
+                    {failedTasks.length} 失败
+                  </span>
                 </div>
                 <div className="w-px h-4 bg-border/50" />
               </>
@@ -371,7 +375,10 @@ export default function OverviewPage() {
                         </span>
                       </div>
                       <div className="h-1 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full rounded-full bg-primary/60 animate-pulse" style={{ width: "60%" }} />
+                        <div
+                          className="h-full rounded-full bg-primary/60 animate-pulse"
+                          style={{ width: "60%" }}
+                        />
                       </div>
                     </Link>
                   ))}
