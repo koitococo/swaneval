@@ -90,6 +90,17 @@ export function useImportDataset() {
   });
 }
 
+export function useDownloadDataset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.post<Dataset>(`/datasets/${id}/download`);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["datasets"] }),
+  });
+}
+
 export function useDeleteDataset() {
   const qc = useQueryClient();
   return useMutation({

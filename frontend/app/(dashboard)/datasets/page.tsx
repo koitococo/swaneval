@@ -47,12 +47,14 @@ import {
   Upload,
   FolderOpen,
   Globe,
+  Download,
 } from "lucide-react";
 import {
   useDatasets,
   useUploadDataset,
   useMountDataset,
   useImportDataset,
+  useDownloadDataset,
   useDeleteDataset,
   useDatasetPreview,
 } from "@/lib/hooks/use-datasets";
@@ -107,6 +109,7 @@ export default function DatasetsPage() {
   const upload = useUploadDataset();
   const mount = useMountDataset();
   const importDs = useImportDataset();
+  const downloadDs = useDownloadDataset();
   const deleteMut = useDeleteDataset();
 
   const [panel, setPanel] = useState<PanelMode>(null);
@@ -736,6 +739,27 @@ export default function DatasetsPage() {
                   />
                 </div>
 
+                {/* Download banner for empty datasets */}
+                {selectedDataset.row_count === 0 &&
+                  (selectedDataset.source_type === "preset" || selectedDataset.source_type === "huggingface") && (
+                  <div className="rounded-md bg-muted px-3 py-2.5 text-xs text-muted-foreground space-y-2">
+                    <p>该数据集尚未下载内容，点击下方按钮从 HuggingFace 下载。</p>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => downloadDs.mutate(selectedDataset.id)}
+                      disabled={downloadDs.isPending}
+                    >
+                      {downloadDs.isPending ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      {downloadDs.isPending ? "下载中..." : "下载数据集内容"}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Actions */}
                 <div className="flex gap-2 pt-1">
                   <Button
@@ -743,6 +767,7 @@ export default function DatasetsPage() {
                     variant="outline"
                     className="flex-1"
                     onClick={() => setPreviewId(selectedDataset.id)}
+                    disabled={selectedDataset.row_count === 0}
                   >
                     <Eye className="mr-1.5 h-3.5 w-3.5" />
                     预览

@@ -243,6 +243,70 @@ async def list_datasets(
     )
 
 
+@router.post("/{dataset_id}/download", response_model=DatasetResponse)
+async def download_preset_content(
+    dataset_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    storage: StorageBackend = Depends(_get_storage),
+):
+    """Download content for a preset dataset from HuggingFace."""
+    from app.database import PRESET_DATASETS
+    from app.services.dataset_import import import_huggingface
+
+    ds = await session.get(Dataset, dataset_id)
+    if not ds:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+
+    if ds.row_count > 0 and ds.size_bytes > 0:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Dataset already has content")
+
+    # Find the HuggingFace ID — for presets, look up in PRESET_DATASETS; otherwise use source_uri
+    hf_id = ds.source_uri
+    split = "test"
+    if ds.source_type == SourceType.preset:
+        for preset in PRESET_DATASETS:
+            if preset["name"] == ds.name:
+                hf_id = preset["hf_id"]
+                split = preset.get("split", "test")
+                break
+    elif ds.source_type == SourceType.huggingface:
+        pass  # source_uri is already the HF path
+    else:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Only preset and HuggingFace datasets can be downloaded",
+        )
+
+    try:
+        source_uri, row_count, size_bytes = await import_huggingface(
+            hf_id, "", split, storage,
+        )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
+    ds.source_uri = source_uri
+    ds.row_count = row_count
+    ds.size_bytes = size_bytes
+    ext = os.path.splitext(source_uri)[1].lstrip(".")
+    if ext:
+        ds.format = ext
+    session.add(ds)
+
+    # Also create a version record
+    dv = DatasetVersion(
+        dataset_id=ds.id,
+        version=ds.version,
+        file_path=source_uri,
+        changelog=f"Downloaded from HuggingFace: {hf_id}",
+        row_count=row_count,
+    )
+    session.add(dv)
+    await session.commit()
+    await session.refresh(ds)
+    return ds
+
+
 @router.get("/{dataset_id}", response_model=DatasetResponse)
 async def get_dataset(
     dataset_id: uuid.UUID,

@@ -39,60 +39,69 @@ async def init_db():
 
 
 # 预置数据集定义 / Preset dataset definitions
+# hf_id: HuggingFace dataset ID used for downloading content on demand
 PRESET_DATASETS = [
     {
         "name": "GSM8K",
         "description": "Grade School Math 8K — 8500道小学数学应用题，评估模型的多步数学推理能力",
-        "source_uri": "https://huggingface.co/datasets/openai/gsm8k",
+        "hf_id": "openai/gsm8k",
+        "split": "test",
         "format": "jsonl",
         "tags": "math,reasoning,preset",
     },
     {
         "name": "MATH",
         "description": "12500道竞赛级数学题，涵盖代数、几何、数论等7个类别，评估高级数学推理",
-        "source_uri": "https://huggingface.co/datasets/hendrycks/competition_math",
+        "hf_id": "hendrycks/competition_math",
+        "split": "test",
         "format": "jsonl",
         "tags": "math,reasoning,competition,preset",
     },
     {
         "name": "BBH",
         "description": "BIG-Bench Hard — 23项挑战性任务，评估模型的逻辑推理、常识和语言理解能力",
-        "source_uri": "https://huggingface.co/datasets/lukaemon/bbh",
+        "hf_id": "lukaemon/bbh",
+        "split": "test",
         "format": "jsonl",
         "tags": "reasoning,logic,preset",
     },
     {
         "name": "HumanEval",
         "description": "164道 Python 编程题，评估模型的代码生成能力（Pass@k 指标）",
-        "source_uri": "https://huggingface.co/datasets/openai/openai_humaneval",
+        "hf_id": "openai/openai_humaneval",
+        "split": "test",
         "format": "jsonl",
         "tags": "code,python,preset",
     },
     {
         "name": "MBPP",
         "description": "Mostly Basic Python Problems — 974道 Python 编程题，评估基础代码生成能力",
-        "source_uri": "https://huggingface.co/datasets/google-research-datasets/mbpp",
+        "hf_id": "google-research-datasets/mbpp",
+        "split": "test",
         "format": "jsonl",
         "tags": "code,python,preset",
     },
     {
         "name": "AlpacaEval",
         "description": "805条指令，评估模型的指令跟随和开放式生成质量，常用于对话模型对比",
-        "source_uri": "https://huggingface.co/datasets/tatsu-lab/alpaca_eval",
+        "hf_id": "tatsu-lab/alpaca_eval",
+        "split": "eval",
         "format": "jsonl",
         "tags": "instruction,chat,preset",
     },
     {
         "name": "MT-Bench",
         "description": "80组多轮对话题目，涵盖写作、推理、数学等8个类别，评估多轮对话能力",
-        "source_uri": "https://huggingface.co/datasets/HuggingFaceH4/mt_bench_prompts",
+        "hf_id": "HuggingFaceH4/mt_bench_prompts",
+        "split": "train",
         "format": "jsonl",
         "tags": "chat,multi-turn,preset",
     },
     {
         "name": "LongBench",
         "description": "多任务长文本理解基准，涵盖摘要、问答、代码补全等6大类21个子任务",
-        "source_uri": "https://huggingface.co/datasets/THUDM/LongBench",
+        "hf_id": "THUDM/LongBench",
+        "split": "test",
         "format": "jsonl",
         "tags": "long-context,comprehension,preset",
     },
@@ -103,24 +112,27 @@ async def seed_preset_datasets():
     """
     种子预置数据集 / Seed preset datasets
 
-    在数据库中插入预置的标准评测数据集（幂等操作，已存在则跳过）。
-    Insert preset benchmark datasets into the database (idempotent).
+    逐条检查预置数据集，缺失则补建（支持部分删除后重启恢复）。
+    Check each preset individually and re-create missing ones.
     """
     from app.models.dataset import Dataset, SourceType
 
     async with AsyncSession(engine) as session:
+        # Get names of all existing preset datasets
         result = await session.exec(
-            select(Dataset).where(Dataset.source_type == SourceType.preset).limit(1)
+            select(Dataset.name).where(Dataset.source_type == SourceType.preset)
         )
-        if result.first() is not None:
-            return  # already seeded
+        existing_names = set(result.all())
 
+        added = 0
         for preset in PRESET_DATASETS:
+            if preset["name"] in existing_names:
+                continue
             dataset = Dataset(
                 name=preset["name"],
                 description=preset["description"],
                 source_type=SourceType.preset,
-                source_uri=preset["source_uri"],
+                source_uri=preset["hf_id"],
                 format=preset["format"],
                 tags=preset["tags"],
                 version=1,
@@ -129,4 +141,6 @@ async def seed_preset_datasets():
                 created_by=None,
             )
             session.add(dataset)
-        await session.commit()
+            added += 1
+        if added:
+            await session.commit()
