@@ -15,6 +15,7 @@ from app.schemas.dataset import (
     DatasetImportRequest,
     DatasetMountRequest,
     DatasetResponse,
+    DatasetSubscribeRequest,
     PaginatedResponse,
 )
 from app.services.dataset_deletion import cleanup_uploaded_file, delete_dataset_versions
@@ -215,6 +216,9 @@ async def import_dataset(
         size_bytes=size_bytes,
         row_count=row_count,
         created_by=current_user.id,
+        hf_dataset_id=body.dataset_id,
+        hf_subset=body.subset,
+        hf_split=body.split,
     )
     session.add(ds)
     await session.commit()
@@ -423,6 +427,77 @@ async def preview_dataset(
                 rows.append(json.loads(line))
 
     return {"rows": rows, "total": ds.row_count}
+
+
+@router.post("/{dataset_id}/subscribe", response_model=DatasetResponse)
+async def subscribe_dataset(
+    dataset_id: uuid.UUID,
+    body: DatasetSubscribeRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Enable auto-update subscription for a dataset."""
+    ds = await session.get(Dataset, dataset_id)
+    if not ds:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+
+    ds.auto_update = True
+    ds.hf_dataset_id = body.hf_dataset_id
+    ds.hf_subset = body.hf_subset
+    ds.hf_split = body.hf_split
+    ds.update_interval_hours = body.update_interval_hours
+    session.add(ds)
+    await session.commit()
+    await session.refresh(ds)
+    return ds
+
+
+@router.post("/{dataset_id}/unsubscribe", response_model=DatasetResponse)
+async def unsubscribe_dataset(
+    dataset_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Disable auto-update subscription for a dataset."""
+    ds = await session.get(Dataset, dataset_id)
+    if not ds:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+
+    ds.auto_update = False
+    ds.sync_status = ""
+    session.add(ds)
+    await session.commit()
+    await session.refresh(ds)
+    return ds
+
+
+@router.post("/{dataset_id}/sync", response_model=DatasetResponse)
+async def sync_dataset_now(
+    dataset_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Manually trigger a sync check for a dataset."""
+    from app.services.dataset_sync import check_and_sync_dataset
+
+    ds = await session.get(Dataset, dataset_id)
+    if not ds:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
+
+    if not ds.hf_dataset_id and ds.source_type not in (
+        SourceType.huggingface, SourceType.preset
+    ):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Only HuggingFace/preset datasets can be synced",
+        )
+
+    result = await check_and_sync_dataset(dataset_id)
+    if result.startswith("failed:"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, result[7:])
+
+    await session.refresh(ds)
+    return ds
 
 
 @router.delete("/{dataset_id}", status_code=204)

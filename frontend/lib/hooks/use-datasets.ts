@@ -90,6 +90,46 @@ export function useImportDataset() {
   });
 }
 
+export function useSubscribeDataset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      id: string;
+      hf_dataset_id: string;
+      hf_subset?: string;
+      hf_split?: string;
+      update_interval_hours?: number;
+    }) => {
+      const { id, ...body } = data;
+      const res = await api.post<Dataset>(`/datasets/${id}/subscribe`, body);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["datasets"] }),
+  });
+}
+
+export function useUnsubscribeDataset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.post<Dataset>(`/datasets/${id}/unsubscribe`);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["datasets"] }),
+  });
+}
+
+export function useSyncDataset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.post<Dataset>(`/datasets/${id}/sync`);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["datasets"] }),
+  });
+}
+
 export function useDownloadDataset() {
   const qc = useQueryClient();
   return useMutation({

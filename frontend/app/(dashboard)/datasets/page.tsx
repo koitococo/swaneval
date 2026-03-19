@@ -48,6 +48,9 @@ import {
   FolderOpen,
   Globe,
   Download,
+  RefreshCw,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import {
   useDatasets,
@@ -55,6 +58,9 @@ import {
   useMountDataset,
   useImportDataset,
   useDownloadDataset,
+  useSubscribeDataset,
+  useUnsubscribeDataset,
+  useSyncDataset,
   useDeleteDataset,
   useDatasetPreview,
 } from "@/lib/hooks/use-datasets";
@@ -110,6 +116,9 @@ export default function DatasetsPage() {
   const mount = useMountDataset();
   const importDs = useImportDataset();
   const downloadDs = useDownloadDataset();
+  const subscribeDs = useSubscribeDataset();
+  const unsubscribeDs = useUnsubscribeDataset();
+  const syncDs = useSyncDataset();
   const deleteMut = useDeleteDataset();
 
   const [panel, setPanel] = useState<PanelMode>(null);
@@ -773,6 +782,83 @@ export default function DatasetsPage() {
                       )}
                       {downloadDs.isPending ? "下载中..." : "下载数据集内容"}
                     </Button>
+                  </div>
+                )}
+
+                {/* Auto-update subscription */}
+                {(selectedDataset.source_type === "huggingface" ||
+                  selectedDataset.source_type === "preset" ||
+                  selectedDataset.source_type === "modelscope") && (
+                  <div className="rounded-md border px-3 py-2.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium">自动更新</span>
+                      {selectedDataset.auto_update ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 text-[11px] px-2 text-muted-foreground"
+                          onClick={() => unsubscribeDs.mutate(selectedDataset.id)}
+                          disabled={unsubscribeDs.isPending}
+                        >
+                          <BellOff className="mr-1 h-3 w-3" />
+                          取消订阅
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 text-[11px] px-2"
+                          onClick={() =>
+                            subscribeDs.mutate({
+                              id: selectedDataset.id,
+                              hf_dataset_id: selectedDataset.hf_dataset_id || selectedDataset.source_uri,
+                              hf_split: "test",
+                              update_interval_hours: 24,
+                            })
+                          }
+                          disabled={subscribeDs.isPending}
+                        >
+                          <Bell className="mr-1 h-3 w-3" />
+                          订阅更新
+                        </Button>
+                      )}
+                    </div>
+                    {selectedDataset.auto_update && (
+                      <div className="space-y-1 text-[11px] text-muted-foreground">
+                        <div className="flex items-baseline gap-1">
+                          <span>状态：</span>
+                          <span className={
+                            selectedDataset.sync_status === "synced" ? "text-emerald-600" :
+                            selectedDataset.sync_status === "syncing" ? "text-primary" :
+                            selectedDataset.sync_status === "failed" ? "text-destructive" :
+                            ""
+                          }>
+                            {selectedDataset.sync_status === "synced" ? "已同步" :
+                             selectedDataset.sync_status === "syncing" ? "同步中..." :
+                             selectedDataset.sync_status === "failed" ? "同步失败" :
+                             "等待首次同步"}
+                          </span>
+                        </div>
+                        {selectedDataset.last_synced_at && (
+                          <div>上次同步：{new Date(selectedDataset.last_synced_at).toLocaleString()}</div>
+                        )}
+                        <div>检查间隔：每 {selectedDataset.update_interval_hours} 小时</div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-7 text-[11px] mt-1"
+                          onClick={() => syncDs.mutate(selectedDataset.id)}
+                          disabled={syncDs.isPending}
+                        >
+                          {syncDs.isPending ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="mr-1 h-3 w-3" />
+                          )}
+                          {syncDs.isPending ? "同步中..." : "立即同步"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 

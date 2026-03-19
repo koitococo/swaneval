@@ -31,6 +31,14 @@ class DatasetImportRequest(BaseModel):
     tags: str = ""
 
 
+class DatasetSubscribeRequest(BaseModel):
+    """Enable auto-update subscription for a dataset."""
+    hf_dataset_id: str  # e.g. "openai/gsm8k"
+    hf_subset: str = ""
+    hf_split: str = "test"
+    update_interval_hours: int = 24
+
+
 class DatasetResponse(BaseModel):
     model_config = {"from_attributes": True}
 
@@ -45,6 +53,11 @@ class DatasetResponse(BaseModel):
     size_bytes: int
     row_count: int
     created_at: datetime
+    auto_update: bool = False
+    update_interval_hours: int = 24
+    last_synced_at: datetime | None = None
+    sync_status: str = ""
+    hf_dataset_id: str = ""
 
 
 class DatasetVersionResponse(BaseModel):

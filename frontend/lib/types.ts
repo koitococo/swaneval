@@ -23,6 +23,11 @@ export interface Dataset {
   size_bytes: number;
   row_count: number;
   created_at: string;
+  auto_update: boolean;
+  update_interval_hours: number;
+  last_synced_at: string | null;
+  sync_status: string;
+  hf_dataset_id: string;
 }
 
 export interface Criterion {

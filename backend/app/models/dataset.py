@@ -65,6 +65,32 @@ class Dataset(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     # 更新时间 / Last update timestamp
 
+    # ── 订阅自动更新 / Subscription auto-update fields ──
+
+    auto_update: bool = Field(default=False)
+    # 是否启用自动更新 / Whether auto-update is enabled
+
+    update_interval_hours: int = Field(default=24)
+    # 更新检查间隔（小时）/ Update check interval in hours
+
+    last_synced_at: datetime | None = Field(default=None)
+    # 上次同步时间 / Last sync timestamp
+
+    sync_status: str = Field(default="")
+    # 同步状态: syncing, synced, failed, "" / Sync status
+
+    hf_dataset_id: str = Field(default="")
+    # HuggingFace Dataset ID（用于订阅更新）/ HF dataset ID for subscription
+
+    hf_subset: str = Field(default="")
+    # HuggingFace 子集 / HF dataset subset/config
+
+    hf_split: str = Field(default="test")
+    # HuggingFace 拆分 / HF dataset split
+
+    hf_last_sha: str = Field(default="")
+    # 上次同步时的 commit SHA / Last known repo commit SHA
+
 
 class DatasetVersion(SQLModel, table=True):
     """

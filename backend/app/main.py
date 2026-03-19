@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import router as v1_router
 from app.config import settings
 from app.database import init_db
+from app.services.dataset_sync import start_sync_loop, stop_sync_loop
 from app.services.storage import get_storage
 
 # 配置日志 / Configure logging
@@ -43,7 +44,13 @@ async def lifespan(app: FastAPI):
         if settings.S3_REGION:
             os.environ.setdefault("AWS_DEFAULT_REGION", settings.S3_REGION)
 
+    # 启动数据集订阅同步后台循环 / Start dataset subscription sync background loop
+    start_sync_loop()
+
     yield
+
+    # 停止同步循环 / Stop sync loop on shutdown
+    stop_sync_loop()
 
 
 # 创建FastAPI应用 / Create FastAPI application
