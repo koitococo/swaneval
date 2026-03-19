@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -126,6 +126,8 @@ export default function DatasetsPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [uploadForm, setUploadForm] = useState({ ...emptyUploadForm });
+  const [dragOver, setDragOver] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [mountForm, setMountForm] = useState({ ...emptyMountForm });
   const [importForm, setImportForm] = useState({ ...emptyImportForm });
   const [onlineImportError, setOnlineImportError] = useState("");
@@ -145,11 +147,12 @@ export default function DatasetsPage() {
     Object.entries(emptyUploadForm).some(([k, v]) => uploadForm[k as keyof typeof uploadForm] !== v) ||
     Object.entries(emptyMountForm).some(([k, v]) => mountForm[k as keyof typeof mountForm] !== v) ||
     Object.entries(emptyImportForm).some(([k, v]) => importForm[k as keyof typeof importForm] !== v) ||
-    (fileRef.current?.files?.length ?? 0) > 0
+    selectedFile !== null
   );
 
   const openCreate = () => {
     setUploadForm({ ...emptyUploadForm });
+    setSelectedFile(null);
     setMountForm({ ...emptyMountForm });
     setImportForm({ ...emptyImportForm });
     setOnlineImportError("");
@@ -198,7 +201,7 @@ export default function DatasetsPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    const file = fileRef.current?.files?.[0];
+    const file = selectedFile ?? fileRef.current?.files?.[0];
     if (!file) return;
     await upload.mutateAsync({
       file,
@@ -207,8 +210,21 @@ export default function DatasetsPage() {
       tags: uploadForm.tags,
     });
     setUploadForm({ ...emptyUploadForm });
+    setSelectedFile(null);
     closePanel();
   };
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      setSelectedFile(file);
+      if (!uploadForm.name) {
+        setUploadForm((f) => ({ ...f, name: file.name }));
+      }
+    }
+  }, [uploadForm.name]);
 
   const handleMount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -862,14 +878,52 @@ export default function DatasetsPage() {
 
                   <TabsContent value="upload">
                     <form onSubmit={handleUpload} className="space-y-3">
-                      <PanelField label="文件 (JSONL / CSV / JSON)" required>
-                        <Input
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={onDrop}
+                        onClick={() => fileRef.current?.click()}
+                        className={`relative flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-6 cursor-pointer transition-colors ${
+                          dragOver
+                            ? "border-primary bg-primary/5"
+                            : selectedFile
+                              ? "border-emerald-500/50 bg-emerald-500/5"
+                              : "border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-muted/30"
+                        }`}
+                      >
+                        <input
                           ref={fileRef}
                           type="file"
-                          accept=".jsonl,.csv,.json"
-                          required
+                          accept=".jsonl,.csv,.json,.parquet,.xlsx,.xls"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setSelectedFile(file);
+                              if (!uploadForm.name) setUploadForm((f) => ({ ...f, name: file.name }));
+                            }
+                          }}
                         />
-                      </PanelField>
+                        {selectedFile ? (
+                          <>
+                            <Check className="h-5 w-5 text-emerald-500" />
+                            <p className="text-xs font-medium truncate max-w-full">{selectedFile.name}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {(selectedFile.size / 1024).toFixed(1)} KB — 点击更换文件
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className={`h-6 w-6 ${dragOver ? "text-primary" : "text-muted-foreground/40"}`} />
+                            <p className="text-xs text-muted-foreground">
+                              拖拽文件到此处，或 <span className="text-primary font-medium">点击选择</span>
+                            </p>
+                            <p className="text-[11px] text-muted-foreground/60">
+                              支持 JSONL、CSV、JSON、Parquet、Excel
+                            </p>
+                          </>
+                        )}
+                      </div>
                       <PanelField label="名称">
                         <Input
                           value={uploadForm.name}

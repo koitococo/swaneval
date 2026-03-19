@@ -28,32 +28,81 @@ def _get_storage() -> StorageBackend:
     return get_storage()
 
 
+def _resolve_path(uri: str) -> str:
+    """Get the effective file extension from a URI or key."""
+    key = uri_to_key(uri)
+    return key if key is not None else uri
+
+
 async def _count_rows(storage: StorageBackend, source_uri: str) -> int:
-    """Count rows in a JSON/JSONL file via the storage backend."""
-    key = uri_to_key(source_uri)
-    if key is None:
-        # Mounted path — fall back to direct filesystem read
-        if not os.path.exists(source_uri):
+    """Count rows in a data file via the storage backend."""
+    import pandas as pd
+
+    path = _resolve_path(source_uri)
+    lower = path.lower()
+
+    # Parquet — use pyarrow metadata for fast row count
+    if lower.endswith(".parquet"):
+        content = await _read_bytes(storage, source_uri)
+        if content is None:
             return 0
-        count = 0
-        with open(source_uri) as f:
-            if source_uri.endswith(".json"):
-                data = json.load(f)
-                return len(data) if isinstance(data, list) else 1
-            for line in f:
-                if line.strip():
-                    count += 1
-        return count
+        import io
+        return len(pd.read_parquet(io.BytesIO(content)))
 
-    if not await storage.exists(key):
-        return 0
+    # Excel
+    if lower.endswith((".xlsx", ".xls")):
+        content = await _read_bytes(storage, source_uri)
+        if content is None:
+            return 0
+        import io
+        return len(pd.read_excel(io.BytesIO(content)))
 
-    text = await storage.read_text(key)
-    if key.endswith(".json"):
+    # CSV
+    if lower.endswith(".csv"):
+        text = await _read_text(storage, source_uri)
+        if text is None:
+            return 0
+        return max(0, text.count("\n") - 1)  # minus header
+
+    # JSON
+    if lower.endswith(".json"):
+        text = await _read_text(storage, source_uri)
+        if text is None:
+            return 0
         data = json.loads(text)
         return len(data) if isinstance(data, list) else 1
 
+    # JSONL (default)
+    text = await _read_text(storage, source_uri)
+    if text is None:
+        return 0
     return sum(1 for line in text.splitlines() if line.strip())
+
+
+async def _read_text(storage: StorageBackend, source_uri: str) -> str | None:
+    """Read file content as text, from storage or local filesystem."""
+    key = uri_to_key(source_uri)
+    if key is not None:
+        if not await storage.exists(key):
+            return None
+        return await storage.read_text(key)
+    if not os.path.exists(source_uri):
+        return None
+    with open(source_uri, encoding="utf-8") as f:
+        return f.read()
+
+
+async def _read_bytes(storage: StorageBackend, source_uri: str) -> bytes | None:
+    """Read file content as bytes, from storage or local filesystem."""
+    key = uri_to_key(source_uri)
+    if key is not None:
+        if not await storage.exists(key):
+            return None
+        return await storage.read_file(key)
+    if not os.path.exists(source_uri):
+        return None
+    with open(source_uri, "rb") as f:
+        return f.read()
 
 
 @router.post("/upload", response_model=DatasetResponse, status_code=201)
@@ -331,25 +380,41 @@ async def preview_dataset(
     if not ds:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Dataset not found")
 
-    key = uri_to_key(ds.source_uri)
+    import pandas as pd
 
-    # Determine if we can read via storage or must fall back to local FS
-    if key is not None:
-        if not await storage.exists(key):
-            return {"rows": [], "total": 0}
-        text = await storage.read_text(key)
-    else:
-        if not os.path.exists(ds.source_uri):
-            return {"rows": [], "total": 0}
-        with open(ds.source_uri, encoding="utf-8") as f:
-            text = f.read()
+    path = _resolve_path(ds.source_uri)
+    lower = path.lower()
 
     rows: list[dict] = []
-    if ds.source_uri.endswith(".json") or (key and key.endswith(".json")):
+
+    # Binary formats — Parquet, Excel
+    if lower.endswith((".parquet", ".xlsx", ".xls")):
+        content = await _read_bytes(storage, ds.source_uri)
+        if content is None:
+            return {"rows": [], "total": 0}
+        import io
+        if lower.endswith(".parquet"):
+            df = pd.read_parquet(io.BytesIO(content))
+        else:
+            df = pd.read_excel(io.BytesIO(content))
+        rows = df.head(limit).fillna("").to_dict(orient="records")
+        return {"rows": rows, "total": ds.row_count}
+
+    # Text formats — JSON, JSONL, CSV
+    text = await _read_text(storage, ds.source_uri)
+    if text is None:
+        return {"rows": [], "total": 0}
+
+    if lower.endswith(".csv"):
+        import io
+        df = pd.read_csv(io.StringIO(text), nrows=limit)
+        rows = df.fillna("").to_dict(orient="records")
+    elif lower.endswith(".json"):
         data = json.loads(text)
         items = data if isinstance(data, list) else [data]
         rows = items[:limit]
     else:
+        # JSONL
         for line in text.splitlines():
             if len(rows) >= limit:
                 break
