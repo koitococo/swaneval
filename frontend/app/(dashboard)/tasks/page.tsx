@@ -10,6 +10,7 @@ import {
   flexRender,
   type ColumnDef,
   type SortingState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -155,6 +156,7 @@ export default function TasksPage() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("__all__");
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ ...emptyForm });
   const [showConfigPreview, setShowConfigPreview] = useState(false);
@@ -215,6 +217,30 @@ export default function TasksPage() {
 
   const columns = useMemo<ColumnDef<EvalTask>[]>(
     () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <input
+            type="checkbox"
+            className="rounded border-input"
+            checked={table.getIsAllPageRowsSelected()}
+            onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            className="rounded border-input"
+            checked={row.getIsSelected()}
+            onChange={(e) => {
+              e.stopPropagation();
+              row.toggleSelected(e.target.checked);
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+        enableSorting: false,
+      },
       {
         accessorKey: "name",
         header: "名称",
@@ -285,9 +311,11 @@ export default function TasksPage() {
   const table = useReactTable({
     data: filteredData,
     columns,
-    state: { sorting, globalFilter },
+    state: { sorting, globalFilter, rowSelection },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -386,6 +414,31 @@ export default function TasksPage() {
           ))}
         </div>
       </div>
+
+      {Object.keys(rowSelection).length > 0 && (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/60 border">
+          <span className="text-xs text-muted-foreground">
+            已选择 <span className="font-semibold text-foreground">{Object.keys(rowSelection).length}</span> 项
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => setRowSelection({})}
+          >
+            <Trash2 className="mr-1 h-3 w-3" />
+            删除所选
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs"
+            onClick={() => setRowSelection({})}
+          >
+            取消选择
+          </Button>
+        </div>
+      )}
 
       {/* Main: table + side panel */}
       <div className="flex gap-4 min-h-0">
