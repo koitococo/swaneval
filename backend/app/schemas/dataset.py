@@ -20,6 +20,17 @@ class DatasetMountRequest(BaseModel):
     tags: str = ""
 
 
+class DatasetImportRequest(BaseModel):
+    """Import dataset from HuggingFace or ModelScope."""
+    source: str  # "huggingface" or "modelscope"
+    dataset_id: str  # e.g. "openai/gsm8k" or HF/MS URL
+    name: str = ""  # display name, defaults to dataset_id
+    subset: str = ""  # dataset config/subset name
+    split: str = "test"  # which split to download
+    description: str = ""
+    tags: str = ""
+
+
 class DatasetResponse(BaseModel):
     model_config = {"from_attributes": True}
 

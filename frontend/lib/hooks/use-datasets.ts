@@ -71,6 +71,25 @@ export function useMountDataset() {
   });
 }
 
+export function useImportDataset() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      source: "huggingface" | "modelscope";
+      dataset_id: string;
+      name?: string;
+      subset?: string;
+      split?: string;
+      description?: string;
+      tags?: string;
+    }) => {
+      const res = await api.post<Dataset>("/datasets/import", data);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["datasets"] }),
+  });
+}
+
 export function useDeleteDataset() {
   const qc = useQueryClient();
   return useMutation({

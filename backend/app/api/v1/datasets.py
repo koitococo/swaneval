@@ -11,7 +11,12 @@ from app.api.deps import get_current_user, get_db
 from app.models.dataset import Dataset, DatasetVersion, SourceType
 from app.models.eval_result import EvalResult
 from app.models.user import User
-from app.schemas.dataset import DatasetMountRequest, DatasetResponse, PaginatedResponse
+from app.schemas.dataset import (
+    DatasetImportRequest,
+    DatasetMountRequest,
+    DatasetResponse,
+    PaginatedResponse,
+)
 from app.services.dataset_deletion import cleanup_uploaded_file, delete_dataset_versions
 from app.services.storage import StorageBackend, get_storage
 from app.services.storage.utils import uri_to_key
@@ -109,6 +114,73 @@ async def upload_dataset(
     await session.commit()
     await session.refresh(ds)
 
+    return ds
+
+
+@router.post("/import", response_model=DatasetResponse, status_code=201)
+async def import_dataset(
+    body: DatasetImportRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    storage: StorageBackend = Depends(_get_storage),
+):
+    """Import dataset from HuggingFace or ModelScope."""
+    from app.services.dataset_import import import_huggingface, import_modelscope
+
+    if body.source not in ("huggingface", "modelscope"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "source must be huggingface or modelscope")
+
+    source_type = (
+        SourceType.huggingface if body.source == "huggingface" else SourceType.modelscope
+    )
+    display_name = body.name or body.dataset_id.split("/")[-1]
+
+    try:
+        if body.source == "huggingface":
+            source_uri, row_count, size_bytes = await import_huggingface(
+                body.dataset_id, body.subset, body.split, storage,
+            )
+        else:
+            source_uri, row_count, size_bytes = await import_modelscope(
+                body.dataset_id, body.subset, body.split, storage,
+            )
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
+    # Auto-version if same name exists
+    stmt = (
+        select(Dataset).where(Dataset.name == display_name).order_by(Dataset.version.desc())
+    )
+    existing = (await session.exec(stmt)).first()
+    version = (existing.version + 1) if existing else 1
+
+    ext = os.path.splitext(source_uri)[1].lstrip(".")
+    ds = Dataset(
+        name=display_name,
+        description=body.description,
+        source_type=source_type,
+        source_uri=source_uri,
+        format=ext or "jsonl",
+        tags=body.tags,
+        version=version,
+        size_bytes=size_bytes,
+        row_count=row_count,
+        created_by=current_user.id,
+    )
+    session.add(ds)
+    await session.commit()
+    await session.refresh(ds)
+
+    dv = DatasetVersion(
+        dataset_id=ds.id,
+        version=version,
+        file_path=source_uri,
+        changelog=f"Imported from {body.source}: {body.dataset_id}",
+        row_count=row_count,
+    )
+    session.add(dv)
+    await session.commit()
+    await session.refresh(ds)
     return ds
 
 

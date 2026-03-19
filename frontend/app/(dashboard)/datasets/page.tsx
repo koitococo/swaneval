@@ -46,11 +46,13 @@ import {
   Eye,
   Upload,
   FolderOpen,
+  Globe,
 } from "lucide-react";
 import {
   useDatasets,
   useUploadDataset,
   useMountDataset,
+  useImportDataset,
   useDeleteDataset,
   useDatasetPreview,
 } from "@/lib/hooks/use-datasets";
@@ -89,11 +91,22 @@ const emptyMountForm = {
   tags: "",
 };
 
+const emptyImportForm = {
+  source: "huggingface" as "huggingface" | "modelscope",
+  dataset_id: "",
+  name: "",
+  subset: "",
+  split: "test",
+  description: "",
+  tags: "",
+};
+
 export default function DatasetsPage() {
   const { data: datasetsData, isLoading } = useDatasets();
   const datasets = useMemo(() => datasetsData?.items ?? [], [datasetsData]);
   const upload = useUploadDataset();
   const mount = useMountDataset();
+  const importDs = useImportDataset();
   const deleteMut = useDeleteDataset();
 
   const [panel, setPanel] = useState<PanelMode>(null);
@@ -111,6 +124,8 @@ export default function DatasetsPage() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [uploadForm, setUploadForm] = useState({ ...emptyUploadForm });
   const [mountForm, setMountForm] = useState({ ...emptyMountForm });
+  const [importForm, setImportForm] = useState({ ...emptyImportForm });
+  const [onlineImportError, setOnlineImportError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const [createPos, setCreatePos] = useState<{ top: number; right: number } | null>(null);
@@ -126,12 +141,15 @@ export default function DatasetsPage() {
   const formDirty = isCreating && (
     Object.entries(emptyUploadForm).some(([k, v]) => uploadForm[k as keyof typeof uploadForm] !== v) ||
     Object.entries(emptyMountForm).some(([k, v]) => mountForm[k as keyof typeof mountForm] !== v) ||
+    Object.entries(emptyImportForm).some(([k, v]) => importForm[k as keyof typeof importForm] !== v) ||
     (fileRef.current?.files?.length ?? 0) > 0
   );
 
   const openCreate = () => {
     setUploadForm({ ...emptyUploadForm });
     setMountForm({ ...emptyMountForm });
+    setImportForm({ ...emptyImportForm });
+    setOnlineImportError("");
     if (addBtnRef.current) {
       const rect = addBtnRef.current.getBoundingClientRect();
       setCreatePos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
@@ -200,6 +218,30 @@ export default function DatasetsPage() {
     });
     setMountForm({ ...emptyMountForm });
     closePanel();
+  };
+
+  const handleImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOnlineImportError("");
+    try {
+      await importDs.mutateAsync({
+        source: importForm.source,
+        dataset_id: importForm.dataset_id,
+        name: importForm.name || undefined,
+        subset: importForm.subset || undefined,
+        split: importForm.split || "test",
+        description: importForm.description || undefined,
+        tags: importForm.tags || undefined,
+      });
+      setImportForm({ ...emptyImportForm });
+      closePanel();
+    } catch (err: unknown) {
+      const detail =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+          : undefined;
+      setOnlineImportError(detail || "导入失败，请检查数据集 ID 是否正确");
+    }
   };
 
   const handleDelete = async () => {
@@ -783,10 +825,13 @@ export default function DatasetsPage() {
                 <Tabs defaultValue="upload">
                   <TabsList className="w-full">
                     <TabsTrigger value="upload" className="flex-1">
-                      <Upload className="mr-1 h-3.5 w-3.5" /> 上传文件
+                      <Upload className="mr-1 h-3.5 w-3.5" /> 上传
+                    </TabsTrigger>
+                    <TabsTrigger value="online" className="flex-1">
+                      <Globe className="mr-1 h-3.5 w-3.5" /> 在线导入
                     </TabsTrigger>
                     <TabsTrigger value="mount" className="flex-1">
-                      <FolderOpen className="mr-1 h-3.5 w-3.5" /> 服务器路径
+                      <FolderOpen className="mr-1 h-3.5 w-3.5" /> 路径
                     </TabsTrigger>
                   </TabsList>
 
@@ -848,6 +893,100 @@ export default function DatasetsPage() {
                             <Upload className="mr-2 h-4 w-4" />
                           )}
                           {upload.isPending ? "上传中..." : "上传"}
+                        </Button>
+                      </div>
+                    </form>
+                  </TabsContent>
+
+                  <TabsContent value="online">
+                    <form onSubmit={handleImport} className="space-y-3">
+                      <PanelField label="数据源">
+                        <div className="flex items-center h-9 border rounded-md overflow-hidden">
+                          {([
+                            { key: "huggingface", label: "HuggingFace" },
+                            { key: "modelscope", label: "ModelScope" },
+                          ] as const).map((item, i) => (
+                            <button
+                              key={item.key}
+                              type="button"
+                              onClick={() => setImportForm({ ...importForm, source: item.key })}
+                              className={`h-full px-3.5 text-xs font-medium flex-1 transition-colors ${
+                                i === 0 ? "border-r" : ""
+                              } ${
+                                importForm.source === item.key
+                                  ? "bg-primary text-primary-foreground"
+                                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </PanelField>
+                      <PanelField
+                        label={importForm.source === "huggingface" ? "HuggingFace Dataset ID 或 URL" : "ModelScope Dataset ID 或 URL"}
+                        required
+                      >
+                        <Input
+                          value={importForm.dataset_id}
+                          onChange={(e) => setImportForm({ ...importForm, dataset_id: e.target.value })}
+                          placeholder={importForm.source === "huggingface" ? "openai/gsm8k" : "modelscope/chinese_alpaca"}
+                          className="font-mono"
+                          required
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          {importForm.source === "huggingface"
+                            ? "支持 Dataset ID（如 openai/gsm8k）或完整 URL"
+                            : "支持 Dataset ID（如 modelscope/xxx）或完整 URL"}
+                        </p>
+                      </PanelField>
+                      <div className="grid grid-cols-2 gap-2">
+                        <PanelField label="子集（Subset）">
+                          <Input
+                            value={importForm.subset}
+                            onChange={(e) => setImportForm({ ...importForm, subset: e.target.value })}
+                            placeholder="可选"
+                          />
+                        </PanelField>
+                        <PanelField label="数据拆分（Split）">
+                          <Input
+                            value={importForm.split}
+                            onChange={(e) => setImportForm({ ...importForm, split: e.target.value })}
+                            placeholder="test"
+                          />
+                        </PanelField>
+                      </div>
+                      <PanelField label="显示名称">
+                        <Input
+                          value={importForm.name}
+                          onChange={(e) => setImportForm({ ...importForm, name: e.target.value })}
+                          placeholder="默认使用 Dataset ID"
+                        />
+                      </PanelField>
+                      <PanelField label="标签">
+                        <Input
+                          value={importForm.tags}
+                          onChange={(e) => setImportForm({ ...importForm, tags: e.target.value })}
+                          placeholder="math,reasoning"
+                        />
+                      </PanelField>
+                      {onlineImportError && (
+                        <div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                          {onlineImportError}
+                        </div>
+                      )}
+                      <div className="pt-1">
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={importDs.isPending}
+                        >
+                          {importDs.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Globe className="mr-2 h-4 w-4" />
+                          )}
+                          {importDs.isPending ? "导入中（下载可能需要几分钟）..." : "导入数据集"}
                         </Button>
                       </div>
                     </form>
