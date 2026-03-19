@@ -35,6 +35,7 @@
 | `app/services/evalscope_adapter.py` | 格式转换和 score 提取改为 async + storage |
 | `app/services/evalscope_result_ingestor.py` | 全部改为 async，递归扫描和读取走 storage |
 | `pyproject.toml` | 新增 boto3, aiosqlite, pytest 依赖 |
+| `uv.lock` | 锁文件更新 |
 | `docker-compose.yml` | +MinIO 服务（`--profile s3`）、backend 卷挂载 |
 | `tests/test_dataset_deletion.py` | 适配 async + storage 新接口 |
 | `tests/test_evalscope_adapter.py` | 适配 async + storage 新接口 |
@@ -60,6 +61,7 @@
 - [uv](https://docs.astral.sh/uv/getting-started/installation/) 包管理器
 - Node.js >= 18（可选，仅验证前端 build）
 - Docker（可选，仅验证 S3 模式）
+- **支持的操作系统**：macOS、Linux、Windows 均已适配（路径分隔符已统一处理）
 
 ### 2.2 拉取代码
 
@@ -304,6 +306,7 @@ docker compose --profile s3 down
 - [ ] **LocalFileStorage** (`local.py`)：用 `asyncio.to_thread` 包装阻塞 I/O
 - [ ] **S3Storage** (`s3.py`)：`resolve_uri()` 返回 `s3://` URI，EvalScope 可直接消费
 - [ ] **uri_to_key** (`utils.py`)：正确处理 S3 URI / 绝对路径 / 相对路径 / mount 路径
+- [ ] **Windows 路径兼容** (`local.py` + `utils.py`)：key 统一 `/`，OS 路径内部转换
 - [ ] **mount 模式** (`datasets.py`)：不走 storage，直接本地操作
 - [ ] **evaluators.py**：脚本加载保持本地（安全边界：不从 S3 执行代码）
 - [ ] **main.py lifespan**：S3 模式下自动设置 `AWS_*` 环境变量供 EvalScope/fsspec 使用
@@ -327,7 +330,20 @@ docker compose --profile s3 down
 
 ---
 
-## 10. 已知限制
+## 10. Windows 兼容性说明
+
+存储层内部统一使用正斜杠 `/` 作为 key 分隔符（与 S3 一致）。在 Windows 上：
+
+- `LocalFileStorage._full_path()` 通过 `PurePosixPath` 将 `/` key 转为 OS 原生路径
+- `list_files()` 返回值通过 `_to_posix()` 统一为 `/` 分隔
+- `uri_to_key()` 对 `source_uri` 做反斜杠归一化后再比较
+- 测试断言使用 `os.path.isabs()` 和 `assertIn()` 代替硬编码的 `/` 前缀检查
+
+如果 Windows 上测试失败，大概率是路径分隔符问题，请检查以上几处。
+
+---
+
+## 11. 已知限制
 
 1. **大文件读取**：S3 模式下 `read_file` / `read_text` 将整个文件读入内存。GB 级数据集未来需增加流式读取。
 2. **旧数据迁移**：已有数据库中的 `source_uri` 是本地绝对路径。从 local 切换到 S3 需一次性迁移脚本（上传文件 + 更新 DB 记录）。
