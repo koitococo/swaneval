@@ -128,7 +128,9 @@ export default function DatasetsPage() {
   };
 
   const openView = (id: string) => {
-    setPanel(panel?.kind === "view" && panel.id === id ? null : { kind: "view", id });
+    setPanel(
+      panel?.kind === "view" && panel.id === id ? null : { kind: "view", id },
+    );
   };
 
   const closePanel = () => setPanel(null);
@@ -298,11 +300,16 @@ export default function DatasetsPage() {
         header: "标签",
         cell: ({ getValue }) => {
           const tags = getValue<string>();
-          if (!tags) return <span className="text-xs text-muted-foreground">—</span>;
+          if (!tags)
+            return <span className="text-xs text-muted-foreground">—</span>;
           return (
             <div className="flex flex-wrap gap-1">
               {tags.split(",").map((t) => (
-                <Badge key={t.trim()} variant="secondary" className="text-xs font-normal">
+                <Badge
+                  key={t.trim()}
+                  variant="secondary"
+                  className="text-xs font-normal"
+                >
                   {t.trim()}
                 </Badge>
               ))}
@@ -314,7 +321,9 @@ export default function DatasetsPage() {
         accessorKey: "version",
         header: "版本",
         cell: ({ getValue }) => (
-          <span className="text-xs text-muted-foreground">v{getValue<number>()}</span>
+          <span className="text-xs text-muted-foreground">
+            v{getValue<number>()}
+          </span>
         ),
       },
     ],
@@ -418,7 +427,11 @@ export default function DatasetsPage() {
       {Object.keys(rowSelection).length > 0 && (
         <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/60 border">
           <span className="text-xs text-muted-foreground">
-            已选择 <span className="font-semibold text-foreground">{Object.keys(rowSelection).length}</span> 项
+            已选择{" "}
+            <span className="font-semibold text-foreground">
+              {Object.keys(rowSelection).length}
+            </span>{" "}
+            项
           </span>
           <Button
             size="sm"
@@ -588,9 +601,7 @@ export default function DatasetsPage() {
               {/* Panel header */}
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <h3 className="text-sm font-semibold truncate">
-                  {isCreating
-                    ? "添加数据集"
-                    : selectedDataset?.name ?? ""}
+                  {isCreating ? "添加数据集" : (selectedDataset?.name ?? "")}
                 </h3>
                 <Button
                   variant="ghost"
@@ -621,8 +632,7 @@ export default function DatasetsPage() {
                         }
                       }}
                     >
-                      <ClipboardPaste className="mr-1.5 h-3 w-3" />
-                      从剪贴板导入
+                      从剪贴板导入配置
                     </Button>
                     <label className="flex-1">
                       <input
@@ -645,7 +655,9 @@ export default function DatasetsPage() {
                     </label>
                   </div>
                   {importError && (
-                    <p className="text-xs text-destructive mb-2">{importError}</p>
+                    <p className="text-xs text-destructive mb-2">
+                      {importError}
+                    </p>
                   )}
 
                   <Tabs defaultValue="upload">
@@ -672,7 +684,10 @@ export default function DatasetsPage() {
                           <Input
                             value={uploadForm.name}
                             onChange={(e) =>
-                              setUploadForm({ ...uploadForm, name: e.target.value })
+                              setUploadForm({
+                                ...uploadForm,
+                                name: e.target.value,
+                              })
                             }
                             placeholder="默认使用文件名"
                           />
@@ -681,7 +696,10 @@ export default function DatasetsPage() {
                           <Input
                             value={uploadForm.tags}
                             onChange={(e) =>
-                              setUploadForm({ ...uploadForm, tags: e.target.value })
+                              setUploadForm({
+                                ...uploadForm,
+                                tags: e.target.value,
+                              })
                             }
                             placeholder="math,reasoning"
                           />
@@ -735,7 +753,10 @@ export default function DatasetsPage() {
                           <Input
                             value={mountForm.name}
                             onChange={(e) =>
-                              setMountForm({ ...mountForm, name: e.target.value })
+                              setMountForm({
+                                ...mountForm,
+                                name: e.target.value,
+                              })
                             }
                             placeholder="数据集名称"
                             required
@@ -746,7 +767,10 @@ export default function DatasetsPage() {
                             <Input
                               value={mountForm.format}
                               onChange={(e) =>
-                                setMountForm({ ...mountForm, format: e.target.value })
+                                setMountForm({
+                                  ...mountForm,
+                                  format: e.target.value,
+                                })
                               }
                               placeholder="jsonl"
                             />
@@ -755,7 +779,10 @@ export default function DatasetsPage() {
                             <Input
                               value={mountForm.tags}
                               onChange={(e) =>
-                                setMountForm({ ...mountForm, tags: e.target.value })
+                                setMountForm({
+                                  ...mountForm,
+                                  tags: e.target.value,
+                                })
                               }
                               placeholder="math,reasoning"
                             />
@@ -802,7 +829,9 @@ export default function DatasetsPage() {
                       <DetailRow
                         label="描述"
                         value={
-                          <span className="text-xs">{selectedDataset.description}</span>
+                          <span className="text-xs">
+                            {selectedDataset.description}
+                          </span>
                         }
                       />
                     )}
@@ -832,10 +861,7 @@ export default function DatasetsPage() {
                         }
                       />
                     )}
-                    <DetailRow
-                      label="格式"
-                      value={selectedDataset.format}
-                    />
+                    <DetailRow label="格式" value={selectedDataset.format} />
                     <DetailRow
                       label="行数"
                       value={
@@ -917,9 +943,7 @@ export default function DatasetsPage() {
         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-auto">
           <DialogHeader>
             <DialogTitle>数据集预览</DialogTitle>
-            <DialogDescription>
-              显示数据集的前几行数据
-            </DialogDescription>
+            <DialogDescription>显示数据集的前几行数据</DialogDescription>
           </DialogHeader>
           {preview.isLoading ? (
             <div className="py-8 text-center text-muted-foreground">
@@ -960,7 +984,13 @@ export default function DatasetsPage() {
       </Dialog>
 
       {/* Delete confirmation */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => { setDeleteTarget(null); setDeleteError(""); }}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={() => {
+          setDeleteTarget(null);
+          setDeleteError("");
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>删除数据集</DialogTitle>
@@ -972,7 +1002,13 @@ export default function DatasetsPage() {
             <p className="text-sm text-destructive px-1">{deleteError}</p>
           )}
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteError(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteError("");
+              }}
+            >
               取消
             </Button>
             <Button

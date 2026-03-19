@@ -76,7 +76,11 @@ const typeDescriptions: Record<string, string> = {
 };
 
 const presetMetrics = [
-  { value: "exact_match", label: "精确匹配", desc: "输出必须与预期答案完全一致" },
+  {
+    value: "exact_match",
+    label: "精确匹配",
+    desc: "输出必须与预期答案完全一致",
+  },
   { value: "contains", label: "包含匹配", desc: "输出必须包含预期字符串" },
   { value: "numeric", label: "数值接近", desc: "在容差范围内比较数值" },
 ];
@@ -144,9 +148,7 @@ export default function CriteriaPage() {
   };
   const openView = (id: string) => {
     setPanel(
-      panel?.kind === "view" && panel.id === id
-        ? null
-        : { kind: "view", id },
+      panel?.kind === "view" && panel.id === id ? null : { kind: "view", id },
     );
   };
   const closePanel = () => setPanel(null);
@@ -392,7 +394,11 @@ export default function CriteriaPage() {
       {Object.keys(rowSelection).length > 0 && (
         <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/60 border">
           <span className="text-xs text-muted-foreground">
-            已选择 <span className="font-semibold text-foreground">{Object.keys(rowSelection).length}</span> 项
+            已选择{" "}
+            <span className="font-semibold text-foreground">
+              {Object.keys(rowSelection).length}
+            </span>{" "}
+            项
           </span>
           <Button
             size="sm"
@@ -525,7 +531,11 @@ export default function CriteriaPage() {
                               onClick={() => {
                                 setTestId(row.original.id);
                                 setTestResult(null);
-                                setTestForm({ prompt: "", expected: "", actual: "" });
+                                setTestForm({
+                                  prompt: "",
+                                  expected: "",
+                                  actual: "",
+                                });
                                 setTestOpen(true);
                               }}
                             >
@@ -569,7 +579,7 @@ export default function CriteriaPage() {
                 <h3 className="text-sm font-semibold truncate">
                   {isCreating
                     ? "新建评估标准"
-                    : selectedCriterion?.name ?? ""}
+                    : (selectedCriterion?.name ?? "")}
                 </h3>
                 <Button
                   variant="ghost"
@@ -600,8 +610,7 @@ export default function CriteriaPage() {
                         }
                       }}
                     >
-                      <ClipboardPaste className="mr-1.5 h-3 w-3" />
-                      从剪贴板导入
+                      从剪贴板导入配置
                     </Button>
                     <label className="flex-1">
                       <input
@@ -624,7 +633,9 @@ export default function CriteriaPage() {
                     </label>
                   </div>
                   {importError && (
-                    <p className="text-xs text-destructive mb-2">{importError}</p>
+                    <p className="text-xs text-destructive mb-2">
+                      {importError}
+                    </p>
                   )}
 
                   <form onSubmit={handleCreate} className="space-y-3">
@@ -642,9 +653,7 @@ export default function CriteriaPage() {
                       <PanelField label="类型">
                         <Select
                           value={form.type}
-                          onValueChange={(v) =>
-                            setForm({ ...form, type: v })
-                          }
+                          onValueChange={(v) => setForm({ ...form, type: v })}
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -653,9 +662,7 @@ export default function CriteriaPage() {
                             <SelectItem value="preset">预设指标</SelectItem>
                             <SelectItem value="regex">正则表达式</SelectItem>
                             <SelectItem value="script">自定义脚本</SelectItem>
-                            <SelectItem value="llm_judge">
-                              LLM 评判
-                            </SelectItem>
+                            <SelectItem value="llm_judge">LLM 评判</SelectItem>
                           </SelectContent>
                         </Select>
                       </PanelField>
@@ -814,9 +821,7 @@ export default function CriteriaPage() {
 
                   {/* Raw config */}
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">
-                      配置 JSON
-                    </p>
+                    <p className="text-xs text-muted-foreground">配置 JSON</p>
                     <pre className="rounded-md bg-muted p-2.5 text-xs font-mono overflow-auto max-h-32">
                       {(() => {
                         try {
@@ -948,11 +953,7 @@ export default function CriteriaPage() {
                 required
               />
             </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={test.isPending}
-            >
+            <Button type="submit" className="w-full" disabled={test.isPending}>
               {test.isPending ? "测试中..." : "运行测试"}
             </Button>
             {testResult !== null && (

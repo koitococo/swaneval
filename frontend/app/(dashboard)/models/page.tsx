@@ -8,7 +8,8 @@ import {
   getSortedRowModel,
   flexRender,
   type ColumnDef,
-  type SortingState, type RowSelectionState,
+  type SortingState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -122,7 +123,9 @@ export default function ModelsPage() {
   };
 
   const openView = (id: string) => {
-    setPanel(panel?.kind === "view" && panel.id === id ? null : { kind: "view", id });
+    setPanel(
+      panel?.kind === "view" && panel.id === id ? null : { kind: "view", id },
+    );
   };
 
   const closePanel = () => setPanel(null);
@@ -144,7 +147,8 @@ export default function ModelsPage() {
         api_format: data.api_format ?? f.api_format,
         description: data.description ?? f.description,
         model_name: data.model_name ?? f.model_name,
-        max_tokens: data.max_tokens != null ? String(data.max_tokens) : f.max_tokens,
+        max_tokens:
+          data.max_tokens != null ? String(data.max_tokens) : f.max_tokens,
       }));
     } catch {
       setImportError("剪贴板内容不是有效的 JSON");
@@ -166,7 +170,8 @@ export default function ModelsPage() {
         api_format: data.api_format ?? f.api_format,
         description: data.description ?? f.description,
         model_name: data.model_name ?? f.model_name,
-        max_tokens: data.max_tokens != null ? String(data.max_tokens) : f.max_tokens,
+        max_tokens:
+          data.max_tokens != null ? String(data.max_tokens) : f.max_tokens,
       }));
     } catch {
       setImportError("无法解析 JSON");
@@ -228,8 +233,6 @@ export default function ModelsPage() {
       setDeleteError(detail || "删除失败");
     }
   };
-
-
 
   const filteredData = useMemo(
     () =>
@@ -310,9 +313,7 @@ export default function ModelsPage() {
         cell: ({ row }) => {
           const r = testResults[row.original.id];
           if (!r)
-            return (
-              <span className="text-xs text-muted-foreground">—</span>
-            );
+            return <span className="text-xs text-muted-foreground">—</span>;
           if (r.message === "测试中...")
             return (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
@@ -439,7 +440,11 @@ export default function ModelsPage() {
       {Object.keys(rowSelection).length > 0 && (
         <div className="flex items-center gap-3 px-3 py-2 rounded-md bg-muted/60 border">
           <span className="text-xs text-muted-foreground">
-            已选择 <span className="font-semibold text-foreground">{Object.keys(rowSelection).length}</span> 项
+            已选择{" "}
+            <span className="font-semibold text-foreground">
+              {Object.keys(rowSelection).length}
+            </span>{" "}
+            项
           </span>
           <Button
             size="sm"
@@ -448,7 +453,9 @@ export default function ModelsPage() {
             onClick={() => {
               const selectedIds = Object.keys(rowSelection);
               if (selectedIds.length === 1) {
-                const m = models.find((m) => m.id === filteredData[parseInt(selectedIds[0])]?.id);
+                const m = models.find(
+                  (m) => m.id === filteredData[parseInt(selectedIds[0])]?.id,
+                );
                 if (m) setDeleteTarget({ id: m.id, name: m.name });
               }
               // For multiple, delete one by one
@@ -623,9 +630,7 @@ export default function ModelsPage() {
               {/* Panel header */}
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <h3 className="text-sm font-semibold truncate">
-                  {isCreating
-                    ? "添加模型"
-                    : selectedModel?.name ?? ""}
+                  {isCreating ? "添加模型" : (selectedModel?.name ?? "")}
                 </h3>
                 <Button
                   variant="ghost"
@@ -649,8 +654,7 @@ export default function ModelsPage() {
                       className="h-7 text-xs w-full"
                       onClick={importFromClipboard}
                     >
-                      <ClipboardPaste className="mr-1.5 h-3 w-3" />
-                      从剪贴板导入
+                      从剪贴板导入配置
                     </Button>
                     <label className="flex-1">
                       <input
@@ -673,7 +677,9 @@ export default function ModelsPage() {
                     </label>
                   </div>
                   {importError && (
-                    <p className="text-xs text-destructive mb-2">{importError}</p>
+                    <p className="text-xs text-destructive mb-2">
+                      {importError}
+                    </p>
                   )}
 
                   <form onSubmit={handleCreate} className="space-y-3">
@@ -952,7 +958,13 @@ export default function ModelsPage() {
       </div>
 
       {/* Delete confirmation */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => { setDeleteTarget(null); setDeleteError(""); }}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={() => {
+          setDeleteTarget(null);
+          setDeleteError("");
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>删除模型</DialogTitle>
@@ -964,7 +976,13 @@ export default function ModelsPage() {
             <p className="text-sm text-destructive px-1">{deleteError}</p>
           )}
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => { setDeleteTarget(null); setDeleteError(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteTarget(null);
+                setDeleteError("");
+              }}
+            >
               取消
             </Button>
             <Button
