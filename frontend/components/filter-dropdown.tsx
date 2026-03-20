@@ -88,7 +88,7 @@ export function FilterDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 min-w-[200px] rounded-lg border bg-popover text-popover-foreground overflow-hidden animate-modal-expand"
+        <div className="absolute top-full left-0 mt-1 z-50 min-w-[200px] rounded-xl border bg-popover text-popover-foreground shadow-lg overflow-hidden animate-modal-expand"
           style={{ transformOrigin: "top left" }}
         >
           {/* Search */}

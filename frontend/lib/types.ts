@@ -118,6 +118,22 @@ export interface ExternalBenchmark {
   notes: string;
 }
 
+export interface PresetDataset {
+  name: string;
+  description: string;
+  hf_id: string;
+  split: string;
+  format: string;
+  tags: string;
+}
+
+export interface PresetCriterion {
+  name: string;
+  type: string;
+  config_json: string;
+  description: string;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;

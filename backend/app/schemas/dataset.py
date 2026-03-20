@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -71,7 +72,7 @@ class DatasetVersionResponse(BaseModel):
 
 
 class PaginatedResponse(BaseModel):
-    items: list
+    items: list[Any]
     total: int
     page: int
     page_size: int

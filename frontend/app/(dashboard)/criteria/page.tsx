@@ -50,9 +50,11 @@ import {
   ArrowUpDown,
   X,
   ChevronRight,
+  BookOpen,
 } from "lucide-react";
 import {
   useCriteria,
+  useCriteriaPresets,
   useCreateCriterion,
   useDeleteCriterion,
   useTestCriterion,
@@ -120,6 +122,7 @@ function configSummary(configJson: string, type: string): string {
 export default function CriteriaPage() {
   const { data: criteria = [], isLoading } = useCriteria();
   const { data: models = [] } = useModels();
+  const { data: presetCriteria = [] } = useCriteriaPresets();
   const create = useCreateCriterion();
   const deleteMut = useDeleteCriterion();
   const test = useTestCriterion();
@@ -800,6 +803,51 @@ export default function CriteriaPage() {
                     <span className="text-destructive">{importError}</span>
                   )}
                 </div>
+
+                {/* Preset quick-add */}
+                {presetCriteria.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <BookOpen className="h-3.5 w-3.5" />
+                      <span className="font-medium">快速添加预设标准</span>
+                    </div>
+                    <div className="space-y-1 max-h-48 overflow-auto">
+                      {presetCriteria.map((p) => {
+                        const alreadyExists = criteria.some((c) => c.name === p.name);
+                        return (
+                          <button
+                            key={p.name}
+                            type="button"
+                            disabled={create.isPending || alreadyExists}
+                            onClick={async () => {
+                              await create.mutateAsync({
+                                name: p.name,
+                                type: p.type,
+                                config_json: p.config_json,
+                              });
+                            }}
+                            className={`w-full rounded-lg border px-3 py-2 text-left transition-all ${
+                              alreadyExists
+                                ? "opacity-40 cursor-not-allowed bg-muted/30"
+                                : "hover:border-primary/40 hover:bg-primary/[0.03] active:scale-[0.99]"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium">{p.name}</span>
+                              {alreadyExists && (
+                                <Badge variant="success" className="text-[10px]">已添加</Badge>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{p.description}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="border-t pt-3 mt-3">
+                      <p className="text-xs text-muted-foreground mb-2">或手动创建自定义标准：</p>
+                    </div>
+                  </div>
+                )}
 
                 <form onSubmit={handleCreate} className="space-y-3">
                   <div className="grid grid-cols-2 gap-2">

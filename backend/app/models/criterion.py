@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column
 from sqlalchemy import Enum as SAEnum
@@ -40,8 +40,8 @@ class Criterion(SQLModel, table=True):
     created_by: uuid.UUID | None = Field(default=None, foreign_key="users.id")
     # 创建者ID / Creator user ID (foreign key to users)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # 创建时间 / Creation timestamp
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # 更新时间 / Last update timestamp

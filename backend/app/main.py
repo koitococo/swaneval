@@ -28,10 +28,13 @@ async def lifespan(app: FastAPI):
 
     # 初始化存储后端 / Initialize storage backend
     storage = get_storage()
-    await storage.validate()
-    await storage.ensure_prefix("uploads")
-    await storage.ensure_prefix("evalscope_outputs")
-    logger.info("Storage backend validated and ready")
+    try:
+        await storage.validate()
+        await storage.ensure_prefix("uploads")
+        await storage.ensure_prefix("evalscope_outputs")
+        logger.info("Storage backend validated and ready")
+    except Exception as e:
+        logger.warning("Storage validation issue (non-fatal): %s", e)
 
     # S3 模式下设置 AWS 环境变量供 EvalScope/fsspec 使用
     if settings.STORAGE_BACKEND.lower() == "s3":

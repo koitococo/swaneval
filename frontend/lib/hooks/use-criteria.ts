@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { Criterion } from "@/lib/types";
+import type { Criterion, PresetCriterion } from "@/lib/types";
 
 export function useCriteria() {
   return useQuery({
@@ -20,6 +20,16 @@ export function useCreateCriterion() {
       return res.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["criteria"] }),
+  });
+}
+
+export function useCriteriaPresets() {
+  return useQuery({
+    queryKey: ["criteria", "presets"],
+    queryFn: async () => {
+      const res = await api.get<PresetCriterion[]>("/criteria/presets");
+      return res.data;
+    },
   });
 }
 

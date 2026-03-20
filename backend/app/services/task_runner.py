@@ -222,7 +222,9 @@ async def _call_model(
         model.endpoint_url or settings.DEFAULT_MODEL_ENDPOINT_URL
     )
     if not endpoint_url:
-        raise ValueError("Missing endpoint_url: set model.endpoint_url or DEFAULT_MODEL_ENDPOINT_URL")
+        raise ValueError(
+            "Missing endpoint_url: set model.endpoint_url or DEFAULT_MODEL_ENDPOINT_URL"
+        )
     anthropic_mode = getattr(model, "api_format", "openai") == "anthropic"
     if not anthropic_mode:
         anthropic_mode = _is_anthropic_endpoint(endpoint_url)
@@ -428,7 +430,8 @@ async def run_task(task_id: uuid.UUID):
                         )
 
                         for criterion in criteria:
-                            cfg_json = enriched_configs.get(str(criterion.id), criterion.config_json)
+                            cid = str(criterion.id)
+                            cfg_json = enriched_configs.get(cid, criterion.config_json)
                             score = run_criterion(
                                 criterion.type,
                                 cfg_json,

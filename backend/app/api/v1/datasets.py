@@ -276,6 +276,13 @@ async def mount_dataset(
     return ds
 
 
+@router.get("/presets")
+async def list_preset_datasets():
+    """Return the catalog of available preset datasets (not stored in DB)."""
+    from app.database import PRESET_DATASETS
+    return PRESET_DATASETS
+
+
 @router.get("", response_model=PaginatedResponse)
 async def list_datasets(
     page: int = 1,
@@ -340,10 +347,15 @@ async def download_preset_content(
         source_uri, row_count, size_bytes = await import_huggingface(
             hf_id, "", split, storage,
         )
-    except ValueError as e:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    except Exception as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Download failed: {e}") from e
 
     ds.source_uri = source_uri
+    # After downloading, mark as huggingface (no longer a placeholder)
+    if ds.source_type == SourceType.preset:
+        ds.source_type = SourceType.huggingface
+        if not ds.hf_dataset_id:
+            ds.hf_dataset_id = hf_id
     ds.row_count = row_count
     ds.size_bytes = size_bytes
     ext = os.path.splitext(source_uri)[1].lstrip(".")

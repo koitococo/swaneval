@@ -54,6 +54,7 @@ import {
   RefreshCw,
   Bell,
   BellOff,
+  BookOpen,
 } from "lucide-react";
 import {
   useDatasets,
@@ -66,6 +67,7 @@ import {
   useSyncDataset,
   useDeleteDataset,
   useDatasetPreview,
+  useDatasetPresets,
 } from "@/lib/hooks/use-datasets";
 import type { Dataset } from "@/lib/types";
 import { utc } from "@/lib/utils";
@@ -116,7 +118,14 @@ const emptyImportForm = {
 
 export default function DatasetsPage() {
   const { data: datasetsData, isLoading } = useDatasets();
-  const datasets = useMemo(() => datasetsData?.items ?? [], [datasetsData]);
+  // Filter out empty preset placeholders — they belong in the preset catalog, not the table
+  const datasets = useMemo(
+    () => (datasetsData?.items ?? []).filter(
+      (d) => !(d.source_type === "preset" && d.row_count === 0 && d.size_bytes === 0)
+    ),
+    [datasetsData],
+  );
+  const { data: presets = [] } = useDatasetPresets();
   const upload = useUploadDataset();
   const mount = useMountDataset();
   const importDs = useImportDataset();
@@ -931,8 +940,11 @@ export default function DatasetsPage() {
                   )}
                 </div>
 
-                <Tabs defaultValue="upload">
+                <Tabs defaultValue="preset">
                   <TabsList className="w-full">
+                    <TabsTrigger value="preset" className="flex-1">
+                      <BookOpen className="mr-1 h-3.5 w-3.5" /> 预设
+                    </TabsTrigger>
                     <TabsTrigger value="upload" className="flex-1">
                       <Upload className="mr-1 h-3.5 w-3.5" /> 上传
                     </TabsTrigger>
@@ -943,6 +955,90 @@ export default function DatasetsPage() {
                       <FolderOpen className="mr-1 h-3.5 w-3.5" /> 路径
                     </TabsTrigger>
                   </TabsList>
+
+                  <TabsContent value="preset">
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        选择一个预设基准数据集，将从 HuggingFace 下载并导入。
+                      </p>
+                      {presets.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                          加载预设列表...
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 max-h-[50vh] overflow-auto">
+                          {presets.map((p) => {
+                            // Check if already imported
+                            const alreadyImported = (datasetsData?.items ?? []).some(
+                              (d) => d.name === p.name && d.row_count > 0
+                            );
+                            return (
+                              <button
+                                key={p.name}
+                                type="button"
+                                disabled={importDs.isPending || alreadyImported}
+                                onClick={async () => {
+                                  setOnlineImportError("");
+                                  try {
+                                    await importDs.mutateAsync({
+                                      source: "huggingface",
+                                      dataset_id: p.hf_id,
+                                      name: p.name,
+                                      split: p.split,
+                                      description: p.description,
+                                      tags: p.tags,
+                                    });
+                                    closePanel();
+                                  } catch (err: unknown) {
+                                    const detail =
+                                      err && typeof err === "object" && "response" in err
+                                        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
+                                        : undefined;
+                                    setOnlineImportError(detail || "导入失败");
+                                  }
+                                }}
+                                className={`w-full rounded-lg border p-3 text-left transition-all ${
+                                  alreadyImported
+                                    ? "opacity-50 cursor-not-allowed bg-muted/30"
+                                    : "hover:border-primary/40 hover:bg-primary/[0.03] active:scale-[0.99]"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">{p.name}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    {alreadyImported && (
+                                      <Badge variant="success" className="text-[10px]">已导入</Badge>
+                                    )}
+                                    <Badge variant="outline" className="text-[10px] font-normal">{p.split}</Badge>
+                                  </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{p.description}</p>
+                                <div className="flex items-center gap-1.5 mt-1.5">
+                                  {p.tags.split(",").map((t) => (
+                                    <Badge key={t.trim()} variant="secondary" className="text-[10px] font-normal">
+                                      {t.trim()}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {onlineImportError && (
+                        <div className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                          {onlineImportError}
+                        </div>
+                      )}
+                      {importDs.isPending && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          正在从 HuggingFace 下载，可能需要几分钟...
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
 
                   <TabsContent value="upload">
                     <form onSubmit={handleUpload} className="space-y-3">

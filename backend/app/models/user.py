@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column
 from sqlalchemy import Enum as SAEnum
@@ -48,8 +48,8 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True)
     # 是否激活 / Whether the user account is active
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # 创建时间 / Account creation timestamp
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # 更新时间 / Last update timestamp

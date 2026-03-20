@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { Dataset, PaginatedResponse } from "@/lib/types";
+import type { Dataset, PresetDataset, PaginatedResponse } from "@/lib/types";
 
 export function useDatasets(tag?: string, page = 1, pageSize = 200) {
   return useQuery({
@@ -128,6 +128,16 @@ export function useDownloadDataset() {
       return res.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["datasets"] }),
+  });
+}
+
+export function useDatasetPresets() {
+  return useQuery({
+    queryKey: ["datasets", "presets"],
+    queryFn: async () => {
+      const res = await api.get<PresetDataset[]>("/datasets/presets");
+      return res.data;
+    },
   });
 }
 

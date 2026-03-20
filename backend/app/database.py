@@ -1,7 +1,6 @@
 import json
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -29,15 +28,13 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db():
     """
-    初始化数据库 / Initialize database
+    Initialize database tables.
 
-    创建所有表结构（如果不存在）。
-    Create all table structures if they don't exist.
+    In development, creates tables from SQLModel metadata.
+    In production, rely on Alembic migrations instead.
     """
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-    await seed_preset_datasets()
-    await seed_preset_criteria()
 
 
 # 预置数据集定义 / Preset dataset definitions
@@ -109,37 +106,6 @@ PRESET_DATASETS = [
     },
 ]
 
-
-async def _seed_by_name(model_class, name_filter, presets, build_fn):
-    """Generic idempotent seeder — skips presets whose name already exists."""
-    async with AsyncSession(engine) as session:
-        stmt = select(model_class.name)
-        if name_filter is not None:
-            stmt = stmt.where(name_filter)
-        existing = set((await session.exec(stmt)).all())
-        added = 0
-        for p in presets:
-            if p["name"] not in existing:
-                session.add(build_fn(p))
-                added += 1
-        if added:
-            await session.commit()
-
-
-async def seed_preset_datasets():
-    from app.models.dataset import Dataset, SourceType
-
-    await _seed_by_name(
-        Dataset,
-        Dataset.source_type == SourceType.preset,
-        PRESET_DATASETS,
-        lambda p: Dataset(
-            name=p["name"], description=p["description"],
-            source_type=SourceType.preset, source_uri=p["hf_id"],
-            format=p["format"], tags=p["tags"],
-            version=1, size_bytes=0, row_count=0, created_by=None,
-        ),
-    )
 
 
 # 预置评测标准定义 / Preset evaluation criteria definitions
@@ -222,13 +188,3 @@ PRESET_CRITERIA = [
 ]
 
 
-async def seed_preset_criteria():
-    from app.models.criterion import Criterion, CriterionType
-
-    await _seed_by_name(
-        Criterion, None, PRESET_CRITERIA,
-        lambda p: Criterion(
-            name=p["name"], type=CriterionType(p["type"]),
-            config_json=p["config_json"], created_by=None,
-        ),
-    )

@@ -44,7 +44,7 @@ export function CreateModal({
           transformOrigin: "top right",
         }}
       >
-        <Card className="w-[33vw]">
+        <Card className="w-[33vw] shadow-2xl">
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <h3 className="text-sm font-semibold">{title}</h3>
           </div>

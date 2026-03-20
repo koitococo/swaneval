@@ -2,7 +2,6 @@ import json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -38,6 +37,13 @@ async def create_criterion(
     await session.commit()
     await session.refresh(c)
     return c
+
+
+@router.get("/presets")
+async def list_preset_criteria():
+    """Return the catalog of available preset criteria (not stored in DB)."""
+    from app.database import PRESET_CRITERIA
+    return PRESET_CRITERIA
 
 
 @router.get("", response_model=list[CriterionResponse])

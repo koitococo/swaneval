@@ -1,12 +1,10 @@
 import uuid
 from datetime import datetime
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import get_current_user, get_db
 from app.config import settings
