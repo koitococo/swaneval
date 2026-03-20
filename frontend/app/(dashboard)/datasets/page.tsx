@@ -370,13 +370,13 @@ export default function DatasetsPage() {
                 (d) => d.name === p.name && d.row_count > 0,
               ),
               importing: importJobs.some(
-                (j) => j.id.includes(p.hf_id) && j.status === "importing",
+                (j) => j.id.includes(p.hf_id.replace("/", "--")) && j.status === "importing",
               ),
               importProgress: importJobs.find(
-                (j) => j.id.includes(p.hf_id) && j.status === "importing",
+                (j) => j.id.includes(p.hf_id.replace("/", "--")) && j.status === "importing",
               )?.progress,
               importPhase: importJobs.find(
-                (j) => j.id.includes(p.hf_id) && j.status === "importing",
+                (j) => j.id.includes(p.hf_id.replace("/", "--")) && j.status === "importing",
               )?.phase,
             }))}
             selected={presetSelected}
