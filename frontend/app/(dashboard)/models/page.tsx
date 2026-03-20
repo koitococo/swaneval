@@ -265,7 +265,7 @@ export default function ModelsPage() {
         header: ({ table }) => (
           <input
             type="checkbox"
-            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            className="h-3.5 w-3.5 rounded border-base-300 accent-primary"
             checked={table.getIsAllPageRowsSelected()}
             onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
           />
@@ -273,7 +273,7 @@ export default function ModelsPage() {
         cell: ({ row }) => (
           <input
             type="checkbox"
-            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            className="h-3.5 w-3.5 rounded border-base-300 accent-primary"
             checked={row.getIsSelected()}
             onChange={(e) => {
               e.stopPropagation();
@@ -290,7 +290,7 @@ export default function ModelsPage() {
           <div className="min-w-0">
             <p className="font-medium truncate">{row.original.name}</p>
             {row.original.model_name && (
-              <p className="text-xs text-muted-foreground font-mono truncate">
+              <p className="text-xs text-base-content/50 font-mono truncate">
                 {row.original.model_name}
               </p>
             )}
@@ -301,7 +301,7 @@ export default function ModelsPage() {
         accessorKey: "provider",
         header: "提供商",
         cell: ({ getValue }) => (
-          <span className="text-muted-foreground">{getValue<string>()}</span>
+          <span className="text-base-content/50">{getValue<string>()}</span>
         ),
       },
       {
@@ -317,7 +317,7 @@ export default function ModelsPage() {
         accessorKey: "endpoint_url",
         header: "端点",
         cell: ({ getValue }) => (
-          <span className="font-mono text-xs text-muted-foreground truncate block max-w-[220px]">
+          <span className="font-mono text-xs text-base-content/50 truncate block max-w-[220px]">
             {getValue<string>()}
           </span>
         ),
@@ -328,14 +328,14 @@ export default function ModelsPage() {
         cell: ({ row }) => {
           const r = testResults[row.original.id];
           if (!r)
-            return <span className="text-xs text-muted-foreground">—</span>;
+            return <span className="text-xs text-base-content/50">—</span>;
           if (r.message === "测试中...")
             return (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-base-content/50" />
             );
           return (
             <span
-              className={`inline-block h-2 w-2 rounded-full ${r.ok ? "bg-emerald-500" : "bg-destructive"}`}
+              className={`inline-block h-2 w-2 rounded-full ${r.ok ? "bg-emerald-500" : "bg-error"}`}
               title={r.message}
             />
           );
@@ -347,7 +347,7 @@ export default function ModelsPage() {
         cell: ({ getValue }) => {
           const v = getValue<number | null>();
           return (
-            <span className="text-xs font-mono text-muted-foreground">
+            <span className="text-xs font-mono text-base-content/50">
               {v ? v.toLocaleString() : "—"}
             </span>
           );
@@ -386,10 +386,10 @@ export default function ModelsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-5">
           <h1 className="text-lg font-semibold">模型管理</h1>
-          <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="hidden sm:flex items-center gap-4 text-xs text-base-content/50">
             <span>
               共{" "}
-              <span className="font-semibold text-foreground tabular-nums">
+              <span className="font-semibold text-base-content tabular-nums">
                 {models.length}
               </span>{" "}
               个模型
@@ -397,7 +397,7 @@ export default function ModelsPage() {
             {Object.entries(typeCounts).map(([type, count]) => (
               <span key={type}>
                 {typeLabel[type] ?? type}{" "}
-                <span className="font-semibold text-foreground tabular-nums">
+                <span className="font-semibold text-base-content tabular-nums">
                   {count}
                 </span>
               </span>
@@ -423,7 +423,7 @@ export default function ModelsPage() {
       {/* Toolbar: search + filter — unified h-9 */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/50" />
           <Input
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
@@ -484,7 +484,7 @@ export default function ModelsPage() {
                               header.getContext(),
                             )}
                             {header.column.getCanSort() && (
-                              <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+                              <ArrowUpDown className="h-3 w-3 text-base-content/30" />
                             )}
                           </span>
                         </TableHead>
@@ -499,8 +499,8 @@ export default function ModelsPage() {
                       key={row.id}
                       className={`cursor-pointer transition-colors group/row ${
                         selectedId === row.original.id
-                          ? "bg-accent"
-                          : "hover:bg-muted/50"
+                          ? "bg-base-200"
+                          : "hover:bg-base-200/50"
                       }`}
                       onClick={() => openView(row.original.id)}
                     >
@@ -564,7 +564,7 @@ export default function ModelsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              className="h-7 w-7 text-error hover:text-error hover:bg-error/10"
                               title="删除"
                               onClick={() =>
                                 setDeleteTarget({
@@ -577,7 +577,7 @@ export default function ModelsPage() {
                             </Button>
                           </div>
                           <ChevronRight
-                            className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${
+                            className={`h-3.5 w-3.5 text-base-content/30 transition-transform ${
                               selectedId === row.original.id ? "rotate-90" : ""
                             }`}
                           />
@@ -611,7 +611,7 @@ export default function ModelsPage() {
               {selectedModel && (
                 <CardContent className="pt-0 space-y-4">
                   {selectedModel.description && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-base-content/50">
                       {selectedModel.description}
                     </p>
                   )}
@@ -720,7 +720,7 @@ export default function ModelsPage() {
                         className={`rounded-md px-3 py-2 text-xs ${
                           testResults[selectedModel.id].ok
                             ? "bg-emerald-500/10 text-emerald-700"
-                            : "bg-destructive/10 text-destructive"
+                            : "bg-error/10 text-error"
                         }`}
                       >
                         {testResults[selectedModel.id].message}
@@ -746,7 +746,7 @@ export default function ModelsPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/5"
+                      className="text-error hover:text-error hover:bg-error/5"
                       onClick={() =>
                         setDeleteTarget({
                           id: selectedModel.id,
@@ -773,16 +773,16 @@ export default function ModelsPage() {
         onShake={() => setShakeCancel(true)}
         title="添加模型"
       >
-                <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 mb-3 text-xs text-base-content/50">
                   <button
                     type="button"
-                    className="hover:text-foreground transition-colors"
+                    className="hover:text-base-content transition-colors"
                     onClick={importFromClipboard}
                   >
                     从剪贴板导入
                   </button>
                   <span className="text-border">|</span>
-                  <label className="hover:text-foreground transition-colors cursor-pointer">
+                  <label className="hover:text-base-content transition-colors cursor-pointer">
                     <input
                       type="file"
                       accept=".json"
@@ -800,7 +800,7 @@ export default function ModelsPage() {
                     从 JSON 导入
                   </label>
                   {importError && (
-                    <span className="text-destructive">{importError}</span>
+                    <span className="text-error">{importError}</span>
                   )}
                 </div>
 
@@ -856,7 +856,7 @@ export default function ModelsPage() {
                           className="font-mono"
                           required
                         />
-                        <p className="text-[11px] text-muted-foreground mt-1">
+                        <p className="text-[11px] text-base-content/50 mt-1">
                           HuggingFace 模型仓库 ID，将通过 Inference API 调用
                         </p>
                       </PanelField>
@@ -1016,7 +1016,7 @@ function EditableText({
   if (editing) {
     return (
       <div className="flex items-start justify-between gap-3 text-xs">
-        <span className="text-muted-foreground shrink-0 pt-1.5">{label}</span>
+        <span className="text-base-content/50 shrink-0 pt-1.5">{label}</span>
         <Input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -1037,13 +1037,13 @@ function EditableText({
 
   return (
     <div
-      className="flex items-baseline gap-2 text-xs group/edit cursor-pointer rounded-sm px-1 -mx-1 py-0.5 -my-0.5 hover:bg-muted/60 transition-colors"
+      className="flex items-baseline gap-2 text-xs group/edit cursor-pointer rounded-sm px-1 -mx-1 py-0.5 -my-0.5 hover:bg-base-200/60 transition-colors"
       onClick={() => {
         setDraft(value);
         setEditing(true);
       }}
     >
-      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="text-base-content/50 shrink-0">{label}</span>
       <div className="flex-1 border-b border-dashed border-muted-foreground/20 min-w-4 translate-y-[-3px]" />
       <div className="flex items-center gap-1 shrink-0">
         {value ? (
@@ -1053,11 +1053,11 @@ function EditableText({
             {value}
           </span>
         ) : (
-          <span className="text-muted-foreground/50 italic">
+          <span className="text-base-content/30 italic">
             {placeholder ?? "—"}
           </span>
         )}
-        <Pencil className="h-2.5 w-2.5 text-muted-foreground/30 group-hover/edit:text-muted-foreground/60 transition-colors shrink-0" />
+        <Pencil className="h-2.5 w-2.5 text-base-content/50/30 group-hover/edit:text-base-content/40 transition-colors shrink-0" />
       </div>
     </div>
   );
@@ -1087,7 +1087,7 @@ function EditableSecret({
   if (editing) {
     return (
       <div className="flex items-start justify-between gap-3 text-xs">
-        <span className="text-muted-foreground shrink-0 pt-1.5">{label}</span>
+        <span className="text-base-content/50 shrink-0 pt-1.5">{label}</span>
         <Input
           type="password"
           value={draft}
@@ -1110,17 +1110,17 @@ function EditableSecret({
 
   return (
     <div
-      className="flex items-baseline gap-2 text-xs group/edit cursor-pointer rounded-sm px-1 -mx-1 py-0.5 -my-0.5 hover:bg-muted/60 transition-colors"
+      className="flex items-baseline gap-2 text-xs group/edit cursor-pointer rounded-sm px-1 -mx-1 py-0.5 -my-0.5 hover:bg-base-200/60 transition-colors"
       onClick={() => setEditing(true)}
     >
-      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="text-base-content/50 shrink-0">{label}</span>
       <div className="flex-1 border-b border-dashed border-muted-foreground/20 min-w-4 translate-y-[-3px]" />
       <div className="flex items-center gap-1 shrink-0">
-        <span className="font-mono text-muted-foreground/70">••••••••</span>
+        <span className="font-mono text-base-content/50/70">••••••••</span>
         {saved ? (
           <Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
         ) : (
-          <KeyRound className="h-2.5 w-2.5 text-muted-foreground/30 group-hover/edit:text-muted-foreground/60 transition-colors shrink-0" />
+          <KeyRound className="h-2.5 w-2.5 text-base-content/50/30 group-hover/edit:text-base-content/40 transition-colors shrink-0" />
         )}
       </div>
     </div>
@@ -1145,7 +1145,7 @@ function EditableSelect({
   if (editing) {
     return (
       <div className="flex items-start justify-between gap-3 text-xs">
-        <span className="text-muted-foreground shrink-0 pt-1.5">{label}</span>
+        <span className="text-base-content/50 shrink-0 pt-1.5">{label}</span>
         <Select
           value={value}
           onValueChange={(v) => {
@@ -1174,16 +1174,16 @@ function EditableSelect({
 
   return (
     <div
-      className="flex items-baseline gap-2 text-xs group/edit cursor-pointer rounded-sm px-1 -mx-1 py-0.5 -my-0.5 hover:bg-muted/60 transition-colors"
+      className="flex items-baseline gap-2 text-xs group/edit cursor-pointer rounded-sm px-1 -mx-1 py-0.5 -my-0.5 hover:bg-base-200/60 transition-colors"
       onClick={() => setEditing(true)}
     >
-      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="text-base-content/50 shrink-0">{label}</span>
       <div className="flex-1 border-b border-dashed border-muted-foreground/20 min-w-4 translate-y-[-3px]" />
       <div className="flex items-center gap-1 shrink-0">
         <Badge variant="outline" className="text-xs font-normal">
           {displayValue}
         </Badge>
-        <Pencil className="h-2.5 w-2.5 text-muted-foreground/30 group-hover/edit:text-muted-foreground/60 transition-colors shrink-0" />
+        <Pencil className="h-2.5 w-2.5 text-base-content/50/30 group-hover/edit:text-base-content/40 transition-colors shrink-0" />
       </div>
     </div>
   );

@@ -320,7 +320,7 @@ export default function ResultsPage() {
         enableResizing: false,
         header: "#",
         cell: ({ row }) => (
-          <span className="text-muted-foreground tabular-nums">
+          <span className="text-base-content/50 tabular-nums">
             {row.index + 1}
           </span>
         ),
@@ -333,7 +333,7 @@ export default function ResultsPage() {
             onClick={column.getToggleSortingHandler()}
           >
             模型
-            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+            <ArrowUpDown className="h-3 w-3 text-base-content/30" />
           </span>
         ),
         cell: ({ getValue }) => (
@@ -348,7 +348,7 @@ export default function ResultsPage() {
             onClick={column.getToggleSortingHandler()}
           >
             标准
-            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+            <ArrowUpDown className="h-3 w-3 text-base-content/30" />
           </span>
         ),
         cell: ({ getValue }) => (
@@ -365,7 +365,7 @@ export default function ResultsPage() {
             onClick={column.getToggleSortingHandler()}
           >
             平均分
-            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+            <ArrowUpDown className="h-3 w-3 text-base-content/30" />
           </span>
         ),
         cell: ({ getValue }) => {
@@ -385,11 +385,11 @@ export default function ResultsPage() {
             onClick={column.getToggleSortingHandler()}
           >
             样本数
-            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+            <ArrowUpDown className="h-3 w-3 text-base-content/30" />
           </span>
         ),
         cell: ({ getValue }) => (
-          <span className="tabular-nums text-muted-foreground">
+          <span className="tabular-nums text-base-content/50">
             {getValue<number>().toLocaleString()}
           </span>
         ),
@@ -402,11 +402,11 @@ export default function ResultsPage() {
             onClick={column.getToggleSortingHandler()}
           >
             平均延迟
-            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+            <ArrowUpDown className="h-3 w-3 text-base-content/30" />
           </span>
         ),
         cell: ({ getValue }) => (
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-xs text-base-content/50">
             {getValue<number>().toFixed(0)} ms
           </span>
         ),
@@ -442,7 +442,7 @@ export default function ResultsPage() {
         accessorKey: "expected_output",
         header: "预期输出",
         cell: ({ getValue }) => (
-          <span className="block max-w-[180px] truncate text-xs text-muted-foreground">
+          <span className="block max-w-[180px] truncate text-xs text-base-content/50">
             {getValue<string>()}
           </span>
         ),
@@ -451,7 +451,7 @@ export default function ResultsPage() {
         accessorKey: "model_output",
         header: "模型输出",
         cell: ({ getValue }) => (
-          <span className="block max-w-[180px] truncate text-xs text-muted-foreground">
+          <span className="block max-w-[180px] truncate text-xs text-base-content/50">
             {getValue<string>()}
           </span>
         ),
@@ -472,7 +472,7 @@ export default function ResultsPage() {
         accessorKey: "latency_ms",
         header: "延迟",
         cell: ({ getValue }) => (
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-xs text-base-content/50">
             {getValue<number>().toFixed(0)} ms
           </span>
         ),
@@ -512,12 +512,12 @@ export default function ResultsPage() {
         ].map((m) => (
           <Card key={m.label}>
             <CardContent className="flex items-center gap-3 p-4">
-              <div className="rounded-md bg-muted p-2">
-                <m.icon className="h-4 w-4 text-muted-foreground" />
+              <div className="rounded-md bg-base-200 p-2">
+                <m.icon className="h-4 w-4 text-base-content/50" />
               </div>
               <div>
                 <p className="text-2xl font-bold tabular-nums">{m.value}</p>
-                <p className="text-[11px] text-muted-foreground">{m.label}</p>
+                <p className="text-[11px] text-base-content/50">{m.label}</p>
               </div>
             </CardContent>
           </Card>
@@ -573,7 +573,7 @@ export default function ResultsPage() {
                   </TableHeader>
                   <TableBody>
                     {lbTable.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id} className="hover:bg-muted/50">
+                      <TableRow key={row.id} className="hover:bg-base-200/50">
                         {row.getVisibleCells().map((cell) => (
                           <TableCell key={cell.id} className="py-2.5" style={cell.column.id === "rank" ? { width: 40 } : undefined}>
                             {flexRender(
@@ -675,13 +675,13 @@ export default function ResultsPage() {
                   {championData.map((entry) => (
                     <div
                       key={entry.criterion}
-                      className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/30 transition-colors"
+                      className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-base-200/30 transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <Crown className="h-4 w-4 text-amber-500 shrink-0" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">{entry.criterion}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-base-content/50">
                             {entry.source === "external" ? (
                               <Badge variant="outline" className="text-[10px] font-normal mr-1">外部</Badge>
                             ) : null}
@@ -708,7 +708,7 @@ export default function ResultsPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-semibold">外部基准测试数据</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-xs text-base-content/50 mt-0.5">
                     导入闭源模型（GPT、Claude、Gemini 等）的公开评测数据，与本地模型对比
                   </p>
                 </div>
@@ -737,9 +737,9 @@ export default function ResultsPage() {
                   </TableHeader>
                   <TableBody>
                     {benchmarks.map((b) => (
-                      <TableRow key={b.id} className="hover:bg-muted/50">
+                      <TableRow key={b.id} className="hover:bg-base-200/50">
                         <TableCell className="font-medium">{b.model_name}</TableCell>
-                        <TableCell className="text-muted-foreground">{b.provider || "—"}</TableCell>
+                        <TableCell className="text-base-content/50">{b.provider || "—"}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="font-normal">{b.benchmark_name}</Badge>
                         </TableCell>
@@ -748,14 +748,14 @@ export default function ResultsPage() {
                             {b.score_display || `${(b.score * 100).toFixed(1)}%`}
                           </span>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
+                        <TableCell className="text-xs text-base-content/50">
                           {b.source_platform || "—"}
                         </TableCell>
                         <TableCell>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            className="h-7 w-7 text-error hover:text-error"
                             onClick={() => deleteBenchmark.mutate(b.id)}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -777,14 +777,14 @@ export default function ResultsPage() {
               {/* Controls */}
               <div className="flex items-center gap-3 flex-wrap px-4 py-3 border-b">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground shrink-0">任务</span>
+                  <span className="text-xs text-base-content/50 shrink-0">任务</span>
                   <Select value={reportTaskId} onValueChange={setReportTaskId}>
                     <SelectTrigger className="h-9 max-w-xs">
                       <SelectValue placeholder="选择任务..." />
                     </SelectTrigger>
                     <SelectContent>
                       {tasks.filter((t) => t.status === "completed").length === 0 ? (
-                        <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                        <div className="px-3 py-4 text-center text-xs text-base-content/50">
                           暂无已完成的任务，<a href="/tasks" className="text-primary hover:underline">去创建</a>
                         </div>
                       ) : tasks.filter((t) => t.status === "completed").map((t) => (
@@ -834,7 +834,7 @@ export default function ResultsPage() {
                   {/* Report header */}
                   <div className="border-b pb-3">
                     <h3 className="text-base font-semibold">{String(reportData.title)}</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-base-content/50 mt-1">
                       模型：{String(reportData.model_name)} · 生成时间：{new Date(String(reportData.generated_at)).toLocaleString()}
                     </p>
                   </div>
@@ -844,13 +844,13 @@ export default function ResultsPage() {
                     <>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-lg border p-3 text-center">
-                          <p className="text-xs text-muted-foreground">综合得分</p>
+                          <p className="text-xs text-base-content/50">综合得分</p>
                           <p className={`text-2xl font-bold font-mono ${scoreColor(Number(reportData.overall_score))}`}>
                             {(Number(reportData.overall_score) * 100).toFixed(1)}%
                           </p>
                         </div>
                         <div className="rounded-lg border p-3 text-center">
-                          <p className="text-xs text-muted-foreground">评测样本</p>
+                          <p className="text-xs text-base-content/50">评测样本</p>
                           <p className="text-2xl font-bold font-mono">{Number(reportData.total_samples).toLocaleString()}</p>
                         </div>
                       </div>
@@ -872,10 +872,10 @@ export default function ResultsPage() {
                               <TableRow key={i}>
                                 <TableCell className="font-medium">{String(c.criterion)}</TableCell>
                                 <TableCell className={`font-mono ${scoreColor(Number(c.avg_score))}`}>{(Number(c.avg_score) * 100).toFixed(1)}%</TableCell>
-                                <TableCell className="font-mono text-muted-foreground">{(Number(c.min_score) * 100).toFixed(1)}%</TableCell>
-                                <TableCell className="font-mono text-muted-foreground">{(Number(c.max_score) * 100).toFixed(1)}%</TableCell>
-                                <TableCell className="text-muted-foreground">{Number(c.sample_count)}</TableCell>
-                                <TableCell className="font-mono text-xs text-muted-foreground">{Number(c.avg_latency_ms).toFixed(0)} ms</TableCell>
+                                <TableCell className="font-mono text-base-content/50">{(Number(c.min_score) * 100).toFixed(1)}%</TableCell>
+                                <TableCell className="font-mono text-base-content/50">{(Number(c.max_score) * 100).toFixed(1)}%</TableCell>
+                                <TableCell className="text-base-content/50">{Number(c.sample_count)}</TableCell>
+                                <TableCell className="font-mono text-xs text-base-content/50">{Number(c.avg_latency_ms).toFixed(0)} ms</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -889,17 +889,17 @@ export default function ResultsPage() {
                     <>
                       <div className="grid grid-cols-3 gap-3">
                         <div className="rounded-lg border p-3 text-center">
-                          <p className="text-xs text-muted-foreground">错误率</p>
+                          <p className="text-xs text-base-content/50">错误率</p>
                           <p className={`text-2xl font-bold font-mono ${Number(reportData.error_rate) < 0.1 ? "text-emerald-600" : Number(reportData.error_rate) < 0.3 ? "text-amber-600" : "text-red-600"}`}>
                             {(Number(reportData.error_rate) * 100).toFixed(1)}%
                           </p>
                         </div>
                         <div className="rounded-lg border p-3 text-center">
-                          <p className="text-xs text-muted-foreground">风险等级</p>
+                          <p className="text-xs text-base-content/50">风险等级</p>
                           <p className="text-lg font-bold">{String(reportData.risk_level)}</p>
                         </div>
                         <div className="rounded-lg border p-3 text-center">
-                          <p className="text-xs text-muted-foreground">错误数 / 总数</p>
+                          <p className="text-xs text-base-content/50">错误数 / 总数</p>
                           <p className="text-lg font-bold font-mono">{Number(reportData.error_count)} / {Number(reportData.total_samples)}</p>
                         </div>
                       </div>
@@ -909,9 +909,9 @@ export default function ResultsPage() {
                           <div className="space-y-2 max-h-[400px] overflow-auto">
                             {(reportData.error_cases as Array<Record<string, unknown>>).map((c, i) => (
                               <div key={i} className="rounded-md border p-3 text-xs space-y-1.5">
-                                <div><span className="text-muted-foreground">Prompt：</span>{String(c.prompt).slice(0, 200)}</div>
-                                <div><span className="text-muted-foreground">预期：</span><span className="text-emerald-700">{String(c.expected).slice(0, 200)}</span></div>
-                                <div><span className="text-muted-foreground">实际：</span><span className="text-red-700">{String(c.actual).slice(0, 200)}</span></div>
+                                <div><span className="text-base-content/50">Prompt：</span>{String(c.prompt).slice(0, 200)}</div>
+                                <div><span className="text-base-content/50">预期：</span><span className="text-emerald-700">{String(c.expected).slice(0, 200)}</span></div>
+                                <div><span className="text-base-content/50">实际：</span><span className="text-red-700">{String(c.actual).slice(0, 200)}</span></div>
                                 <div className="text-right"><Badge variant="outline" className={`text-[10px] ${scoreColor(Number(c.score))}`}>{(Number(c.score) * 100).toFixed(1)}%</Badge></div>
                               </div>
                             ))}
@@ -937,7 +937,7 @@ export default function ResultsPage() {
                         { label: "评测样本", value: Number(reportData.total_samples).toLocaleString() },
                       ].map((item) => (
                         <div key={item.label} className="rounded-lg border p-3">
-                          <p className="text-xs text-muted-foreground">{item.label}</p>
+                          <p className="text-xs text-base-content/50">{item.label}</p>
                           <p className="text-lg font-bold font-mono">{item.value}</p>
                         </div>
                       ))}
@@ -949,20 +949,20 @@ export default function ResultsPage() {
                     <>
                       <div className="grid grid-cols-3 gap-3">
                         <div className="rounded-lg border p-3 text-center">
-                          <p className="text-xs text-muted-foreground">性价比指数</p>
+                          <p className="text-xs text-base-content/50">性价比指数</p>
                           <p className="text-2xl font-bold font-mono text-primary">{Number(reportData.value_index).toFixed(2)}</p>
-                          <p className="text-[11px] text-muted-foreground">得分 / 秒延迟</p>
+                          <p className="text-[11px] text-base-content/50">得分 / 秒延迟</p>
                         </div>
                         <div className="rounded-lg border p-3 text-center">
-                          <p className="text-xs text-muted-foreground">综合得分</p>
+                          <p className="text-xs text-base-content/50">综合得分</p>
                           <p className={`text-2xl font-bold font-mono ${scoreColor(Number(reportData.overall_score))}`}>
                             {(Number(reportData.overall_score) * 100).toFixed(1)}%
                           </p>
                         </div>
                         <div className="rounded-lg border p-3 text-center">
-                          <p className="text-xs text-muted-foreground">吞吐量</p>
+                          <p className="text-xs text-base-content/50">吞吐量</p>
                           <p className="text-2xl font-bold font-mono">{Number(reportData.throughput_tokens_per_sec).toFixed(1)}</p>
-                          <p className="text-[11px] text-muted-foreground">tokens/s</p>
+                          <p className="text-[11px] text-base-content/50">tokens/s</p>
                         </div>
                       </div>
                       <div>
@@ -981,8 +981,8 @@ export default function ResultsPage() {
                               <TableRow key={i}>
                                 <TableCell className="font-medium">{String(c.criterion)}</TableCell>
                                 <TableCell className={`font-mono ${scoreColor(Number(c.avg_score))}`}>{(Number(c.avg_score) * 100).toFixed(1)}%</TableCell>
-                                <TableCell className="font-mono text-xs text-muted-foreground">{Number(c.avg_latency_ms).toFixed(0)} ms</TableCell>
-                                <TableCell className="text-muted-foreground">{Number(c.sample_count)}</TableCell>
+                                <TableCell className="font-mono text-xs text-base-content/50">{Number(c.avg_latency_ms).toFixed(0)} ms</TableCell>
+                                <TableCell className="text-base-content/50">{Number(c.sample_count)}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -1002,7 +1002,7 @@ export default function ResultsPage() {
             <CardContent className="p-0">
               {/* Task filter bar */}
               <div className="flex items-center gap-3 px-4 py-3 border-b">
-                <span className="text-xs text-muted-foreground shrink-0">任务</span>
+                <span className="text-xs text-base-content/50 shrink-0">任务</span>
                 <Select
                   value={detailTaskId}
                   onValueChange={(v) => {
@@ -1015,7 +1015,7 @@ export default function ResultsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {tasks.length === 0 ? (
-                      <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                      <div className="px-3 py-4 text-center text-xs text-base-content/50">
                         暂无任务，<a href="/tasks" className="text-primary hover:underline">去创建</a>
                       </div>
                     ) : tasks.map((t) => (
@@ -1053,7 +1053,7 @@ export default function ResultsPage() {
                     </TableHeader>
                     <TableBody>
                       {detailTable.getRowModel().rows.map((row) => (
-                        <TableRow key={row.id} className="hover:bg-muted/50">
+                        <TableRow key={row.id} className="hover:bg-base-200/50">
                           {row.getVisibleCells().map((cell) => (
                             <TableCell key={cell.id} className="py-2.5">
                               {flexRender(
@@ -1077,9 +1077,9 @@ export default function ResultsPage() {
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <span className="text-xs text-muted-foreground px-2">
+                    <span className="text-xs text-base-content/50 px-2">
                       第{" "}
-                      <span className="font-semibold text-foreground tabular-nums">
+                      <span className="font-semibold text-base-content tabular-nums">
                         {detailPage}
                       </span>{" "}
                       / {Math.max(1, Math.ceil(detailTotal / PAGE_SIZE))} 页
@@ -1115,10 +1115,10 @@ export default function ResultsPage() {
               value={importJson}
               onChange={(e) => setImportJson(e.target.value)}
               placeholder={`[\n  {\n    "model_name": "GPT-4o",\n    "provider": "OpenAI",\n    "benchmark_name": "MMLU",\n    "score": 0.887,\n    "source_platform": "Open LLM Leaderboard"\n  }\n]`}
-              className="flex min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-[200px] w-full rounded-md border border-base-300 bg-base-200 px-3 py-2 text-xs font-mono ring-offset-base-200 placeholder:text-base-content/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             />
             {importError && (
-              <p className="text-xs text-destructive">{importError}</p>
+              <p className="text-xs text-error">{importError}</p>
             )}
             <Button
               className="w-full"

@@ -87,7 +87,7 @@ export default function TaskDetailPage() {
 
   if (isLoading || !task) {
     return (
-      <div className="text-muted-foreground py-12 text-center">加载中...</div>
+      <div className="text-base-content/50 py-12 text-center">加载中...</div>
     );
   }
 
@@ -129,7 +129,7 @@ export default function TaskDetailPage() {
         </Button>
         <div className="flex-1">
           <h1 className="text-lg font-semibold">{task.name}</h1>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-base-content/50">
             创建于 {utc(task.created_at)?.toLocaleString()}
           </p>
         </div>
@@ -154,7 +154,7 @@ export default function TaskDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            className="text-destructive"
+            className="text-error"
             onClick={() => cancel.mutate(id)}
           >
             <XCircle className="mr-1 h-3.5 w-3.5" /> 取消
@@ -163,7 +163,7 @@ export default function TaskDetailPage() {
         <Button
           variant="outline"
           size="sm"
-          className="text-destructive hover:text-destructive hover:bg-destructive/5"
+          className="text-error hover:text-error hover:bg-error/5"
           onClick={() => setShowDelete(true)}
         >
           <Trash2 className="mr-1 h-3.5 w-3.5" /> 删除
@@ -172,19 +172,19 @@ export default function TaskDetailPage() {
 
       {/* Failed task alert */}
       {task.status === "failed" && failedSubtasks.length > 0 && (
-        <Card className="border-destructive/50 bg-destructive/5">
+        <Card className="border-error/50 bg-error/5">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <AlertTriangle className="h-5 w-5 text-error shrink-0 mt-0.5" />
               <div className="space-y-1 min-w-0">
-                <p className="text-sm font-medium text-destructive">
+                <p className="text-sm font-medium text-error">
                   任务失败 — {failedSubtasks.length} 个子任务出错
                 </p>
                 {failedSubtasks.map((st) =>
                   st.error_log ? (
                     <p
                       key={st.id}
-                      className="text-xs text-muted-foreground font-mono truncate"
+                      className="text-xs text-base-content/50 font-mono truncate"
                     >
                       运行 {st.run_index + 1}: {st.error_log}
                     </p>
@@ -206,7 +206,7 @@ export default function TaskDetailPage() {
         ].map((item) => (
           <Card key={item.label}>
             <CardContent className="p-3">
-              <p className="text-xs text-muted-foreground">{item.label}</p>
+              <p className="text-xs text-base-content/50">{item.label}</p>
               <p className="text-sm font-medium">{String(item.value)}</p>
             </CardContent>
           </Card>
@@ -226,7 +226,7 @@ export default function TaskDetailPage() {
                 className="grid items-center gap-3"
                 style={{ gridTemplateColumns: "4rem 1fr 3rem 4.5rem" }}
               >
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-base-content/50">
                   运行 {st.run_index + 1}
                 </span>
                 <Progress value={st.progress_pct} className="h-2" />
@@ -375,7 +375,7 @@ export default function TaskDetailPage() {
                         <TableCell className="max-w-[200px] truncate font-mono text-xs">
                           {r.model_output}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-destructive">
+                        <TableCell className="text-right font-mono text-error">
                           {r.score.toFixed(2)}
                         </TableCell>
                       </TableRow>
@@ -398,7 +398,7 @@ export default function TaskDetailPage() {
             </DialogDescription>
           </DialogHeader>
           {deleteError && (
-            <p className="text-sm text-destructive px-1">{deleteError}</p>
+            <p className="text-sm text-error px-1">{deleteError}</p>
           )}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => { setShowDelete(false); setDeleteError(""); }}>

@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: ["class"],
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
@@ -20,55 +19,7 @@ module.exports = {
       mono: ['"JetBrains Mono Variable"', '"JetBrains Mono"', 'ui-monospace', 'monospace'],
     },
     extend: {
-      colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
       keyframes: {
-        "accordion-down": {
-          from: { height: 0 },
-          to: { height: "var(--radix-accordion-content-height)" },
-        },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: 0 },
-        },
         "modal-expand": {
           from: { opacity: "0", transform: "scale(0.85)" },
           to: { opacity: "1", transform: "scale(1)" },
@@ -88,8 +39,6 @@ module.exports = {
         },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
         "modal-expand": "modal-expand 0.2s ease-out",
         "float-up": "float-up 0.25s ease-out forwards",
         "shake": "shake 0.4s ease-in-out",
@@ -97,5 +46,42 @@ module.exports = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("daisyui")],
+  daisyui: {
+    themes: [
+      {
+        swan: {
+          "primary": "#6366f1",
+          "primary-content": "#ffffff",
+          "secondary": "#ebebef",
+          "secondary-content": "#17181c",
+          "accent": "#8b5cf6",
+          "accent-content": "#ffffff",
+          "neutral": "#17181c",
+          "neutral-content": "#f3f3f5",
+          "base-100": "#ffffff",
+          "base-200": "#f3f3f5",
+          "base-300": "#e4e4e8",
+          "base-content": "#17181c",
+          "info": "#3b82f6",
+          "info-content": "#ffffff",
+          "success": "#10b981",
+          "success-content": "#ffffff",
+          "warning": "#f59e0b",
+          "warning-content": "#ffffff",
+          "error": "#dc2626",
+          "error-content": "#ffffff",
+          "--rounded-box": "0.875rem",
+          "--rounded-btn": "0.625rem",
+          "--rounded-badge": "999px",
+          "--tab-radius": "999px",
+          "--animation-btn": "0.15s",
+          "--animation-input": "0.15s",
+          "--btn-focus-scale": "0.97",
+        },
+      },
+    ],
+    darkTheme: false,
+    logs: false,
+  },
 }

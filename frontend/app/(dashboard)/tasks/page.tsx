@@ -246,7 +246,7 @@ export default function TasksPage() {
         header: ({ table }) => (
           <input
             type="checkbox"
-            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            className="h-3.5 w-3.5 rounded border-base-300 accent-primary"
             checked={table.getIsAllPageRowsSelected()}
             onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
           />
@@ -254,7 +254,7 @@ export default function TasksPage() {
         cell: ({ row }) => (
           <input
             type="checkbox"
-            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            className="h-3.5 w-3.5 rounded border-base-300 accent-primary"
             checked={row.getIsSelected()}
             onChange={(e) => {
               e.stopPropagation();
@@ -270,7 +270,7 @@ export default function TasksPage() {
         cell: ({ row }) => (
           <div className="flex items-center gap-1.5 min-w-0">
             {row.original.status === "failed" && (
-              <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+              <AlertTriangle className="h-3.5 w-3.5 text-error shrink-0" />
             )}
             <span className="font-medium truncate">{row.original.name}</span>
           </div>
@@ -295,7 +295,7 @@ export default function TasksPage() {
         accessorKey: "repeat_count",
         header: "重复",
         cell: ({ getValue }) => (
-          <span className="text-xs font-mono text-muted-foreground">
+          <span className="text-xs font-mono text-base-content/50">
             {getValue<number>()}
           </span>
         ),
@@ -304,7 +304,7 @@ export default function TasksPage() {
         accessorKey: "seed_strategy",
         header: "种子策略",
         cell: ({ getValue }) => (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-base-content/50">
             {getValue<string>() === "fixed" ? "固定" : "随机"}
           </span>
         ),
@@ -313,7 +313,7 @@ export default function TasksPage() {
         accessorKey: "created_at",
         header: "创建时间",
         cell: ({ getValue }) => (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-base-content/50">
             {utc(getValue<string>())?.toLocaleString()}
           </span>
         ),
@@ -322,7 +322,7 @@ export default function TasksPage() {
         id: "duration",
         header: "耗时",
         cell: ({ row }) => (
-          <span className="text-xs font-mono text-muted-foreground">
+          <span className="text-xs font-mono text-base-content/50">
             {formatDuration(row.original.started_at, row.original.finished_at)}
           </span>
         ),
@@ -372,10 +372,10 @@ export default function TasksPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-5">
           <h1 className="text-lg font-semibold">评测任务</h1>
-          <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="hidden sm:flex items-center gap-4 text-xs text-base-content/50">
             <span>
               共{" "}
-              <span className="font-semibold text-foreground tabular-nums">
+              <span className="font-semibold text-base-content tabular-nums">
                 {tasks.length}
               </span>{" "}
               个任务
@@ -383,7 +383,7 @@ export default function TasksPage() {
             {Object.entries(statusCounts).map(([status, count]) => (
               <span key={status}>
                 {statusLabel[status] ?? status}{" "}
-                <span className="font-semibold text-foreground tabular-nums">
+                <span className="font-semibold text-base-content tabular-nums">
                   {count}
                 </span>
               </span>
@@ -409,7 +409,7 @@ export default function TasksPage() {
       {/* Toolbar: search + filter */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/50" />
           <Input
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
@@ -472,7 +472,7 @@ export default function TasksPage() {
                               header.getContext(),
                             )}
                             {header.column.getCanSort() && (
-                              <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+                              <ArrowUpDown className="h-3 w-3 text-base-content/30" />
                             )}
                           </span>
                         </TableHead>
@@ -487,8 +487,8 @@ export default function TasksPage() {
                       key={row.id}
                       className={`cursor-pointer transition-colors group/row ${
                         selectedId === row.original.id
-                          ? "bg-accent"
-                          : "hover:bg-muted/50"
+                          ? "bg-base-200"
+                          : "hover:bg-base-200/50"
                       }`}
                       onClick={() => openView(row.original.id)}
                     >
@@ -509,7 +509,7 @@ export default function TasksPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              className="h-7 w-7 text-error hover:text-error hover:bg-error/10"
                               title="删除"
                               onClick={() =>
                                 setDeleteTarget({
@@ -522,7 +522,7 @@ export default function TasksPage() {
                             </Button>
                           </div>
                           <ChevronRight
-                            className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${
+                            className={`h-3.5 w-3.5 text-base-content/30 transition-transform ${
                               selectedId === row.original.id ? "rotate-90" : ""
                             }`}
                           />
@@ -730,7 +730,7 @@ export default function TasksPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1 text-destructive hover:text-destructive hover:bg-destructive/5"
+                        className="flex-1 text-error hover:text-error hover:bg-error/5"
                         onClick={() => cancelTask.mutate(selectedTask.id)}
                         disabled={cancelTask.isPending}
                       >
@@ -759,7 +759,7 @@ export default function TasksPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/5"
+                    className="text-error hover:text-error hover:bg-error/5"
                     onClick={() =>
                       setDeleteTarget({
                         id: selectedTask.id,
@@ -795,10 +795,10 @@ export default function TasksPage() {
                         onClick={() => i < step && setStep(i)}
                         className={`relative flex items-center justify-center h-7 w-7 rounded-full text-xs font-medium shrink-0 transition-all ${
                           i < step
-                            ? "bg-primary text-primary-foreground cursor-pointer"
+                            ? "bg-primary text-primary-content cursor-pointer"
                             : i === step
-                              ? "bg-primary text-primary-foreground ring-4 ring-primary/15"
-                              : "bg-muted text-muted-foreground"
+                              ? "bg-primary text-primary-content ring-4 ring-primary/15"
+                              : "bg-base-200 text-base-content/50"
                         }`}
                         title={s.title}
                       >
@@ -818,7 +818,7 @@ export default function TasksPage() {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
+                <p className="text-xs text-base-content/50 mt-2 text-center">
                   {STEPS[step].title}
                 </p>
               </div>
@@ -837,7 +837,7 @@ export default function TasksPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {models.length === 0 ? (
-                            <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                            <div className="px-3 py-4 text-center text-xs text-base-content/50">
                               暂无模型，<a href="/models" className="text-primary hover:underline">去添加</a>
                             </div>
                           ) : models.map((m) => (
@@ -848,7 +848,7 @@ export default function TasksPage() {
                         </SelectContent>
                       </Select>
                       {models.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-base-content/50">
                           暂无已注册模型，请先在模型页面添加。
                         </p>
                       )}
@@ -874,15 +874,15 @@ export default function TasksPage() {
                               }}
                               className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
                                 form.dataset_ids.includes(d.id)
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "text-muted-foreground hover:bg-muted"
+                                  ? "bg-primary text-primary-content border-primary"
+                                  : "text-base-content/50 hover:bg-base-200"
                               }`}
                             >
                               {d.name}
                             </button>
                           ))}
                           {datasets.length === 0 && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-base-content/50">
                               暂无数据集
                             </span>
                           )}
@@ -904,15 +904,15 @@ export default function TasksPage() {
                               }}
                               className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
                                 form.criteria_ids.includes(c.id)
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "text-muted-foreground hover:bg-muted"
+                                  ? "bg-primary text-primary-content border-primary"
+                                  : "text-base-content/50 hover:bg-base-200"
                               }`}
                             >
                               {c.name}
                             </button>
                           ))}
                           {criteria.length === 0 && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-base-content/50">
                               暂无评测标准
                             </span>
                           )}
@@ -1019,7 +1019,7 @@ export default function TasksPage() {
                           placeholder="例：0 或 0,1,2"
                           className="font-mono"
                         />
-                        <p className="text-[11px] text-muted-foreground mt-1">
+                        <p className="text-[11px] text-base-content/50 mt-1">
                           指定 CUDA_VISIBLE_DEVICES，留空使用所有可用 GPU
                         </p>
                       </PanelField>
@@ -1030,14 +1030,14 @@ export default function TasksPage() {
                             setForm({ ...form, env_vars: e.target.value })
                           }
                           placeholder={'{\n  "OMP_NUM_THREADS": "4"\n}'}
-                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          className="flex min-h-[80px] w-full rounded-md border border-base-300 bg-base-200 px-3 py-2 text-xs font-mono ring-offset-base-200 placeholder:text-base-content/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                         />
-                        <p className="text-[11px] text-muted-foreground mt-1">
+                        <p className="text-[11px] text-base-content/50 mt-1">
                           可选。JSON 格式的环境变量，将在任务运行时注入
                         </p>
                       </PanelField>
-                      <div className="rounded-md bg-muted p-2.5 text-[11px] text-muted-foreground space-y-1">
-                        <p className="font-medium text-foreground/70 text-xs">常用环境变量</p>
+                      <div className="rounded-md bg-base-200 p-2.5 text-[11px] text-base-content/50 space-y-1">
+                        <p className="font-medium text-base-content/70 text-xs">常用环境变量</p>
                         <p><code className="font-mono">CUDA_VISIBLE_DEVICES</code> — 指定 GPU（由上方 GPU 编号自动设置）</p>
                         <p><code className="font-mono">OMP_NUM_THREADS</code> — OpenMP 线程数</p>
                         <p><code className="font-mono">TOKENIZERS_PARALLELISM</code> — HuggingFace 分词器并行</p>
@@ -1134,13 +1134,13 @@ export default function TasksPage() {
                         onClick={() =>
                           setShowConfigPreview(!showConfigPreview)
                         }
-                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        className="flex items-center gap-1 text-xs text-base-content/50 hover:text-base-content transition-colors"
                       >
                         <Code2 className="h-3 w-3" />
                         {showConfigPreview ? "隐藏" : "查看"} JSON 配置
                       </button>
                       {showConfigPreview && (
-                        <pre className="text-[11px] bg-muted rounded-md p-3 overflow-auto max-h-40 font-mono">
+                        <pre className="text-[11px] bg-base-200 rounded-md p-3 overflow-auto max-h-40 font-mono">
                           {JSON.stringify(
                             {
                               name: form.name,

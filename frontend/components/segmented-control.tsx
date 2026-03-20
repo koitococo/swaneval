@@ -11,7 +11,7 @@ interface SegmentedControlProps<T extends string> {
 
 /**
  * Pill-style segmented control matching the Tabs look.
- * Uses bg-muted background with white active segment + shadow — consistent with TabsList.
+ * Uses bg-base-200 background with white active segment + shadow — consistent with TabsList.
  */
 export function SegmentedControl<T extends string>({
   options,
@@ -22,7 +22,7 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       className={cn(
-        "inline-flex h-9 items-center rounded-full bg-muted p-1 text-muted-foreground",
+        "inline-flex h-9 items-center rounded-full bg-base-200 p-1 text-base-content/50",
         className,
       )}
     >
@@ -34,8 +34,8 @@ export function SegmentedControl<T extends string>({
           className={cn(
             "inline-flex items-center justify-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-all",
             value === option.key
-              ? "bg-background text-foreground shadow-sm"
-              : "hover:text-foreground",
+              ? "bg-base-100 text-base-content shadow-sm"
+              : "hover:text-base-content",
           )}
         >
           {option.label}

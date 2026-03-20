@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" data-theme="swan">
       <head>
         <link rel="icon" href="/logo.svg" type="image/svg+xml" />
       </head>

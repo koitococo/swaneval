@@ -135,7 +135,7 @@ export default function AdminPage() {
         accessorKey: "nickname",
         header: "昵称",
         cell: ({ getValue }) => (
-          <span className="text-muted-foreground">
+          <span className="text-base-content/50">
             {getValue<string>() || "—"}
           </span>
         ),
@@ -144,7 +144,7 @@ export default function AdminPage() {
         accessorKey: "email",
         header: "邮箱",
         cell: ({ getValue }) => (
-          <span className="text-muted-foreground text-sm">
+          <span className="text-base-content/50 text-sm">
             {getValue<string>()}
           </span>
         ),
@@ -200,7 +200,7 @@ export default function AdminPage() {
           const user = row.original;
           if (user.role === "admin") {
             return (
-              <span className="text-xs text-muted-foreground/50">受保护</span>
+              <span className="text-xs text-base-content/30">受保护</span>
             );
           }
           return (
@@ -213,7 +213,7 @@ export default function AdminPage() {
                 onClick={() => handleToggleActive(user)}
               >
                 {user.is_active ? (
-                  <ShieldOff className="h-3.5 w-3.5 text-muted-foreground" />
+                  <ShieldOff className="h-3.5 w-3.5 text-base-content/50" />
                 ) : (
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                 )}
@@ -221,7 +221,7 @@ export default function AdminPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="h-7 w-7 text-error hover:text-error hover:bg-error/10"
                 title="删除用户"
                 onClick={() =>
                   setDeleteTarget({
@@ -260,17 +260,17 @@ export default function AdminPage() {
       <div>
         <div className="flex items-center gap-5">
           <h1 className="text-lg font-semibold">用户管理</h1>
-          <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="hidden sm:flex items-center gap-4 text-xs text-base-content/50">
             <span>
               共{" "}
-              <span className="font-semibold text-foreground tabular-nums">
+              <span className="font-semibold text-base-content tabular-nums">
                 {users.length}
               </span>{" "}
               个用户
             </span>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-sm text-base-content/50 mt-1">
           管理系统用户账号、角色和权限。管理员可以修改用户角色、禁用账号或删除用户。
         </p>
       </div>
@@ -278,7 +278,7 @@ export default function AdminPage() {
       {/* Toolbar */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/50" />
           <Input
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
@@ -334,7 +334,7 @@ export default function AdminPage() {
                               header.getContext(),
                             )}
                             {header.column.getCanSort() && (
-                              <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+                              <ArrowUpDown className="h-3 w-3 text-base-content/30" />
                             )}
                           </span>
                         </TableHead>

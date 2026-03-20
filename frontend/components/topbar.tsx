@@ -50,7 +50,7 @@ export function Topbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-40 border-b bg-base-200/95 backdrop-blur supports-[backdrop-filter]:bg-base-200/60">
         <div className="flex h-14 items-center px-6 gap-6">
           <Link href="/" className="shrink-0 mr-2 flex items-center gap-2 text-primary">
             <Logo className="h-5 w-5" />
@@ -70,8 +70,8 @@ export function Topbar() {
                   className={cn(
                     "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-all duration-150 whitespace-nowrap",
                     active
-                      ? "bg-accent text-accent-foreground font-medium"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      ? "bg-base-200 text-base-content font-medium"
+                      : "text-base-content/50 hover:bg-base-200/50 hover:text-base-content"
                   )}
                 >
                   <item.icon className="h-4 w-4" />
@@ -88,11 +88,11 @@ export function Topbar() {
                 className="text-right hidden sm:block cursor-pointer hover:opacity-80 transition-opacity"
               >
                 <p className="text-sm font-medium leading-none">{user.nickname || user.username}</p>
-                <p className="text-xs text-muted-foreground">{user.role}</p>
+                <p className="text-xs text-base-content/50">{user.role}</p>
               </button>
               <button
                 onClick={() => setSettingsOpen(true)}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                className="rounded-md p-1.5 text-base-content/50 hover:bg-base-200 hover:text-base-content transition-colors"
                 title="账号设置"
               >
                 <Settings className="h-4 w-4" />
@@ -102,7 +102,7 @@ export function Topbar() {
                   logout();
                   window.location.href = "/login";
                 }}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                className="rounded-md p-1.5 text-base-content/50 hover:bg-base-200 hover:text-base-content transition-colors"
                 title="退出登录"
               >
                 <LogOut className="h-4 w-4" />
@@ -213,7 +213,7 @@ function AccountSettingsDialog({
                   id="settings-username"
                   value={user.username}
                   disabled
-                  className="h-9 bg-muted/50"
+                  className="h-9 bg-base-200/50"
                 />
               </div>
               <div className="space-y-1.5">
@@ -238,7 +238,7 @@ function AccountSettingsDialog({
               </div>
             </div>
             {profileError && (
-              <p className="text-sm text-destructive">{profileError}</p>
+              <p className="text-sm text-error">{profileError}</p>
             )}
             {profileSuccess && (
               <p className="text-sm text-emerald-600">{profileSuccess}</p>
@@ -284,7 +284,7 @@ function AccountSettingsDialog({
                 />
               </div>
             </div>
-            {pwError && <p className="text-sm text-destructive">{pwError}</p>}
+            {pwError && <p className="text-sm text-error">{pwError}</p>}
             {pwSuccess && (
               <p className="text-sm text-emerald-600">{pwSuccess}</p>
             )}

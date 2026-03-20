@@ -294,7 +294,7 @@ export default function CriteriaPage() {
         header: ({ table }) => (
           <input
             type="checkbox"
-            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            className="h-3.5 w-3.5 rounded border-base-300 accent-primary"
             checked={table.getIsAllPageRowsSelected()}
             onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
           />
@@ -302,7 +302,7 @@ export default function CriteriaPage() {
         cell: ({ row }) => (
           <input
             type="checkbox"
-            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            className="h-3.5 w-3.5 rounded border-base-300 accent-primary"
             checked={row.getIsSelected()}
             onChange={(e) => {
               e.stopPropagation();
@@ -333,7 +333,7 @@ export default function CriteriaPage() {
         header: "配置",
         accessorFn: (row) => configSummary(row.config_json, row.type),
         cell: ({ getValue }) => (
-          <span className="font-mono text-xs text-muted-foreground truncate block max-w-[200px]">
+          <span className="font-mono text-xs text-base-content/50 truncate block max-w-[200px]">
             {getValue<string>()}
           </span>
         ),
@@ -342,7 +342,7 @@ export default function CriteriaPage() {
         accessorKey: "created_at",
         header: "创建时间",
         cell: ({ getValue }) => (
-          <span className="text-muted-foreground">
+          <span className="text-base-content/50">
             {utc(getValue<string>())?.toLocaleDateString()}
           </span>
         ),
@@ -380,10 +380,10 @@ export default function CriteriaPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-5">
           <h1 className="text-lg font-semibold">评估标准</h1>
-          <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="hidden sm:flex items-center gap-4 text-xs text-base-content/50">
             <span>
               共{" "}
-              <span className="font-semibold text-foreground tabular-nums">
+              <span className="font-semibold text-base-content tabular-nums">
                 {criteria.length}
               </span>{" "}
               个标准
@@ -391,7 +391,7 @@ export default function CriteriaPage() {
             {Object.entries(typeCounts).map(([type, count]) => (
               <span key={type}>
                 {typeLabel[type] ?? type}{" "}
-                <span className="font-semibold text-foreground tabular-nums">
+                <span className="font-semibold text-base-content tabular-nums">
                   {count}
                 </span>
               </span>
@@ -417,7 +417,7 @@ export default function CriteriaPage() {
       {/* Toolbar */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/50" />
           <Input
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
@@ -482,7 +482,7 @@ export default function CriteriaPage() {
                               header.getContext(),
                             )}
                             {header.column.getCanSort() && (
-                              <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+                              <ArrowUpDown className="h-3 w-3 text-base-content/30" />
                             )}
                           </span>
                         </TableHead>
@@ -497,8 +497,8 @@ export default function CriteriaPage() {
                       key={row.id}
                       className={`cursor-pointer transition-colors group/row ${
                         selectedId === row.original.id
-                          ? "bg-accent"
-                          : "hover:bg-muted/50"
+                          ? "bg-base-200"
+                          : "hover:bg-base-200/50"
                       }`}
                       onClick={() => openView(row.original.id)}
                     >
@@ -563,7 +563,7 @@ export default function CriteriaPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              className="h-7 w-7 text-error hover:text-error hover:bg-error/10"
                               title="删除"
                               onClick={() =>
                                 setDeleteTarget({
@@ -576,7 +576,7 @@ export default function CriteriaPage() {
                             </Button>
                           </div>
                           <ChevronRight
-                            className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${
+                            className={`h-3.5 w-3.5 text-base-content/30 transition-transform ${
                               selectedId === row.original.id ? "rotate-90" : ""
                             }`}
                           />
@@ -703,8 +703,8 @@ export default function CriteriaPage() {
 
                 {/* Raw config */}
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">配置 JSON</p>
-                  <pre className="rounded-md bg-muted p-2.5 text-xs font-mono overflow-auto max-h-32">
+                  <p className="text-xs text-base-content/50">配置 JSON</p>
+                  <pre className="rounded-md bg-base-200 p-2.5 text-xs font-mono overflow-auto max-h-32">
                     {(() => {
                       try {
                         return JSON.stringify(
@@ -742,7 +742,7 @@ export default function CriteriaPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/5"
+                    className="text-error hover:text-error hover:bg-error/5"
                     onClick={() =>
                       setDeleteTarget({
                         id: selectedCriterion.id,
@@ -804,10 +804,10 @@ export default function CriteriaPage() {
           />
         }
       >
-                <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 mb-3 text-xs text-base-content/50">
                   <button
                     type="button"
-                    className="hover:text-foreground transition-colors"
+                    className="hover:text-base-content transition-colors"
                     onClick={async () => {
                       try {
                         const text = await navigator.clipboard.readText();
@@ -821,7 +821,7 @@ export default function CriteriaPage() {
                     从剪贴板导入
                   </button>
                   <span className="text-border">|</span>
-                  <label className="hover:text-foreground transition-colors cursor-pointer">
+                  <label className="hover:text-base-content transition-colors cursor-pointer">
                     <input
                       type="file"
                       accept=".json"
@@ -839,7 +839,7 @@ export default function CriteriaPage() {
                     从 JSON 导入
                   </label>
                   {importError && (
-                    <span className="text-destructive">{importError}</span>
+                    <span className="text-error">{importError}</span>
                   )}
                 </div>
 
@@ -873,13 +873,13 @@ export default function CriteriaPage() {
                     </PanelField>
                   </div>
 
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-base-content/50">
                     {typeDescriptions[form.type]}
                   </p>
 
                   {form.type === "preset" && (
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">
+                      <Label className="text-xs text-base-content/50">
                         指标
                       </Label>
                       <div className="space-y-1.5">
@@ -893,11 +893,11 @@ export default function CriteriaPage() {
                             className={`w-full rounded-md border p-2.5 text-left transition-colors ${
                               form.metric === m.value
                                 ? "border-primary bg-primary/5 ring-1 ring-primary"
-                                : "hover:bg-muted"
+                                : "hover:bg-base-200"
                             }`}
                           >
                             <p className="text-sm font-medium">{m.label}</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-base-content/50">
                               {m.desc}
                             </p>
                           </button>
@@ -946,7 +946,7 @@ export default function CriteriaPage() {
                           placeholder="evaluate"
                           className="font-mono"
                         />
-                        <p className="text-[11px] text-muted-foreground mt-1">
+                        <p className="text-[11px] text-base-content/50 mt-1">
                           默认为 evaluate。留空使用默认值。
                         </p>
                       </PanelField>
@@ -962,12 +962,12 @@ export default function CriteriaPage() {
                           placeholder='{"threshold": 0.8}'
                           className="font-mono"
                         />
-                        <p className="text-[11px] text-muted-foreground mt-1">
+                        <p className="text-[11px] text-base-content/50 mt-1">
                           可选。将作为 config 参数传入脚本函数。
                         </p>
                       </PanelField>
-                      <div className="rounded-md bg-muted p-2.5 text-[11px] font-mono text-muted-foreground space-y-0.5">
-                        <p className="text-foreground/70 font-sans text-xs font-medium mb-1">
+                      <div className="rounded-md bg-base-200 p-2.5 text-[11px] font-mono text-base-content/50 space-y-0.5">
+                        <p className="text-base-content/70 font-sans text-xs font-medium mb-1">
                           脚本函数签名示例
                         </p>
                         <p>def evaluate(expected, actual, config=None):</p>
@@ -991,14 +991,14 @@ export default function CriteriaPage() {
                           </SelectTrigger>
                           <SelectContent>
                             {models.length === 0 ? (
-                              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                              <div className="px-3 py-4 text-center text-xs text-base-content/50">
                                 暂无模型，<a href="/models" className="text-primary hover:underline">去添加</a>
                               </div>
                             ) : models.map((m) => (
                               <SelectItem key={m.id} value={m.id}>
                                 {m.name}
                                 {m.model_name && (
-                                  <span className="text-muted-foreground ml-1">
+                                  <span className="text-base-content/50 ml-1">
                                     ({m.model_name})
                                   </span>
                                 )}
@@ -1007,7 +1007,7 @@ export default function CriteriaPage() {
                           </SelectContent>
                         </Select>
                         {models.length === 0 && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-base-content/50">
                             请先在模型页面添加一个模型。
                           </p>
                         )}
@@ -1022,7 +1022,7 @@ export default function CriteriaPage() {
                             })
                           }
                           placeholder="你是一个评估专家。请根据以下标准对回答打分（0-1）..."
-                          className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          className="flex min-h-[120px] w-full rounded-md border border-base-300 bg-base-200 px-3 py-2 text-sm ring-offset-base-200 placeholder:text-base-content/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                           required
                         />
                       </PanelField>
@@ -1112,18 +1112,18 @@ export default function CriteriaPage() {
               {test.isPending ? "测试中..." : "运行测试"}
             </Button>
             {testError && (
-              <div className="rounded bg-destructive/10 p-3 text-xs text-destructive">
+              <div className="rounded bg-error/10 p-3 text-xs text-error">
                 {testError}
               </div>
             )}
             {testResult !== null && (
-              <div className="rounded bg-muted p-3 text-center">
-                <span className="text-xs text-muted-foreground">得分：</span>
+              <div className="rounded bg-base-200 p-3 text-center">
+                <span className="text-xs text-base-content/50">得分：</span>
                 <span
                   className={`text-lg font-bold ${
                     testResult.score >= 1
                       ? "text-emerald-600"
-                      : "text-destructive"
+                      : "text-error"
                   }`}
                 >
                   {testResult.score}
@@ -1255,7 +1255,7 @@ function RegexInput({
           aria-hidden
         >
           {value ? highlightRegex(value) : (
-            <span className="text-muted-foreground">{!focused ? placeholder : ""}</span>
+            <span className="text-base-content/50">{!focused ? placeholder : ""}</span>
           )}
         </div>
         {/* Actual input — transparent text, visible caret */}
@@ -1270,11 +1270,11 @@ function RegexInput({
           onBlur={() => setFocused(false)}
           placeholder=""
           required
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono text-transparent caret-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex h-10 w-full rounded-md border border-base-300 bg-base-200 px-3 py-2 text-sm font-mono text-transparent caret-foreground ring-offset-base-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         />
       </div>
       {!valid && value && (
-        <p className="text-[11px] text-destructive">正则表达式语法错误</p>
+        <p className="text-[11px] text-error">正则表达式语法错误</p>
       )}
     </div>
   );

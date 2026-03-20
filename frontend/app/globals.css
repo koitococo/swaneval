@@ -2,66 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 240 5% 96%;
-    --foreground: 224 10% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 224 10% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 224 10% 10%;
-    --primary: 239 84% 67%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 93%;
-    --secondary-foreground: 224 10% 10%;
-    --muted: 240 5% 93%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 240 5% 93%;
-    --accent-foreground: 224 10% 10%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 88%;
-    --input: 240 6% 88%;
-    --ring: 239 84% 67%;
-    --radius: 0.875rem;
-  }
-
-  .dark {
-    --background: 240 6% 7%;
-    --foreground: 0 0% 95%;
-    --card: 240 5% 10%;
-    --card-foreground: 0 0% 95%;
-    --popover: 240 5% 12%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 239 84% 74%;
-    --primary-foreground: 240 6% 6%;
-    --secondary: 240 4% 15%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 240 4% 15%;
-    --muted-foreground: 240 4% 55%;
-    --accent: 240 4% 15%;
-    --accent-foreground: 0 0% 95%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 0 0% 95%;
-    --border: 240 4% 18%;
-    --input: 240 4% 18%;
-    --ring: 239 84% 67%;
-  }
+body {
+  font-family: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+code, kbd, pre, samp, .font-mono {
+  font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    font-family: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
-    @apply bg-background text-foreground text-sm antialiased;
-  }
-  code, kbd, pre, samp, .font-mono {
-    font-family: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
-  }
-}
-
+/* ── Login page background blobs ── */
 @keyframes blob-drift-1 {
   0%, 100% { transform: translate(0%, 0%) scale(1); }
   33% { transform: translate(30%, -20%) scale(1.1); }
@@ -123,11 +74,11 @@
   animation: blob-drift-3 22s ease-in-out infinite;
 }
 
-/* Dashboard hero — subtle but visible gradient */
+/* Dashboard hero */
 .dashboard-hero-bg {
   position: relative;
   overflow: hidden;
-  background-color: hsl(var(--background));
+  background-color: oklch(var(--b2));
 }
 
 .dashboard-hero-bg::before,

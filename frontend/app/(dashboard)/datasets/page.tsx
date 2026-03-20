@@ -332,7 +332,7 @@ export default function DatasetsPage() {
         header: ({ table }) => (
           <input
             type="checkbox"
-            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            className="h-3.5 w-3.5 rounded border-base-300 accent-primary"
             checked={table.getIsAllPageRowsSelected()}
             onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
           />
@@ -340,7 +340,7 @@ export default function DatasetsPage() {
         cell: ({ row }) => (
           <input
             type="checkbox"
-            className="h-3.5 w-3.5 rounded border-input accent-primary"
+            className="h-3.5 w-3.5 rounded border-base-300 accent-primary"
             checked={row.getIsSelected()}
             onChange={(e) => {
               e.stopPropagation();
@@ -357,7 +357,7 @@ export default function DatasetsPage() {
           <div className="min-w-0">
             <p className="font-medium truncate">{row.original.name}</p>
             {row.original.description && (
-              <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+              <p className="text-xs text-base-content/50 truncate max-w-[200px]">
                 {row.original.description}
               </p>
             )}
@@ -377,14 +377,14 @@ export default function DatasetsPage() {
         accessorKey: "format",
         header: "格式",
         cell: ({ getValue }) => (
-          <span className="text-muted-foreground">{getValue<string>()}</span>
+          <span className="text-base-content/50">{getValue<string>()}</span>
         ),
       },
       {
         accessorKey: "row_count",
         header: "行数",
         cell: ({ getValue }) => (
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-xs text-base-content/50">
             {getValue<number>().toLocaleString()}
           </span>
         ),
@@ -393,7 +393,7 @@ export default function DatasetsPage() {
         accessorKey: "size_bytes",
         header: "大小",
         cell: ({ getValue }) => (
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-xs text-base-content/50">
             {formatBytes(getValue<number>())}
           </span>
         ),
@@ -404,7 +404,7 @@ export default function DatasetsPage() {
         cell: ({ getValue }) => {
           const tags = getValue<string>();
           if (!tags)
-            return <span className="text-xs text-muted-foreground">—</span>;
+            return <span className="text-xs text-base-content/50">—</span>;
           return (
             <div className="flex flex-wrap gap-1">
               {tags.split(",").map((t) => (
@@ -424,7 +424,7 @@ export default function DatasetsPage() {
         accessorKey: "version",
         header: "版本",
         cell: ({ getValue }) => (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-base-content/50">
             v{getValue<number>()}
           </span>
         ),
@@ -462,10 +462,10 @@ export default function DatasetsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-5">
           <h1 className="text-lg font-semibold">数据集管理</h1>
-          <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="hidden sm:flex items-center gap-4 text-xs text-base-content/50">
             <span>
               共{" "}
-              <span className="font-semibold text-foreground tabular-nums">
+              <span className="font-semibold text-base-content tabular-nums">
                 {datasets.length}
               </span>{" "}
               个数据集
@@ -473,7 +473,7 @@ export default function DatasetsPage() {
             {Object.entries(sourceCounts).map(([type, count]) => (
               <span key={type}>
                 {sourceTypeLabel[type] ?? type}{" "}
-                <span className="font-semibold text-foreground tabular-nums">
+                <span className="font-semibold text-base-content tabular-nums">
                   {count}
                 </span>
               </span>
@@ -499,7 +499,7 @@ export default function DatasetsPage() {
       {/* Toolbar: search + filter */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/50" />
           <Input
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
@@ -560,7 +560,7 @@ export default function DatasetsPage() {
                               header.getContext(),
                             )}
                             {header.column.getCanSort() && (
-                              <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+                              <ArrowUpDown className="h-3 w-3 text-base-content/30" />
                             )}
                           </span>
                         </TableHead>
@@ -575,8 +575,8 @@ export default function DatasetsPage() {
                       key={row.id}
                       className={`cursor-pointer transition-colors group/row ${
                         selectedId === row.original.id
-                          ? "bg-accent"
-                          : "hover:bg-muted/50"
+                          ? "bg-base-200"
+                          : "hover:bg-base-200/50"
                       }`}
                       onClick={() => openView(row.original.id)}
                     >
@@ -634,7 +634,7 @@ export default function DatasetsPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              className="h-7 w-7 text-error hover:text-error hover:bg-error/10"
                               title="删除"
                               onClick={() =>
                                 setDeleteTarget({
@@ -647,7 +647,7 @@ export default function DatasetsPage() {
                             </Button>
                           </div>
                           <ChevronRight
-                            className={`h-3.5 w-3.5 text-muted-foreground/40 transition-transform ${
+                            className={`h-3.5 w-3.5 text-base-content/30 transition-transform ${
                               selectedId === row.original.id ? "rotate-90" : ""
                             }`}
                           />
@@ -769,7 +769,7 @@ export default function DatasetsPage() {
                 {/* Download banner for empty datasets */}
                 {selectedDataset.row_count === 0 &&
                   (selectedDataset.source_type === "preset" || selectedDataset.source_type === "huggingface") && (
-                  <div className="rounded-md bg-muted px-3 py-2.5 text-xs text-muted-foreground space-y-2">
+                  <div className="rounded-md bg-base-200 px-3 py-2.5 text-xs text-base-content/50 space-y-2">
                     <p>该数据集尚未下载内容，点击下方按钮从 HuggingFace 下载。</p>
                     <Button
                       size="sm"
@@ -798,7 +798,7 @@ export default function DatasetsPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 text-[11px] px-2 text-muted-foreground"
+                          className="h-6 text-[11px] px-2 text-base-content/50"
                           onClick={() => unsubscribeDs.mutate(selectedDataset.id)}
                           disabled={unsubscribeDs.isPending}
                         >
@@ -826,13 +826,13 @@ export default function DatasetsPage() {
                       )}
                     </div>
                     {selectedDataset.auto_update && (
-                      <div className="space-y-1 text-[11px] text-muted-foreground">
+                      <div className="space-y-1 text-[11px] text-base-content/50">
                         <div className="flex items-baseline gap-1">
                           <span>状态：</span>
                           <span className={
                             selectedDataset.sync_status === "synced" ? "text-emerald-600" :
                             selectedDataset.sync_status === "syncing" ? "text-primary" :
-                            selectedDataset.sync_status === "failed" ? "text-destructive" :
+                            selectedDataset.sync_status === "failed" ? "text-error" :
                             ""
                           }>
                             {selectedDataset.sync_status === "synced" ? "已同步" :
@@ -879,7 +879,7 @@ export default function DatasetsPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/5"
+                    className="text-error hover:text-error hover:bg-error/5"
                     onClick={() =>
                       setDeleteTarget({
                         id: selectedDataset.id,
@@ -969,10 +969,10 @@ export default function DatasetsPage() {
           ) : undefined
         }
       >
-                <div className="flex items-center gap-2 mb-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 mb-3 text-xs text-base-content/50">
                   <button
                     type="button"
-                    className="hover:text-foreground transition-colors"
+                    className="hover:text-base-content transition-colors"
                     onClick={async () => {
                       try {
                         const text = await navigator.clipboard.readText();
@@ -986,7 +986,7 @@ export default function DatasetsPage() {
                     从剪贴板导入
                   </button>
                   <span className="text-border">|</span>
-                  <label className="hover:text-foreground transition-colors cursor-pointer">
+                  <label className="hover:text-base-content transition-colors cursor-pointer">
                     <input
                       type="file"
                       accept=".json"
@@ -1004,7 +1004,7 @@ export default function DatasetsPage() {
                     从 JSON 导入
                   </label>
                   {importError && (
-                    <span className="text-destructive">{importError}</span>
+                    <span className="text-error">{importError}</span>
                   )}
                 </div>
 
@@ -1033,7 +1033,7 @@ export default function DatasetsPage() {
                             ? "border-primary bg-primary/5"
                             : selectedFile
                               ? "border-emerald-500/50 bg-emerald-500/5"
-                              : "border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-muted/30"
+                              : "border-muted-foreground/25 hover:border-muted-foreground/40 hover:bg-base-200/30"
                         }`}
                       >
                         <input
@@ -1053,17 +1053,17 @@ export default function DatasetsPage() {
                           <>
                             <Check className="h-5 w-5 text-emerald-500" />
                             <p className="text-xs font-medium truncate max-w-full">{selectedFile.name}</p>
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-[11px] text-base-content/50">
                               {(selectedFile.size / 1024).toFixed(1)} KB — 点击更换文件
                             </p>
                           </>
                         ) : (
                           <>
-                            <Upload className={`h-6 w-6 ${dragOver ? "text-primary" : "text-muted-foreground/40"}`} />
-                            <p className="text-xs text-muted-foreground">
+                            <Upload className={`h-6 w-6 ${dragOver ? "text-primary" : "text-base-content/30"}`} />
+                            <p className="text-xs text-base-content/50">
                               拖拽文件到此处，或 <span className="text-primary font-medium">点击选择</span>
                             </p>
-                            <p className="text-[11px] text-muted-foreground/60">
+                            <p className="text-[11px] text-base-content/40">
                               支持 JSONL、CSV、JSON、Parquet、Excel
                             </p>
                           </>
@@ -1146,7 +1146,7 @@ export default function DatasetsPage() {
                           className="font-mono"
                           required
                         />
-                        <p className="text-[11px] text-muted-foreground mt-1">
+                        <p className="text-[11px] text-base-content/50 mt-1">
                           {importForm.source === "huggingface"
                             ? "支持 Dataset ID（如 openai/gsm8k）或完整 URL"
                             : "支持 Dataset ID（如 modelscope/xxx）或完整 URL"}
@@ -1183,7 +1183,7 @@ export default function DatasetsPage() {
                         />
                       </PanelField>
                       {onlineImportError && (
-                        <div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                        <div className="rounded-md bg-error/10 px-3 py-2 text-xs text-error">
                           {onlineImportError}
                         </div>
                       )}
@@ -1298,12 +1298,12 @@ export default function DatasetsPage() {
             <DialogDescription>显示数据集的前几行数据</DialogDescription>
           </DialogHeader>
           {preview.isLoading ? (
-            <div className="py-8 text-center text-muted-foreground">
+            <div className="py-8 text-center text-base-content/50">
               <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
               加载中...
             </div>
           ) : preview.data?.rows.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">暂无数据</p>
+            <p className="text-base-content/50 text-center py-8">暂无数据</p>
           ) : (
             <div className="overflow-auto">
               <Table>
@@ -1327,7 +1327,7 @@ export default function DatasetsPage() {
                   ))}
                 </TableBody>
               </Table>
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-xs text-base-content/50">
                 显示 {preview.data?.rows.length} / {preview.data?.total} 行
               </p>
             </div>
@@ -1391,7 +1391,7 @@ function CopyableCode({
           e.stopPropagation();
           onCopy(text, field);
         }}
-        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+        className="shrink-0 text-base-content/50 hover:text-base-content transition-colors"
       >
         {copiedField === field ? (
           <Check className="h-3 w-3 text-emerald-500" />
