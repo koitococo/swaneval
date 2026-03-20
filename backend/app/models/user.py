@@ -34,6 +34,9 @@ class User(SQLModel, table=True):
     email: str = Field(index=True, unique=True, max_length=256)
     # 邮箱 / Email address (unique, indexed)
 
+    nickname: str = Field(default="", max_length=64)
+    # 昵称 / Display nickname
+
     hashed_password: str
     # 哈希密码 / Hashed password for authentication
 

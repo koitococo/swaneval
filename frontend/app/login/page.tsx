@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/logo";
 import api from "@/lib/api";
 import type { TokenResponse, User } from "@/lib/types";
+import { useUserCount } from "@/lib/hooks/use-users";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +17,9 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const { data: userCount, isLoading: countLoading } = useUserCount();
+  const isFirstUser = userCount === 0;
 
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [regForm, setRegForm] = useState({
@@ -28,6 +33,12 @@ export default function LoginPage() {
       router.replace("/");
     }
   }, [router]);
+
+  useEffect(() => {
+    if (isFirstUser && mode === "login") {
+      setMode("register");
+    }
+  }, [isFirstUser, mode]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,11 +75,14 @@ export default function LoginPage() {
     setSuccess("");
     setLoading(true);
     try {
-      await api.post("/auth/register", { ...regForm, role: "engineer" });
+      const body = isFirstUser
+        ? { ...regForm, username: "admin", role: "admin" }
+        : { ...regForm, role: "engineer" };
+      await api.post("/auth/register", body);
       setSuccess("账号创建成功，请在下方登录。");
       setMode("login");
       setLoginForm({
-        username: regForm.username,
+        username: isFirstUser ? "admin" : regForm.username,
         password: regForm.password,
       });
     } catch (err: unknown) {
@@ -112,128 +126,146 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight">
-              {mode === "login" ? "登录" : "创建账号"}
-            </h2>
-            <p className="text-muted-foreground mt-1">
-              {mode === "login"
-                ? "输入您的凭据以继续。"
-                : "注册新账号以开始使用。"}
-            </p>
-          </div>
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {success && <p className="text-sm text-emerald-600">{success}</p>}
-
-          {mode === "login" ? (
-            <form onSubmit={handleLogin} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="username">用户名</Label>
-                <Input
-                  id="username"
-                  autoComplete="username"
-                  value={loginForm.username}
-                  onChange={(e) =>
-                    setLoginForm({ ...loginForm, username: e.target.value })
-                  }
-                  className="h-10 focus-visible:ring-primary/40"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">密码</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={loginForm.password}
-                  onChange={(e) =>
-                    setLoginForm({ ...loginForm, password: e.target.value })
-                  }
-                  className="h-10 focus-visible:ring-primary/40"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full h-10" disabled={loading}>
-                {loading ? "登录中..." : "登录"}
-              </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                还没有账号？{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("register");
-                    setError("");
-                    setSuccess("");
-                  }}
-                  className="text-primary font-medium hover:underline underline-offset-4"
-                >
-                  注册
-                </button>
-              </p>
-            </form>
+          {countLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">加载中...</p>
+            </div>
           ) : (
-            <form onSubmit={handleRegister} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="reg-user">用户名</Label>
-                <Input
-                  id="reg-user"
-                  autoComplete="username"
-                  value={regForm.username}
-                  onChange={(e) =>
-                    setRegForm({ ...regForm, username: e.target.value })
-                  }
-                  className="h-10 focus-visible:ring-primary/40"
-                  required
-                />
+            <>
+              <div>
+                <h2 className="text-xl font-semibold tracking-tight">
+                  {isFirstUser
+                    ? "初始化管理员"
+                    : mode === "login"
+                      ? "登录"
+                      : "创建账号"}
+                </h2>
+                <p className="text-muted-foreground mt-1">
+                  {isFirstUser
+                    ? "首次使用，请创建管理员账号"
+                    : mode === "login"
+                      ? "输入您的凭据以继续。"
+                      : "注册新账号以开始使用。"}
+                </p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="reg-email">邮箱</Label>
-                <Input
-                  id="reg-email"
-                  type="email"
-                  autoComplete="email"
-                  value={regForm.email}
-                  onChange={(e) =>
-                    setRegForm({ ...regForm, email: e.target.value })
-                  }
-                  className="h-10 focus-visible:ring-primary/40"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="reg-pass">密码</Label>
-                <Input
-                  id="reg-pass"
-                  type="password"
-                  autoComplete="new-password"
-                  value={regForm.password}
-                  onChange={(e) =>
-                    setRegForm({ ...regForm, password: e.target.value })
-                  }
-                  className="h-10 focus-visible:ring-primary/40"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full h-10" disabled={loading}>
-                {loading ? "创建中..." : "创建账号"}
-              </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                已有账号？{" "}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode("login");
-                    setError("");
-                    setSuccess("");
-                  }}
-                  className="text-primary font-medium hover:underline underline-offset-4"
-                >
-                  登录
-                </button>
-              </p>
-            </form>
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              {success && <p className="text-sm text-emerald-600">{success}</p>}
+
+              {mode === "login" && !isFirstUser ? (
+                <form onSubmit={handleLogin} className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="username">用户名</Label>
+                    <Input
+                      id="username"
+                      autoComplete="username"
+                      value={loginForm.username}
+                      onChange={(e) =>
+                        setLoginForm({ ...loginForm, username: e.target.value })
+                      }
+                      className="h-10 focus-visible:ring-primary/40"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">密码</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={loginForm.password}
+                      onChange={(e) =>
+                        setLoginForm({ ...loginForm, password: e.target.value })
+                      }
+                      className="h-10 focus-visible:ring-primary/40"
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full h-10" disabled={loading}>
+                    {loading ? "登录中..." : "登录"}
+                  </Button>
+                  <p className="text-center text-sm text-muted-foreground">
+                    还没有账号？{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode("register");
+                        setError("");
+                        setSuccess("");
+                      }}
+                      className="text-primary font-medium hover:underline underline-offset-4"
+                    >
+                      注册
+                    </button>
+                  </p>
+                </form>
+              ) : (
+                <form onSubmit={handleRegister} className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-user">用户名</Label>
+                    <Input
+                      id="reg-user"
+                      autoComplete="username"
+                      value={isFirstUser ? "admin" : regForm.username}
+                      onChange={(e) =>
+                        setRegForm({ ...regForm, username: e.target.value })
+                      }
+                      className="h-10 focus-visible:ring-primary/40"
+                      disabled={isFirstUser}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-email">邮箱</Label>
+                    <Input
+                      id="reg-email"
+                      type="email"
+                      autoComplete="email"
+                      value={regForm.email}
+                      onChange={(e) =>
+                        setRegForm({ ...regForm, email: e.target.value })
+                      }
+                      className="h-10 focus-visible:ring-primary/40"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-pass">密码</Label>
+                    <Input
+                      id="reg-pass"
+                      type="password"
+                      autoComplete="new-password"
+                      value={regForm.password}
+                      onChange={(e) =>
+                        setRegForm({ ...regForm, password: e.target.value })
+                      }
+                      className="h-10 focus-visible:ring-primary/40"
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full h-10" disabled={loading}>
+                    {loading ? "创建中..." : isFirstUser ? "创建管理员账号" : "创建账号"}
+                  </Button>
+                  {!isFirstUser && (
+                    <p className="text-center text-sm text-muted-foreground">
+                      已有账号？{" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode("login");
+                          setError("");
+                          setSuccess("");
+                        }}
+                        className="text-primary font-medium hover:underline underline-offset-4"
+                      >
+                        登录
+                      </button>
+                    </p>
+                  )}
+                </form>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -26,5 +26,23 @@ class UserResponse(BaseModel):
     id: uuid.UUID
     username: str
     email: str
+    nickname: str = ""
     role: UserRole
     is_active: bool
+
+
+class UpdateProfileRequest(BaseModel):
+    nickname: str | None = None
+    email: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+
+class AdminUpdateUserRequest(BaseModel):
+    nickname: str | None = None
+    email: str | None = None
+    role: UserRole | None = None
+    is_active: bool | None = None

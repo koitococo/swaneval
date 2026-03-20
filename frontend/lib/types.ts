@@ -2,6 +2,7 @@ export interface User {
   id: string;
   username: string;
   email: string;
+  nickname: string;
   role: "admin" | "data_admin" | "engineer" | "viewer";
   is_active: boolean;
 }
