@@ -5,6 +5,13 @@ export interface User {
   nickname: string;
   role: "admin" | "data_admin" | "engineer" | "viewer";
   is_active: boolean;
+  hf_token_set?: boolean;
+  ms_token_set?: boolean;
+}
+
+export interface UserTokensStatus {
+  hf_token_set: boolean;
+  ms_token_set: boolean;
 }
 
 export interface TokenResponse {

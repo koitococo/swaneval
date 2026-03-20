@@ -42,6 +42,7 @@ async def import_huggingface(
     split: str,
     storage: StorageBackend,
     job_id: str | None = None,
+    hf_token: str | None = None,
 ) -> tuple[str, int, int]:
     """
     从 HuggingFace 下载数据集 / Download dataset from HuggingFace
@@ -51,7 +52,10 @@ async def import_huggingface(
     """
     from huggingface_hub import hf_hub_download, list_repo_files
 
+    from app.config import settings
     from app.services.import_progress import update_job
+
+    effective_token = hf_token or settings.HF_TOKEN or None
 
     def _progress(
         status: str = "downloading",
@@ -73,6 +77,7 @@ async def import_huggingface(
         _progress("downloading", "正在通过 datasets 库加载...", 0.1)
         result = await _load_via_datasets_lib(
             clean_id, subset, split, storage,
+            hf_token=effective_token,
         )
         _progress("processing", "处理完成", 0.95)
         return result
@@ -92,7 +97,7 @@ async def import_huggingface(
                 f"尝试下载 {fname}...",
                 0.2 + (i / max(len(target_files), 1)) * 0.3,
             )
-            local_path = hf_hub_download(
+            local_path = hf_hub_download(token=effective_token,
                 repo_id=clean_id,
                 filename=fname,
                 repo_type="dataset",
@@ -107,7 +112,7 @@ async def import_huggingface(
     # Strategy 3: List repo files and download first suitable one
     try:
         _progress("downloading", "正在列举仓库文件...", 0.5)
-        files = list_repo_files(clean_id, repo_type="dataset")
+        files = list_repo_files(clean_id, repo_type="dataset", token=effective_token)
         data_files = [
             f for f in files
             if f.endswith((".jsonl", ".json", ".csv", ".parquet"))
@@ -117,7 +122,7 @@ async def import_huggingface(
                 f"No downloadable data files in '{clean_id}'"
             )
         _progress("downloading", f"正在下载 {data_files[0]}...", 0.6)
-        local_path = hf_hub_download(
+        local_path = hf_hub_download(token=effective_token,
             repo_id=clean_id,
             filename=data_files[0],
             repo_type="dataset",
@@ -138,6 +143,7 @@ async def import_modelscope(
     subset: str,
     split: str,
     storage: StorageBackend,
+    ms_token: str | None = None,
 ) -> tuple[str, int, int]:
     """
     从 ModelScope 下载数据集 / Download dataset from ModelScope
@@ -150,6 +156,11 @@ async def import_modelscope(
 
     try:
         from modelscope.msdatasets import MsDataset
+
+        from app.config import settings
+        effective_token = ms_token or settings.MS_TOKEN or None
+        if effective_token:
+            os.environ["MODELSCOPE_API_TOKEN"] = effective_token
 
         subset_name = subset or None
         ds = MsDataset.load(clean_id, subset_name=subset_name, split=split)
@@ -221,14 +232,20 @@ async def _store_downloaded_file(
 
 
 async def _load_via_datasets_lib(
-    repo_id: str, subset: str, split: str, storage: StorageBackend
+    repo_id: str, subset: str, split: str, storage: StorageBackend,
+    hf_token: str | None = None,
 ) -> tuple[str, int, int]:
     """Load via HuggingFace `datasets` library and convert to JSONL."""
     from datasets import load_dataset
 
+    from app.config import settings
+
     kwargs: dict = {"path": repo_id, "split": split, "trust_remote_code": True}
     if subset:
         kwargs["name"] = subset
+    effective_token = hf_token or settings.HF_TOKEN
+    if effective_token:
+        kwargs["token"] = effective_token
 
     ds = load_dataset(**kwargs)
     file_id = uuid.uuid4()

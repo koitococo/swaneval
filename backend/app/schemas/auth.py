@@ -46,3 +46,13 @@ class AdminUpdateUserRequest(BaseModel):
     email: str | None = None
     role: UserRole | None = None
     is_active: bool | None = None
+
+
+class UserTokensResponse(BaseModel):
+    hf_token_set: bool
+    ms_token_set: bool
+
+
+class UpdateTokensRequest(BaseModel):
+    hf_token: str | None = None
+    ms_token: str | None = None

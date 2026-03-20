@@ -204,15 +204,24 @@ async def import_dataset(
             source_uri, row_count, size_bytes = await import_huggingface(
                 body.dataset_id, body.subset, body.split, storage,
                 job_id=tracking_id,
+                hf_token=current_user.hf_token or None,
             )
         else:
             source_uri, row_count, size_bytes = await import_modelscope(
                 body.dataset_id, body.subset, body.split, storage,
+                ms_token=current_user.ms_token or None,
             )
         update_job(tracking_id, status="done", progress=1.0, phase="完成")
     except ValueError as e:
-        update_job(tracking_id, status="failed", error=str(e))
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+        error_msg = str(e)
+        lower_msg = error_msg.lower()
+        if "401" in error_msg or "unauthorized" in lower_msg or "gated" in lower_msg:
+            if not current_user.hf_token and body.source == "huggingface":
+                error_msg += "\n提示：请在账号设置中配置 HuggingFace Token"
+            elif not current_user.ms_token and body.source == "modelscope":
+                error_msg += "\n提示：请在账号设置中配置 ModelScope Token"
+        update_job(tracking_id, status="failed", error=error_msg)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, error_msg) from e
 
     # Auto-version if same name exists
     stmt = (
@@ -406,6 +415,7 @@ async def download_preset_content(
     try:
         source_uri, row_count, size_bytes = await import_huggingface(
             hf_id, subset, split, storage,
+            hf_token=current_user.hf_token or None,
         )
     except Exception as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Download failed: {e}") from e

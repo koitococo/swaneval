@@ -9,12 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth";
 import { extractErrorDetail } from "@/lib/utils";
-import { useUpdateProfile, useChangePassword } from "@/lib/hooks/use-users";
+import { useUpdateProfile, useChangePassword, useUserTokens, useUpdateUserTokens } from "@/lib/hooks/use-users";
 
 export default function AccountPage() {
   const { user } = useAuthStore();
   const updateProfile = useUpdateProfile();
   const changePassword = useChangePassword();
+  const { data: tokenStatus } = useUserTokens();
+  const updateTokens = useUpdateUserTokens();
 
   const [nickname, setNickname] = useState(user?.nickname || "");
   const [email, setEmail] = useState(user?.email || "");
@@ -25,6 +27,11 @@ export default function AccountPage() {
   const [newPassword, setNewPassword] = useState("");
   const [pwSuccess, setPwSuccess] = useState("");
   const [pwError, setPwError] = useState("");
+
+  const [hfToken, setHfToken] = useState("");
+  const [msToken, setMsToken] = useState("");
+  const [tokenSuccess, setTokenSuccess] = useState("");
+  const [tokenError, setTokenError] = useState("");
 
   const handleSaveProfile = async () => {
     setProfileError("");
@@ -61,6 +68,36 @@ export default function AccountPage() {
       setTimeout(() => setPwSuccess(""), 3000);
     } catch (err: unknown) {
       setPwError(extractErrorDetail(err, "密码修改失败"));
+    }
+  };
+
+  const handleSaveTokens = async () => {
+    setTokenError(""); setTokenSuccess("");
+    const payload: Record<string, string> = {};
+    if (hfToken) payload.hf_token = hfToken;
+    if (msToken) payload.ms_token = msToken;
+    if (Object.keys(payload).length === 0) {
+      setTokenError("请输入至少一个令牌");
+      return;
+    }
+    try {
+      await updateTokens.mutateAsync(payload);
+      setTokenSuccess("令牌保存成功");
+      setHfToken(""); setMsToken("");
+      setTimeout(() => setTokenSuccess(""), 3000);
+    } catch (err: unknown) {
+      setTokenError(extractErrorDetail(err, "保存失败"));
+    }
+  };
+
+  const handleClearTokens = async () => {
+    setTokenError(""); setTokenSuccess("");
+    try {
+      await updateTokens.mutateAsync({ hf_token: "", ms_token: "" });
+      setTokenSuccess("令牌已清除");
+      setTimeout(() => setTokenSuccess(""), 3000);
+    } catch (err: unknown) {
+      setTokenError(extractErrorDetail(err, "清除失败"));
     }
   };
 
@@ -123,6 +160,65 @@ export default function AccountPage() {
             {changePassword.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
             修改密码
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* API Tokens */}
+      <Card>
+        <CardContent className="p-5 space-y-4">
+          <div>
+            <h2 className="text-sm font-medium">API 令牌</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              配置数据集平台令牌以下载需要认证的数据集。管理员可在环境变量中设置默认令牌。
+            </p>
+          </div>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="acc-hf-token" className="text-xs">
+                HuggingFace Token
+                {tokenStatus?.hf_token_set && (
+                  <Badge variant="success" className="ml-2 text-[10px]">已配置</Badge>
+                )}
+              </Label>
+              <Input
+                id="acc-hf-token"
+                type="password"
+                value={hfToken}
+                onChange={(e) => setHfToken(e.target.value)}
+                className="h-9 max-w-xs"
+                placeholder={tokenStatus?.hf_token_set ? "已设置，输入新值替换" : "hf_..."}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="acc-ms-token" className="text-xs">
+                ModelScope Token
+                {tokenStatus?.ms_token_set && (
+                  <Badge variant="success" className="ml-2 text-[10px]">已配置</Badge>
+                )}
+              </Label>
+              <Input
+                id="acc-ms-token"
+                type="password"
+                value={msToken}
+                onChange={(e) => setMsToken(e.target.value)}
+                className="h-9 max-w-xs"
+                placeholder={tokenStatus?.ms_token_set ? "已设置，输入新值替换" : "输入 ModelScope Token"}
+              />
+            </div>
+          </div>
+          {tokenError && <p className="text-xs text-destructive">{tokenError}</p>}
+          {tokenSuccess && <p className="text-xs text-emerald-600">{tokenSuccess}</p>}
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSaveTokens} disabled={updateTokens.isPending}>
+              {updateTokens.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              保存令牌
+            </Button>
+            {(tokenStatus?.hf_token_set || tokenStatus?.ms_token_set) && (
+              <Button size="sm" variant="outline" onClick={handleClearTokens} disabled={updateTokens.isPending}>
+                清除令牌
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

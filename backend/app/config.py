@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     DEFAULT_MODEL_API_KEY: str = ""
     # 默认 API Key / Optional default API key injected by environment
 
+    HF_TOKEN: str = ""
+    # HuggingFace API token for accessing gated/private datasets
+
+    MS_TOKEN: str = ""
+    # ModelScope API token for accessing gated/private datasets
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

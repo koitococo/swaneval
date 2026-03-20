@@ -48,6 +48,9 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True)
     # 是否激活 / Whether the user account is active
 
+    hf_token: str = Field(default="")
+    ms_token: str = Field(default="")
+
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_type=DateTime(timezone=True),

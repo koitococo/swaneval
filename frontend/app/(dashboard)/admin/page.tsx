@@ -295,6 +295,14 @@ export default function AdminPage() {
                         : "—"
                     }
                   />
+                  <DetailField
+                    label="HuggingFace Token"
+                    value={('hf_token_set' in selectedUser && selectedUser.hf_token_set) ? "已配置" : "未配置"}
+                  />
+                  <DetailField
+                    label="ModelScope Token"
+                    value={('ms_token_set' in selectedUser && selectedUser.ms_token_set) ? "已配置" : "未配置"}
+                  />
                 </div>
 
                 {/* Actions */}
