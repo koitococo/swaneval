@@ -163,10 +163,10 @@ export default function OverviewPage() {
                 <p className="text-xs text-base-content/40 mt-1">成功率</p>
               </>
             ) : (
-              <>
-                <p className="text-5xl font-bold tabular-nums text-base-content/15">—</p>
-                <p className="text-xs text-base-content/25 mt-1">暂无任务</p>
-              </>
+              <div className="flex flex-col items-center gap-1.5 text-base-content/20">
+                <Zap className="h-6 w-6" />
+                <p className="text-xs">暂无任务</p>
+              </div>
             )}
 
             {/* Segmented bar */}
@@ -224,9 +224,9 @@ export default function OverviewPage() {
               ))}
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center gap-2">
-              <BarChart3 className="h-8 w-8 text-base-content/10" />
-              <p className="text-xs text-base-content/25">暂无评测数据</p>
+            <div className="flex-1 flex flex-col items-center justify-center gap-1.5 text-base-content/20">
+              <BarChart3 className="h-6 w-6" />
+              <p className="text-xs">暂无评测数据</p>
             </div>
           )}
         </div>
@@ -248,9 +248,9 @@ export default function OverviewPage() {
                 <p className="text-[10px] text-base-content/40 mt-0.5">个任务</p>
               </div>
             ) : (
-              <div className="text-center">
-                <CheckCircle2 className="h-5 w-5 text-base-content/15 mx-auto mb-1.5" />
-                <p className="text-xs text-base-content/25">队列空闲</p>
+              <div className="flex flex-col items-center gap-1.5 text-base-content/20">
+                <CheckCircle2 className="h-6 w-6" />
+                <p className="text-xs">队列空闲</p>
               </div>
             )}
           </div>
@@ -266,9 +266,9 @@ export default function OverviewPage() {
                 </p>
               </Link>
             ) : (
-              <div className="text-center">
-                <CheckCircle2 className="h-5 w-5 text-success/30 mx-auto mb-1.5" />
-                <p className="text-xs text-base-content/25">无异常</p>
+              <div className="flex flex-col items-center gap-1.5 text-base-content/20">
+                <CheckCircle2 className="h-6 w-6" />
+                <p className="text-xs">无异常</p>
               </div>
             )}
           </div>
