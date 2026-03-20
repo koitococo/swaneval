@@ -41,6 +41,7 @@ async def import_huggingface(
     subset: str,
     split: str,
     storage: StorageBackend,
+    job_id: str | None = None,
 ) -> tuple[str, int, int]:
     """
     从 HuggingFace 下载数据集 / Download dataset from HuggingFace
@@ -50,37 +51,62 @@ async def import_huggingface(
     """
     from huggingface_hub import hf_hub_download, list_repo_files
 
-    clean_id = _parse_dataset_id("huggingface", dataset_id)
-    logger.info("Importing HuggingFace dataset: %s (subset=%s, split=%s)", clean_id, subset, split)
+    from app.services.import_progress import update_job
 
-    # Strategy 1 (preferred): Use the `datasets` library — handles all formats,
-    # subsets, splits, and streaming. Most reliable for complex repos.
+    def _progress(
+        status: str = "downloading",
+        phase: str = "",
+        progress: float = 0.0,
+    ) -> None:
+        if job_id:
+            update_job(job_id, status=status, phase=phase, progress=progress)
+
+    clean_id = _parse_dataset_id("huggingface", dataset_id)
+    logger.info(
+        "Importing HuggingFace dataset: %s (subset=%s, split=%s)",
+        clean_id, subset, split,
+    )
+    _progress("downloading", "正在连接 HuggingFace...", 0.05)
+
+    # Strategy 1 (preferred): Use the `datasets` library
     try:
-        return await _load_via_datasets_lib(
+        _progress("downloading", "正在通过 datasets 库加载...", 0.1)
+        result = await _load_via_datasets_lib(
             clean_id, subset, split, storage,
         )
+        _progress("processing", "处理完成", 0.95)
+        return result
     except ImportError:
         logger.info("datasets library not installed, falling back")
     except Exception as e:
         logger.warning("datasets library failed for %s: %s", clean_id, e)
 
+    _progress("downloading", "正在查找数据文件...", 0.15)
+
     # Strategy 2: Try downloading a ready-made split file directly
     target_files = _find_split_files(clean_id, subset, split)
-    for fname in target_files:
+    for i, fname in enumerate(target_files):
         try:
+            _progress(
+                "downloading",
+                f"尝试下载 {fname}...",
+                0.2 + (i / max(len(target_files), 1)) * 0.3,
+            )
             local_path = hf_hub_download(
                 repo_id=clean_id,
                 filename=fname,
                 repo_type="dataset",
             )
+            _progress("processing", "正在处理文件...", 0.8)
             return await _store_downloaded_file(
                 storage, local_path, clean_id,
             )
         except Exception:
             continue
 
-    # Strategy 3: List repo files and download the first suitable data file
+    # Strategy 3: List repo files and download first suitable one
     try:
+        _progress("downloading", "正在列举仓库文件...", 0.5)
         files = list_repo_files(clean_id, repo_type="dataset")
         data_files = [
             f for f in files
@@ -90,15 +116,18 @@ async def import_huggingface(
             raise ValueError(
                 f"No downloadable data files in '{clean_id}'"
             )
+        _progress("downloading", f"正在下载 {data_files[0]}...", 0.6)
         local_path = hf_hub_download(
             repo_id=clean_id,
             filename=data_files[0],
             repo_type="dataset",
         )
+        _progress("processing", "正在处理文件...", 0.85)
         return await _store_downloaded_file(
             storage, local_path, clean_id,
         )
     except Exception as e:
+        _progress("failed", str(e), 0.0)
         raise ValueError(
             f"Failed to import HuggingFace dataset '{clean_id}': {e}"
         ) from e

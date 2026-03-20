@@ -5,6 +5,8 @@ export interface ImportJob {
   name: string;
   source: string;
   status: "pending" | "importing" | "done" | "failed";
+  phase: string;
+  progress: number; // 0.0 - 1.0
   error?: string;
   startedAt: number;
   finishedAt?: number;
@@ -12,7 +14,7 @@ export interface ImportJob {
 
 interface ImportJobStore {
   jobs: ImportJob[];
-  addJob: (job: Omit<ImportJob, "status" | "startedAt">) => void;
+  addJob: (job: Omit<ImportJob, "status" | "startedAt" | "phase" | "progress">) => void;
   updateJob: (id: string, patch: Partial<ImportJob>) => void;
   removeJob: (id: string) => void;
   clearDone: () => void;
@@ -23,7 +25,7 @@ export const useImportJobs = create<ImportJobStore>((set) => ({
   addJob: (job) =>
     set((s) => ({
       jobs: [
-        { ...job, status: "importing", startedAt: Date.now() },
+        { ...job, status: "importing", phase: "开始导入", progress: 0, startedAt: Date.now() },
         ...s.jobs,
       ],
     })),

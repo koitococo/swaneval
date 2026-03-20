@@ -72,8 +72,11 @@ export function useImportDataset() {
       split?: string;
       description?: string;
       tags?: string;
+      job_id?: string;
     }) => {
-      const res = await api.post<Dataset>("/datasets/import", data);
+      const { job_id, ...body } = data;
+      const params = job_id ? { job_id } : {};
+      const res = await api.post<Dataset>("/datasets/import", body, { params });
       return res.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["datasets"] }),
@@ -139,6 +142,32 @@ export function useDatasetPresets() {
       return res.data;
     },
   });
+}
+
+/**
+ * Subscribe to import progress via SSE.
+ * Returns a cleanup function.
+ */
+export function subscribeImportProgress(
+  jobId: string,
+  onProgress: (data: { status: string; phase: string; progress: number; error: string }) => void,
+): () => void {
+  const baseUrl = api.defaults.baseURL || "";
+  const url = `${baseUrl}/datasets/import-progress/${jobId}`;
+  const eventSource = new EventSource(url);
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      onProgress(data);
+      if (data.status === "done" || data.status === "failed" || data.status === "not_found") {
+        eventSource.close();
+      }
+    } catch { /* ignore parse errors */ }
+  };
+  eventSource.onerror = () => {
+    eventSource.close();
+  };
+  return () => eventSource.close();
 }
 
 export function useDeleteDataset() {

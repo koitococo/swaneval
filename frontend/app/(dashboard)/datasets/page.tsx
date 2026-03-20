@@ -41,6 +41,7 @@ import {
   useImportDataset,
   useDeleteDataset,
   useDatasetPresets,
+  subscribeImportProgress,
 } from "@/lib/hooks/use-datasets";
 import { extractErrorDetail } from "@/lib/utils";
 import { FilterDropdown } from "@/components/filter-dropdown";
@@ -369,21 +370,50 @@ export default function DatasetsPage() {
                 (d) => d.name === p.name && d.row_count > 0,
               ),
               importing: importJobs.some(
-                (j) => j.id === p.hf_id && j.status === "importing",
+                (j) => j.id.includes(p.hf_id) && j.status === "importing",
               ),
+              importProgress: importJobs.find(
+                (j) => j.id.includes(p.hf_id) && j.status === "importing",
+              )?.progress,
+              importPhase: importJobs.find(
+                (j) => j.id.includes(p.hf_id) && j.status === "importing",
+              )?.phase,
             }))}
             selected={presetSelected}
             onSelectionChange={setPresetSelected}
             onConfirm={async (keys) => {
               setOnlineImportError("");
               setPresetSelected([]);
-              // Fire all imports — each tracked in the progress hub
               for (const key of keys) {
                 const p = presets.find((x) => x.hf_id === key);
                 if (!p) continue;
-                const jobId = p.hf_id;
+                const jobId = `preset-${p.hf_id}-${Date.now()}`;
                 addJob({ id: jobId, name: p.name, source: "HuggingFace 预设" });
-                // Don't await — fire and forget, the hub tracks it
+                // Subscribe to SSE progress
+                const unsub = subscribeImportProgress(jobId, (data) => {
+                  if (data.status === "done") {
+                    updateJob(jobId, {
+                      status: "done",
+                      phase: data.phase,
+                      progress: 1.0,
+                      finishedAt: Date.now(),
+                    });
+                  } else if (data.status === "failed") {
+                    updateJob(jobId, {
+                      status: "failed",
+                      phase: data.phase,
+                      progress: 0,
+                      error: data.error,
+                      finishedAt: Date.now(),
+                    });
+                  } else {
+                    updateJob(jobId, {
+                      phase: data.phase,
+                      progress: data.progress,
+                    });
+                  }
+                });
+                // Fire import (non-blocking)
                 importDs
                   .mutateAsync({
                     source: "huggingface",
@@ -393,9 +423,7 @@ export default function DatasetsPage() {
                     split: p.split,
                     description: p.description,
                     tags: p.tags,
-                  })
-                  .then(() => {
-                    updateJob(jobId, { status: "done", finishedAt: Date.now() });
+                    job_id: jobId,
                   })
                   .catch((err: unknown) => {
                     updateJob(jobId, {
@@ -403,7 +431,8 @@ export default function DatasetsPage() {
                       finishedAt: Date.now(),
                       error: extractErrorDetail(err, "导入失败"),
                     });
-                  });
+                  })
+                  .finally(() => unsub());
               }
             }}
             confirmLabel="下载导入"

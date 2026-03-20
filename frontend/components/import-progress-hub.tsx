@@ -127,13 +127,14 @@ function JobRow({
           )}
         </div>
 
-        {/* Name + source */}
+        {/* Name + source + phase */}
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium truncate">{job.name}</p>
-          <p className="text-[10px] text-muted-foreground">
-            {job.source}
-            {job.status === "importing" && ` · ${elapsed}s`}
-            {job.status === "done" && ` · ${elapsed}s`}
+          <p className="text-[10px] text-muted-foreground truncate">
+            {job.status === "importing" && job.phase
+              ? job.phase
+              : job.source}
+            {(job.status === "importing" || job.status === "done") && ` · ${elapsed}s`}
           </p>
         </div>
 
@@ -150,14 +151,14 @@ function JobRow({
         )}
       </div>
 
-      {/* Progress bar */}
+      {/* Progress bar — real progress from SSE */}
       {job.status === "importing" && (
         <div className="mt-1.5 h-1 rounded-full bg-muted overflow-hidden">
           <div
-            className="h-full bg-primary rounded-full transition-all duration-1000"
+            className="h-full bg-primary rounded-full"
             style={{
-              width: `${Math.min(90, Math.sqrt(elapsed) * 15)}%`,
-              transition: "width 1s ease-out",
+              width: `${Math.max(job.progress * 100, 3)}%`,
+              transition: "width 0.5s ease-out",
             }}
           />
         </div>

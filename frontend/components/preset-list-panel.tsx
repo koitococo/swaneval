@@ -16,8 +16,12 @@ export interface PresetItem {
   badge?: string;
   /** Already imported */
   done?: boolean;
-  /** Currently importing (show progress) */
+  /** Currently importing */
   importing?: boolean;
+  /** Import progress 0-1 */
+  importProgress?: number;
+  /** Import phase text */
+  importPhase?: string;
 }
 
 interface PresetListPanelProps {
@@ -147,13 +151,20 @@ export function PresetListPanel({
                         </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{item.description}</p>
-                      {/* Import progress bar */}
                       {item.importing && (
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div className="h-full bg-primary rounded-full animate-pulse w-2/3" />
+                        <div className="mt-1.5 space-y-1">
+                          <div className="h-1 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full bg-primary rounded-full"
+                              style={{
+                                width: `${Math.max((item.importProgress ?? 0) * 100, 3)}%`,
+                                transition: "width 0.5s ease-out",
+                              }}
+                            />
                           </div>
-                          <span className="text-[9px] text-muted-foreground shrink-0">导入中</span>
+                          {item.importPhase && (
+                            <p className="text-[9px] text-muted-foreground truncate">{item.importPhase}</p>
+                          )}
                         </div>
                       )}
                       {item.tags && !item.importing && (

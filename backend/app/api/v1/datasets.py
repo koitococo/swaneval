@@ -1,8 +1,10 @@
+import asyncio
 import json
 import os
 import uuid
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func as sa_func
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -175,12 +177,14 @@ async def upload_dataset(
 @router.post("/import", response_model=DatasetResponse, status_code=201)
 async def import_dataset(
     body: DatasetImportRequest,
+    job_id: str = Query("", description="Optional job ID for progress tracking"),
     session: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     storage: StorageBackend = Depends(_get_storage),
 ):
     """Import dataset from HuggingFace or ModelScope."""
     from app.services.dataset_import import import_huggingface, import_modelscope
+    from app.services.import_progress import create_job, update_job
 
     if body.source not in ("huggingface", "modelscope"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "source must be huggingface or modelscope")
@@ -190,16 +194,24 @@ async def import_dataset(
     )
     display_name = body.name or body.dataset_id.split("/")[-1]
 
+    # Create progress tracking job if ID provided
+    tracking_id = job_id or str(uuid.uuid4())
+    create_job(tracking_id, display_name)
+    update_job(tracking_id, status="downloading", phase="开始导入", progress=0.01)
+
     try:
         if body.source == "huggingface":
             source_uri, row_count, size_bytes = await import_huggingface(
                 body.dataset_id, body.subset, body.split, storage,
+                job_id=tracking_id,
             )
         else:
             source_uri, row_count, size_bytes = await import_modelscope(
                 body.dataset_id, body.subset, body.split, storage,
             )
+        update_job(tracking_id, status="done", progress=1.0, phase="完成")
     except ValueError as e:
+        update_job(tracking_id, status="failed", error=str(e))
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
 
     # Auto-version if same name exists
@@ -283,6 +295,44 @@ async def list_preset_datasets():
     return PRESET_DATASETS
 
 
+@router.get("/import-progress/{job_id}")
+async def stream_import_progress(job_id: str):
+    """SSE endpoint streaming import progress for a given job."""
+    from app.services.import_progress import get_event, get_job
+
+    async def event_stream():
+        while True:
+            job = get_job(job_id)
+            if not job:
+                payload = json.dumps(dict(status="not_found"))
+                yield "data: " + payload + "\n\n"
+                return
+            payload = json.dumps(dict(
+                status=job.status,
+                phase=job.phase,
+                progress=job.progress,
+                error=job.error,
+            ))
+            yield "data: " + payload + "\n\n"
+            if job.status in ("done", "failed"):
+                return
+            evt = get_event(job_id)
+            if evt:
+                try:
+                    await asyncio.wait_for(evt.wait(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    pass
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.get("", response_model=PaginatedResponse)
 async def list_datasets(
     page: int = 1,
@@ -326,17 +376,27 @@ async def download_preset_content(
     if ds.row_count > 0 and ds.size_bytes > 0:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Dataset already has content")
 
-    # Find the HuggingFace ID — for presets, look up in PRESET_DATASETS; otherwise use source_uri
-    hf_id = ds.source_uri
+    # Resolve HF ID and subset — for presets, look up in PRESET_DATASETS
+    hf_id = ""
+    subset = ""
     split = "test"
     if ds.source_type == SourceType.preset:
         for preset in PRESET_DATASETS:
             if preset["name"] == ds.name:
                 hf_id = preset["hf_id"]
+                subset = preset.get("subset", "")
                 split = preset.get("split", "test")
                 break
+        if not hf_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Preset '{ds.name}' not found in catalog",
+            )
     elif ds.source_type == SourceType.huggingface:
-        pass  # source_uri is already the HF path
+        # Use stored HF dataset ID, not source_uri (which is local path after import)
+        hf_id = ds.hf_dataset_id or ds.source_uri
+        subset = ds.hf_subset
+        split = ds.hf_split or "test"
     else:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -345,7 +405,7 @@ async def download_preset_content(
 
     try:
         source_uri, row_count, size_bytes = await import_huggingface(
-            hf_id, "", split, storage,
+            hf_id, subset, split, storage,
         )
     except Exception as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Download failed: {e}") from e
