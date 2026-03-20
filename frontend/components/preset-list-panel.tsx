@@ -81,7 +81,7 @@ export function PresetListPanel({
   const activeItems = items.filter((i) => selected.includes(i.key) && !i.done);
 
   return (
-    <Card className="w-[22vw] shadow-2xl flex flex-col max-h-[70vh]">
+    <Card className="w-[22vw] shadow-2xl rounded-2xl flex flex-col max-h-[70vh]">
       <div className="px-4 pt-4 pb-2 space-y-2 shrink-0">
         <h3 className="text-sm font-semibold">{title}</h3>
         <div className="relative">

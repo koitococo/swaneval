@@ -51,12 +51,12 @@ module.exports = {
     themes: [
       {
         swan: {
-          "primary": "#818cf8",
-          "primary-content": "#ffffff",
+          "primary": "#a5b4fc",
+          "primary-content": "#1e1e24",
           "secondary": "#f0f0f4",
           "secondary-content": "#1e1e24",
-          "accent": "#a78bfa",
-          "accent-content": "#ffffff",
+          "accent": "#c4b5fd",
+          "accent-content": "#1e1e24",
           "neutral": "#1e1e24",
           "neutral-content": "#f5f5f7",
           "base-100": "#ffffff",
@@ -69,7 +69,7 @@ module.exports = {
           "success-content": "#ffffff",
           "warning": "#fbbf24",
           "warning-content": "#1e1e24",
-          "error": "#f87171",
+          "error": "#ef4444",
           "error-content": "#ffffff",
           "--rounded-box": "0.875rem",
           "--rounded-btn": "999px",

@@ -56,7 +56,7 @@ export function CreateModal({
             {sidePanel}
           </div>
         )}
-        <Card className="w-[33vw] shadow-2xl">
+        <Card className="w-[33vw] shadow-2xl rounded-2xl">
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <h3 className="text-sm font-semibold">{title}</h3>
           </div>
