@@ -27,7 +27,7 @@ async def list_users(
     admin: User = Depends(_require_admin),
 ):
     result = await session.exec(select(User).order_by(User.created_at))
-    return result.all()
+    return [UserResponse.from_user(u) for u in result.all()]
 
 
 @router.put("/{user_id}", response_model=UserResponse)
@@ -62,7 +62,7 @@ async def update_user(
     session.add(user)
     await session.commit()
     await session.refresh(user)
-    return user
+    return UserResponse.from_user(user)
 
 
 @router.delete("/{user_id}", status_code=204)

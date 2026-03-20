@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { TableEmpty, TableLoading } from "@/components/table-states";
 import { extractErrorDetail } from "@/lib/utils";
-import { useUsers, useUpdateUser, useDeleteUser, useChangePassword } from "@/lib/hooks/use-users";
+import { useUsers, useUpdateUser, useDeleteUser, useChangePassword, useUpdateUserTokens } from "@/lib/hooks/use-users";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { utc } from "@/lib/utils";
@@ -58,6 +58,11 @@ export default function AdminPage() {
   const [adminNewPw, setAdminNewPw] = useState("");
   const [pwSuccess, setPwSuccess] = useState("");
   const [pwError, setPwError] = useState("");
+  const updateTokens = useUpdateUserTokens();
+  const [adminHfToken, setAdminHfToken] = useState("");
+  const [adminMsToken, setAdminMsToken] = useState("");
+  const [tokenSuccess, setTokenSuccess] = useState("");
+  const [tokenError, setTokenError] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     name: string;
@@ -297,11 +302,11 @@ export default function AdminPage() {
                   />
                   <DetailField
                     label="HuggingFace Token"
-                    value={('hf_token_set' in selectedUser && selectedUser.hf_token_set) ? "已配置" : "未配置"}
+                    value={selectedUser.hf_token_masked || "未配置"}
                   />
                   <DetailField
                     label="ModelScope Token"
-                    value={('ms_token_set' in selectedUser && selectedUser.ms_token_set) ? "已配置" : "未配置"}
+                    value={selectedUser.ms_token_masked || "未配置"}
                   />
                 </div>
 
@@ -340,6 +345,43 @@ export default function AdminPage() {
                       {changePassword.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
                       修改密码
                     </Button>
+
+                    {/* Token editing for admin's own account */}
+                    <div className="pt-3 border-t space-y-2">
+                      <p className="text-xs font-medium text-foreground/60">API 令牌</p>
+                      <div className="space-y-1">
+                        <Label className="text-xs">HuggingFace Token</Label>
+                        <Input type="password" value={adminHfToken} onChange={(e) => setAdminHfToken(e.target.value)} className="h-8 max-w-xs" placeholder={selectedUser.hf_token_set ? "已设置，输入新值替换" : "hf_..."} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">ModelScope Token</Label>
+                        <Input type="password" value={adminMsToken} onChange={(e) => setAdminMsToken(e.target.value)} className="h-8 max-w-xs" placeholder={selectedUser.ms_token_set ? "已设置，输入新值替换" : "输入 Token"} />
+                      </div>
+                      {tokenError && <p className="text-xs text-destructive">{tokenError}</p>}
+                      {tokenSuccess && <p className="text-xs text-emerald-600">{tokenSuccess}</p>}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={updateTokens.isPending || (!adminHfToken && !adminMsToken)}
+                        onClick={async () => {
+                          setTokenError(""); setTokenSuccess("");
+                          const payload: Record<string, string> = {};
+                          if (adminHfToken) payload.hf_token = adminHfToken;
+                          if (adminMsToken) payload.ms_token = adminMsToken;
+                          try {
+                            await updateTokens.mutateAsync(payload);
+                            setTokenSuccess("令牌已保存");
+                            setAdminHfToken(""); setAdminMsToken("");
+                            setTimeout(() => setTokenSuccess(""), 3000);
+                          } catch (err: unknown) {
+                            setTokenError(extractErrorDetail(err, "保存失败"));
+                          }
+                        }}
+                      >
+                        {updateTokens.isPending && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                        保存令牌
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="pt-4 border-t space-y-4">

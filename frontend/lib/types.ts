@@ -6,7 +6,9 @@ export interface User {
   role: "admin" | "data_admin" | "engineer" | "viewer";
   is_active: boolean;
   hf_token_set?: boolean;
+  hf_token_masked?: string;
   ms_token_set?: boolean;
+  ms_token_masked?: string;
 }
 
 export interface UserTokensStatus {
