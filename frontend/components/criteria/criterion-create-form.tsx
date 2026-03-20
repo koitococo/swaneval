@@ -402,7 +402,7 @@ function highlightRegex(pattern: string): React.ReactNode[] {
     // Groups: ( and )
     if (ch === "(" || ch === ")") {
       tokens.push(
-        <span key={i} className="text-violet-500 font-semibold">{ch}</span>,
+        <span key={i} className="text-primary font-semibold">{ch}</span>,
       );
       i++;
       continue;

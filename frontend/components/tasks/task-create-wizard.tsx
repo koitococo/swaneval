@@ -15,7 +15,6 @@ import {
 import {
   Plus,
   Loader2,
-  Check,
   ChevronRight,
   ChevronLeft,
   Code2,
@@ -98,42 +97,17 @@ export function TaskCreateWizard({ onSuccess }: TaskCreateWizardProps) {
   return (
     <>
       {/* Stepper indicator */}
-      <div className="pb-3 pt-2">
-        <div className="flex items-center">
-          {STEPS.map((s, i) => (
-            <div key={i} className="flex items-center flex-1 last:flex-none">
-              <button
-                type="button"
-                onClick={() => i < step && setStep(i)}
-                className={`relative flex items-center justify-center h-7 w-7 rounded-full text-xs font-medium shrink-0 transition-all ${
-                  i < step
-                    ? "bg-primary text-primary-content cursor-pointer"
-                    : i === step
-                      ? "bg-primary text-primary-content ring-4 ring-primary/15"
-                      : "bg-base-200 text-base-content/50"
-                }`}
-                title={s.title}
-              >
-                {i < step ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : (
-                  i + 1
-                )}
-              </button>
-              {i < STEPS.length - 1 && (
-                <div
-                  className={`flex-1 h-0.5 mx-1.5 rounded-full transition-colors ${
-                    i < step ? "bg-primary" : "bg-border"
-                  }`}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-base-content/50 mt-2 text-center">
-          {STEPS[step].title}
-        </p>
-      </div>
+      <ul className="steps steps-horizontal w-full pb-3 pt-2 text-xs">
+        {STEPS.map((s, i) => (
+          <li
+            key={i}
+            className={`step cursor-pointer ${i <= step ? "step-primary" : ""}`}
+            onClick={() => i < step && setStep(i)}
+          >
+            {s.title}
+          </li>
+        ))}
+      </ul>
       <div className="space-y-3">
         {/* Step 0: Select model */}
         {step === 0 && (

@@ -82,22 +82,23 @@ import { TablePagination } from "@/components/table-pagination";
 import { TableEmpty, TableLoading } from "@/components/table-states";
 import { SegmentedControl } from "@/components/segmented-control";
 
+/** Chart palette — primary first, then complementary hues */
 const BAR_COLORS = [
-  "#6366f1",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#8b5cf6",
-  "#ec4899",
-  "#06b6d4",
+  "#6366f1", // primary (indigo)
+  "#10b981", // success (emerald)
+  "#f59e0b", // warning (amber)
+  "#dc2626", // error (red)
+  "#8b5cf6", // accent (violet)
+  "#ec4899", // pink
+  "#06b6d4", // cyan
 ];
 
 const PAGE_SIZE = 20;
 
 function scoreColor(score: number): string {
-  if (score >= 0.8) return "text-emerald-600";
-  if (score >= 0.5) return "text-amber-600";
-  return "text-red-600";
+  if (score >= 0.8) return "text-success";
+  if (score >= 0.5) return "text-warning";
+  return "text-error";
 }
 
 function exportCSV(data: LeaderboardEntry[]) {
@@ -905,7 +906,7 @@ export default function ResultsPage() {
                       <div className="grid grid-cols-3 gap-3">
                         <div className="rounded-lg border p-3 text-center">
                           <p className="text-xs text-base-content/50">错误率</p>
-                          <p className={`text-2xl font-bold font-mono ${Number(reportData.error_rate) < 0.1 ? "text-emerald-600" : Number(reportData.error_rate) < 0.3 ? "text-amber-600" : "text-red-600"}`}>
+                          <p className={`text-2xl font-bold font-mono ${Number(reportData.error_rate) < 0.1 ? "text-success" : Number(reportData.error_rate) < 0.3 ? "text-warning" : "text-error"}`}>
                             {(Number(reportData.error_rate) * 100).toFixed(1)}%
                           </p>
                         </div>
@@ -925,8 +926,8 @@ export default function ResultsPage() {
                             {(reportData.error_cases as Array<Record<string, unknown>>).map((c, i) => (
                               <div key={i} className="rounded-md border p-3 text-xs space-y-1.5">
                                 <div><span className="text-base-content/50">Prompt：</span>{String(c.prompt).slice(0, 200)}</div>
-                                <div><span className="text-base-content/50">预期：</span><span className="text-emerald-700">{String(c.expected).slice(0, 200)}</span></div>
-                                <div><span className="text-base-content/50">实际：</span><span className="text-red-700">{String(c.actual).slice(0, 200)}</span></div>
+                                <div><span className="text-base-content/50">预期：</span><span className="text-success">{String(c.expected).slice(0, 200)}</span></div>
+                                <div><span className="text-base-content/50">实际：</span><span className="text-error">{String(c.actual).slice(0, 200)}</span></div>
                                 <div className="text-right"><Badge variant="outline" className={`text-[10px] ${scoreColor(Number(c.score))}`}>{(Number(c.score) * 100).toFixed(1)}%</Badge></div>
                               </div>
                             ))}

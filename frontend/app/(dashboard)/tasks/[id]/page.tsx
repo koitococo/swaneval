@@ -107,12 +107,12 @@ export default function TaskDetailPage() {
   }));
 
   const barColors = [
-    "#3b82f6",
-    "#10b981",
-    "#f59e0b",
-    "#ef4444",
-    "#8b5cf6",
-    "#ec4899",
+    "#6366f1", // primary
+    "#10b981", // success
+    "#f59e0b", // warning
+    "#dc2626", // error
+    "#8b5cf6", // accent
+    "#ec4899", // pink
   ];
 
   const failedSubtasks = subtasks.filter((st) => st.status === "failed");

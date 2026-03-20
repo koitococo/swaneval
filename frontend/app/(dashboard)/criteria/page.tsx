@@ -605,7 +605,7 @@ export default function CriteriaPage() {
                 <span
                   className={`text-lg font-bold ${
                     testResult.score >= 1
-                      ? "text-emerald-600"
+                      ? "text-success"
                       : "text-error"
                   }`}
                 >
