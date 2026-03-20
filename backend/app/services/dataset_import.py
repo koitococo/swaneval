@@ -53,38 +53,51 @@ async def import_huggingface(
     clean_id = _parse_dataset_id("huggingface", dataset_id)
     logger.info("Importing HuggingFace dataset: %s (subset=%s, split=%s)", clean_id, subset, split)
 
-    # Strategy 1: Try downloading a ready-made split file directly
-    target_files = _find_split_files(clean_id, subset, split)
-    if target_files:
-        for fname in target_files:
-            try:
-                local_path = hf_hub_download(
-                    repo_id=clean_id,
-                    filename=fname,
-                    repo_type="dataset",
-                )
-                return await _store_downloaded_file(storage, local_path, clean_id)
-            except Exception:
-                continue
-
-    # Strategy 2: Use the datasets library to load and convert to JSONL
+    # Strategy 1 (preferred): Use the `datasets` library — handles all formats,
+    # subsets, splits, and streaming. Most reliable for complex repos.
     try:
-        return await _load_via_datasets_lib(clean_id, subset, split, storage)
+        return await _load_via_datasets_lib(
+            clean_id, subset, split, storage,
+        )
     except ImportError:
-        pass
+        logger.info("datasets library not installed, falling back")
+    except Exception as e:
+        logger.warning("datasets library failed for %s: %s", clean_id, e)
+
+    # Strategy 2: Try downloading a ready-made split file directly
+    target_files = _find_split_files(clean_id, subset, split)
+    for fname in target_files:
+        try:
+            local_path = hf_hub_download(
+                repo_id=clean_id,
+                filename=fname,
+                repo_type="dataset",
+            )
+            return await _store_downloaded_file(
+                storage, local_path, clean_id,
+            )
+        except Exception:
+            continue
 
     # Strategy 3: List repo files and download the first suitable data file
     try:
         files = list_repo_files(clean_id, repo_type="dataset")
-        data_files = [f for f in files if f.endswith((".jsonl", ".json", ".csv", ".parquet"))]
+        data_files = [
+            f for f in files
+            if f.endswith((".jsonl", ".json", ".csv", ".parquet"))
+        ]
         if not data_files:
-            raise ValueError(f"No data files found in HuggingFace dataset '{clean_id}'")
+            raise ValueError(
+                f"No downloadable data files in '{clean_id}'"
+            )
         local_path = hf_hub_download(
             repo_id=clean_id,
             filename=data_files[0],
             repo_type="dataset",
         )
-        return await _store_downloaded_file(storage, local_path, clean_id)
+        return await _store_downloaded_file(
+            storage, local_path, clean_id,
+        )
     except Exception as e:
         raise ValueError(
             f"Failed to import HuggingFace dataset '{clean_id}': {e}"

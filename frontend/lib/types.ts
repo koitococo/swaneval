@@ -122,6 +122,7 @@ export interface PresetDataset {
   name: string;
   description: string;
   hf_id: string;
+  subset: string;
   split: string;
   format: string;
   tags: string;

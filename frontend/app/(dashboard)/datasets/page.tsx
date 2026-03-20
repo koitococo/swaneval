@@ -385,6 +385,7 @@ export default function DatasetsPage() {
                     source: "huggingface",
                     dataset_id: p.hf_id,
                     name: p.name,
+                    subset: p.subset || undefined,
                     split: p.split,
                     description: p.description,
                     tags: p.tags,
