@@ -6,6 +6,7 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
+  getPaginationRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
@@ -69,6 +70,7 @@ import {
 import type { Dataset } from "@/lib/types";
 import { utc } from "@/lib/utils";
 import { FilterDropdown } from "@/components/filter-dropdown";
+import { TablePagination } from "@/components/table-pagination";
 
 const sourceTypeLabel: Record<string, string> = {
   upload: "上传",
@@ -428,6 +430,8 @@ export default function DatasetsPage() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 20 } },
   });
 
   const sourceCounts = useMemo(() => {
@@ -525,6 +529,7 @@ export default function DatasetsPage() {
                 )}
               </div>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((hg) => (
@@ -639,6 +644,8 @@ export default function DatasetsPage() {
                   ))}
                 </TableBody>
               </Table>
+              <TablePagination table={table} />
+              </>
             )}
           </CardContent>
         </Card>

@@ -6,6 +6,7 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
+  getPaginationRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
@@ -63,6 +64,7 @@ import { FilterDropdown } from "@/components/filter-dropdown";
 import { CreateModal } from "@/components/create-modal";
 import { SelectionBar } from "@/components/selection-bar";
 import { DeleteDialog } from "@/components/delete-dialog";
+import { TablePagination } from "@/components/table-pagination";
 
 const typeLabel: Record<string, string> = {
   preset: "预设指标",
@@ -353,6 +355,8 @@ export default function CriteriaPage() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 20 } },
   });
 
   const typeCounts = useMemo(() => {
@@ -450,6 +454,7 @@ export default function CriteriaPage() {
                 )}
               </div>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((hg) => (
@@ -575,6 +580,8 @@ export default function CriteriaPage() {
                   ))}
                 </TableBody>
               </Table>
+              <TablePagination table={table} />
+              </>
             )}
           </CardContent>
         </Card>

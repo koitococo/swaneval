@@ -5,6 +5,7 @@ import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
+  getPaginationRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
@@ -82,6 +83,7 @@ import { useCriteria } from "@/lib/hooks/use-criteria";
 import { useTasks } from "@/lib/hooks/use-tasks";
 import type { LeaderboardEntry, EvalResult } from "@/lib/types";
 import { FilterDropdown } from "@/components/filter-dropdown";
+import { TablePagination } from "@/components/table-pagination";
 
 const BAR_COLORS = [
   "#6366f1",
@@ -418,6 +420,8 @@ export default function ResultsPage() {
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 25 } },
   });
 
   // ── Detail table columns ──
@@ -554,6 +558,7 @@ export default function ResultsPage() {
                   暂无评测结果
                 </div>
               ) : (
+                <>
                 <Table>
                   <TableHeader>
                     {lbTable.getHeaderGroups().map((hg) => (
@@ -584,6 +589,8 @@ export default function ResultsPage() {
                     ))}
                   </TableBody>
                 </Table>
+                <TablePagination table={lbTable} />
+                </>
               )}
             </CardContent>
           </Card>

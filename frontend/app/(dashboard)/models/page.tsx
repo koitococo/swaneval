@@ -6,6 +6,7 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
+  getPaginationRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
@@ -58,6 +59,7 @@ import {
 import type { LLMModel } from "@/lib/types";
 import { utc } from "@/lib/utils";
 import { FilterDropdown } from "@/components/filter-dropdown";
+import { TablePagination } from "@/components/table-pagination";
 
 const typeLabel: Record<string, string> = {
   api: "API",
@@ -364,6 +366,8 @@ export default function ModelsPage() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 20 } },
   });
 
   const typeCounts = useMemo(() => {
@@ -461,6 +465,7 @@ export default function ModelsPage() {
                 )}
               </div>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((hg) => (
@@ -581,6 +586,8 @@ export default function ModelsPage() {
                   ))}
                 </TableBody>
               </Table>
+              <TablePagination table={table} />
+              </>
             )}
           </CardContent>
         </Card>

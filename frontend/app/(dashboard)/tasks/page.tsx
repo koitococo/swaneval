@@ -7,6 +7,7 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
+  getPaginationRowModel,
   flexRender,
   type ColumnDef,
   type SortingState,
@@ -66,6 +67,7 @@ import { FilterDropdown } from "@/components/filter-dropdown";
 import { CreateModal } from "@/components/create-modal";
 import { SelectionBar } from "@/components/selection-bar";
 import { DeleteDialog } from "@/components/delete-dialog";
+import { TablePagination } from "@/components/table-pagination";
 
 const statusLabel: Record<string, string> = {
   completed: "已完成",
@@ -338,6 +340,8 @@ export default function TasksPage() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: 20 } },
   });
 
   const canNext = () => {
@@ -449,6 +453,7 @@ export default function TasksPage() {
                 )}
               </div>
             ) : (
+              <>
               <Table>
                 <TableHeader>
                   {table.getHeaderGroups().map((hg) => (
@@ -526,6 +531,8 @@ export default function TasksPage() {
                   ))}
                 </TableBody>
               </Table>
+              <TablePagination table={table} />
+              </>
             )}
           </CardContent>
         </Card>
