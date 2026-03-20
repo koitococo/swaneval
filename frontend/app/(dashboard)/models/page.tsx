@@ -62,6 +62,7 @@ import {
 } from "@/lib/hooks/use-models";
 import type { LLMModel } from "@/lib/types";
 import { utc } from "@/lib/utils";
+import { FilterDropdown } from "@/components/filter-dropdown";
 
 const typeLabel: Record<string, string> = {
   api: "API",
@@ -429,37 +430,16 @@ export default function ModelsPage() {
             className="pl-9 h-9"
           />
         </div>
-        <div className="flex items-center h-9 border rounded-md overflow-hidden">
-          {[
-            { key: "__all__", label: "全部" },
-            ...Object.entries(typeCounts).map(([type, count]) => ({
-              key: type,
-              label: `${typeLabel[type] ?? type} ${count}`,
-            })),
-          ].map((item, i, arr) => (
-            <button
-              key={item.key}
-              onClick={() =>
-                setTypeFilter(
-                  item.key === "__all__"
-                    ? "__all__"
-                    : typeFilter === item.key
-                      ? "__all__"
-                      : item.key,
-                )
-              }
-              className={`h-full px-3.5 text-xs font-medium transition-colors ${
-                i < arr.length - 1 ? "border-r" : ""
-              } ${
-                typeFilter === item.key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <FilterDropdown
+          label="类型"
+          options={Object.entries(typeCounts).map(([type, count]) => ({
+            key: type,
+            label: typeLabel[type] ?? type,
+            count,
+          }))}
+          value={typeFilter}
+          onChange={setTypeFilter}
+        />
       </div>
 
       {/* Main: table + side panel */}

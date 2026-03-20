@@ -81,6 +81,7 @@ import { useReport, useExportReport, type ReportType } from "@/lib/hooks/use-rep
 import { useCriteria } from "@/lib/hooks/use-criteria";
 import { useTasks } from "@/lib/hooks/use-tasks";
 import type { LeaderboardEntry, EvalResult } from "@/lib/types";
+import { FilterDropdown } from "@/components/filter-dropdown";
 
 const BAR_COLORS = [
   "#6366f1",
@@ -519,34 +520,12 @@ export default function ResultsPage() {
 
       {/* Toolbar: criterion filter segmented tabs */}
       <div className="flex items-center gap-2">
-        <div className="flex items-center h-9 border rounded-md overflow-hidden">
-          {[
-            { key: "__all__", label: "全部" },
-            ...criteria.map((c) => ({ key: c.id, label: c.name })),
-          ].map((item, i, arr) => (
-            <button
-              key={item.key}
-              onClick={() =>
-                setCriterionFilter(
-                  item.key === "__all__"
-                    ? "__all__"
-                    : criterionFilter === item.key
-                      ? "__all__"
-                      : item.key,
-                )
-              }
-              className={`h-full px-3.5 text-xs font-medium transition-colors ${
-                i < arr.length - 1 ? "border-r" : ""
-              } ${
-                criterionFilter === item.key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <FilterDropdown
+          label="标准"
+          options={criteria.map((c) => ({ key: c.id, label: c.name }))}
+          value={criterionFilter}
+          onChange={setCriterionFilter}
+        />
       </div>
 
       {/* Tabs */}
