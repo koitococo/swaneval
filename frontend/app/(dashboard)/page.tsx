@@ -268,6 +268,12 @@ export default function OverviewPage() {
           </div>
         </div>
       </div>
+
+      {/* App info */}
+      <div className="relative z-10 shrink-0 flex items-center justify-center gap-1.5 pb-3 text-[11px] text-muted-foreground/40">
+        <span>SwanEVAL</span>
+        <span>v{process.env.NEXT_PUBLIC_APP_VERSION}</span>
+      </div>
     </div>
   );
 }
