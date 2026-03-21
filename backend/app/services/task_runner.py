@@ -425,7 +425,7 @@ async def run_task(task_id: uuid.UUID):
             )
 
             # Run evaluation
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=180.0) as client:
                 for run_idx, subtask in enumerate(subtasks):
                     run_params = dict(params)
                     if task.seed_strategy == "random":
@@ -484,12 +484,29 @@ async def run_task(task_id: uuid.UUID):
                         for criterion in criteria:
                             cid = str(criterion.id)
                             cfg_json = enriched_configs.get(cid, criterion.config_json)
-                            score = run_criterion(
-                                criterion.type,
-                                cfg_json,
-                                expected,
-                                output,
-                            )
+                            # Retry up to 3 times for transient errors (timeouts, etc.)
+                            score = 0.0
+                            for attempt in range(3):
+                                try:
+                                    score = run_criterion(
+                                        criterion.type,
+                                        cfg_json,
+                                        expected,
+                                        output,
+                                    )
+                                    break
+                                except Exception as eval_err:
+                                    if attempt < 2:
+                                        logger.warning(
+                                            "Task %s: criterion '%s' failed (attempt %d/3): %s",
+                                            task_id, criterion.name, attempt + 1, eval_err,
+                                        )
+                                        await asyncio.sleep(2 ** attempt)
+                                    else:
+                                        logger.error(
+                                            "Task %s: criterion '%s' failed x3, score=0: %s",
+                                            task_id, criterion.name, eval_err,
+                                        )
 
                             result = EvalResult(
                                 task_id=task.id,
