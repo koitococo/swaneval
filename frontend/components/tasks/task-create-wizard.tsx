@@ -105,23 +105,26 @@ export function TaskCreateWizard({ onSuccess }: TaskCreateWizardProps) {
         onImport={(text) => {
           try {
             const data = JSON.parse(text);
+            // Parse params_json if it's a string
+            const params = typeof data.params_json === "string"
+              ? (() => { try { return JSON.parse(data.params_json); } catch { return {}; } })()
+              : typeof data.params_json === "object" && data.params_json
+                ? data.params_json
+                : {};
+            const toArr = (v: unknown): string[] => {
+              if (Array.isArray(v)) return v;
+              if (typeof v === "string" && v) return v.split(",").map((s: string) => s.trim()).filter(Boolean);
+              return [];
+            };
             setForm((f) => ({
               ...f,
               name: "",
               model_id: data.model_id ?? f.model_id,
-              dataset_ids: Array.isArray(data.dataset_ids)
-                ? data.dataset_ids
-                : typeof data.dataset_ids === "string" && data.dataset_ids
-                  ? data.dataset_ids.split(",").map((s: string) => s.trim()).filter(Boolean)
-                  : f.dataset_ids,
-              criteria_ids: Array.isArray(data.criteria_ids)
-                ? data.criteria_ids
-                : typeof data.criteria_ids === "string" && data.criteria_ids
-                  ? data.criteria_ids.split(",").map((s: string) => s.trim()).filter(Boolean)
-                  : f.criteria_ids,
-              temperature: String(data.temperature ?? data.params_json?.temperature ?? f.temperature),
-              max_tokens: String(data.max_tokens ?? data.params_json?.max_tokens ?? f.max_tokens),
-              limit: String(data.limit ?? data.params_json?.limit ?? f.limit),
+              dataset_ids: toArr(data.dataset_ids).length > 0 ? toArr(data.dataset_ids) : f.dataset_ids,
+              criteria_ids: toArr(data.criteria_ids).length > 0 ? toArr(data.criteria_ids) : f.criteria_ids,
+              temperature: String(data.temperature ?? params.temperature ?? f.temperature),
+              max_tokens: String(data.max_tokens ?? params.max_tokens ?? f.max_tokens),
+              limit: String(data.limit ?? params.limit ?? f.limit),
               repeat_count: String(data.repeat_count ?? f.repeat_count),
               seed_strategy: data.seed_strategy ?? f.seed_strategy,
               gpu_ids: data.gpu_ids ?? f.gpu_ids,
