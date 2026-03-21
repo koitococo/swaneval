@@ -487,18 +487,24 @@ async def run_task(task_id: uuid.UUID):
                 task_id, len(subtasks),
             )
 
-            # ── Run evaluation with parallelism ──
-            # Prompts: up to N concurrent model calls per subtask
-            # Criteria: all criteria for one prompt run in parallel
-            # Subtasks: run sequentially (different seeds)
-            MAX_PROMPT_PARALLEL = 4
-            MAX_CRITERION_PARALLEL = 4
+            # ── Run evaluation — all subtasks in parallel ──
+            # Global semaphore limits total concurrent model calls
+            MAX_MODEL_PARALLEL = 4
+            MAX_CRITERION_PARALLEL = 8
 
             field_mappings: dict = params.get("field_mappings", {})
             global_pk = params.get("prompt_field", "")
             global_ek = params.get("expected_field", "")
+            model_sem = asyncio.Semaphore(MAX_MODEL_PARALLEL)
+            crit_sem = asyncio.Semaphore(MAX_CRITERION_PARALLEL)
 
-            async def _eval_criterion_with_retry(
+            # Snapshot immutable data for subtask coroutines
+            _task_id = task.id
+            _model_snapshot = model
+            _criteria_snapshot = list(criteria)
+            _enriched_snapshot = dict(enriched_configs)
+
+            async def _eval_crit_retry(
                 crit_type: str, cfg: str, exp: str, out: str,
                 crit_name: str,
             ) -> float:
@@ -531,145 +537,145 @@ async def run_task(task_id: uuid.UUID):
                             )
                 return 0.0
 
-            prompt_sem = asyncio.Semaphore(MAX_PROMPT_PARALLEL)
-            crit_sem = asyncio.Semaphore(MAX_CRITERION_PARALLEL)
-
-            async with httpx.AsyncClient(timeout=180.0) as client:
-                for run_idx, subtask in enumerate(subtasks):
-                    run_params = dict(params)
-                    if task.seed_strategy == "random":
-                        run_params["seed"] = random.randint(0, 2**31)
-                    elif task.seed_strategy == "fixed":
-                        run_params["seed"] = 42 + run_idx
-
-                    # Process prompts in parallel batches
+            async def _run_subtask(
+                run_idx: int,
+                subtask_id: uuid.UUID,
+                seed_params: dict,
+                client: httpx.AsyncClient,
+            ) -> None:
+                """Run one subtask with its own DB session."""
+                async with AsyncSession(engine) as sub_session:
+                    st = await sub_session.get(EvalSubtask, subtask_id)
+                    if not st:
+                        return
                     completed = 0
-                    cancelled = False
+                    total = len(all_rows)
+                    batch_size = MAX_MODEL_PARALLEL * 2
 
-                    async def _process_prompt(
-                        idx: int,
-                        ds_id: uuid.UUID,
-                        row: dict,
-                    ) -> list[EvalResult]:
-                        nonlocal cancelled
-                        async with prompt_sem:
-                            if cancelled:
-                                return []
-
-                            # Field mapping
-                            ds_map = field_mappings.get(
-                                str(ds_id), {},
-                            )
-                            pk = ds_map.get("prompt_field") or global_pk
-                            ek = ds_map.get("expected_field") or global_ek
-                            prompt = (
-                                str(row.get(pk, ""))
-                                if pk and pk in row
-                                else _extract_field(row, [
-                                    "prompt", "instruction",
-                                    "query", "input", "question",
-                                    "text", "content",
-                                ])
-                            )
-                            expected = (
-                                str(row.get(ek, ""))
-                                if ek and ek in row
-                                else _extract_field(row, [
-                                    "expected", "response",
-                                    "output", "answer",
-                                    "target", "label",
-                                ])
-                            )
-
-                            out, lat, ft, tok = await _call_model(
-                                client, model, prompt, run_params,
-                            )
-
-                            if idx % 10 == 0 or idx == 0:
-                                logger.info(
-                                    "Task %s run %d: %d/%d — %.0fms",
-                                    task_id, run_idx + 1,
-                                    idx + 1, len(all_rows), lat,
-                                )
-
-                            # Evaluate criteria in parallel
-                            async def _eval_one(c):
-                                async with crit_sem:
-                                    cid = str(c.id)
-                                    cfg = enriched_configs.get(
-                                        cid, c.config_json,
-                                    )
-                                    sc = await _eval_criterion_with_retry(
-                                        c.type, cfg, expected, out,
-                                        c.name,
-                                    )
-                                    return EvalResult(
-                                        task_id=task.id,
-                                        subtask_id=subtask.id,
-                                        dataset_id=ds_id,
-                                        criterion_id=c.id,
-                                        prompt_text=prompt,
-                                        expected_output=expected,
-                                        model_output=out,
-                                        score=sc,
-                                        latency_ms=lat,
-                                        tokens_generated=tok,
-                                        first_token_ms=ft,
-                                    )
-
-                            return list(await asyncio.gather(
-                                *[_eval_one(c) for c in criteria]
-                            ))
-
-                    # Launch all prompts with semaphore-limited concurrency
-                    batch_size = MAX_PROMPT_PARALLEL * 2
-                    for batch_start in range(0, len(all_rows), batch_size):
-                        # Check for pause/cancel between batches
-                        await session.refresh(task)
-                        if task.status in (
+                    for batch_start in range(0, total, batch_size):
+                        # Check for pause/cancel
+                        t = await sub_session.get(EvalTask, _task_id)
+                        if t and t.status in (
                             TaskStatus.paused,
                             TaskStatus.failed,
                             TaskStatus.cancelled,
                         ):
-                            subtask.status = task.status
-                            session.add(subtask)
-                            await session.commit()
+                            st.status = t.status
+                            sub_session.add(st)
+                            await sub_session.commit()
                             logger.info(
-                                "Task %s stopped (%s) at %d/%d",
-                                task_id, task.status,
-                                completed, len(all_rows),
+                                "Task %s run %d stopped (%s) at %d/%d",
+                                task_id, run_idx + 1, t.status,
+                                completed, total,
                             )
                             return
 
                         batch = all_rows[batch_start:batch_start + batch_size]
+
+                        async def _do_prompt(
+                            idx: int,
+                            ds_id: uuid.UUID,
+                            row: dict,
+                        ) -> list[EvalResult]:
+                            async with model_sem:
+                                ds_map = field_mappings.get(str(ds_id), {})
+                                pk = ds_map.get("prompt_field") or global_pk
+                                ek = ds_map.get("expected_field") or global_ek
+                                prompt = (
+                                    str(row.get(pk, ""))
+                                    if pk and pk in row
+                                    else _extract_field(row, [
+                                        "prompt", "instruction", "query",
+                                        "input", "question", "text",
+                                        "content",
+                                    ])
+                                )
+                                expected = (
+                                    str(row.get(ek, ""))
+                                    if ek and ek in row
+                                    else _extract_field(row, [
+                                        "expected", "response", "output",
+                                        "answer", "target", "label",
+                                    ])
+                                )
+                                out, lat, ft, tok = await _call_model(
+                                    client, _model_snapshot,
+                                    prompt, seed_params,
+                                )
+                                if idx % 20 == 0 or idx == 0:
+                                    logger.info(
+                                        "Task %s run %d: %d/%d — %.0fms",
+                                        task_id, run_idx + 1,
+                                        idx + 1, total, lat,
+                                    )
+
+                                async def _score(c):
+                                    async with crit_sem:
+                                        cid = str(c.id)
+                                        cfg = _enriched_snapshot.get(
+                                            cid, c.config_json,
+                                        )
+                                        sc = await _eval_crit_retry(
+                                            c.type, cfg, expected, out,
+                                            c.name,
+                                        )
+                                        return EvalResult(
+                                            task_id=_task_id,
+                                            subtask_id=subtask_id,
+                                            dataset_id=ds_id,
+                                            criterion_id=c.id,
+                                            prompt_text=prompt,
+                                            expected_output=expected,
+                                            model_output=out,
+                                            score=sc,
+                                            latency_ms=lat,
+                                            tokens_generated=tok,
+                                            first_token_ms=ft,
+                                        )
+
+                                return list(await asyncio.gather(
+                                    *[_score(c) for c in _criteria_snapshot]
+                                ))
+
                         batch_results = await asyncio.gather(
                             *[
-                                _process_prompt(batch_start + i, ds_id, row)
+                                _do_prompt(batch_start + i, ds_id, row)
                                 for i, (ds_id, row) in enumerate(batch)
                             ]
                         )
 
-                        # Flush batch results to DB
                         for prompt_results in batch_results:
                             for r in prompt_results:
-                                session.add(r)
+                                sub_session.add(r)
                             completed += 1
 
-                        subtask.last_completed_index = completed
-                        subtask.progress_pct = (
-                            completed / len(all_rows) * 100
-                        )
-                        session.add(subtask)
-                        await session.commit()
+                        st.last_completed_index = completed
+                        st.progress_pct = completed / total * 100
+                        sub_session.add(st)
+                        await sub_session.commit()
 
-                    subtask.status = TaskStatus.completed
-                    subtask.progress_pct = 100.0
-                    session.add(subtask)
-                    await session.commit()
+                    st.status = TaskStatus.completed
+                    st.progress_pct = 100.0
+                    sub_session.add(st)
+                    await sub_session.commit()
                     logger.info(
                         "Task %s run %d: COMPLETED (%d prompts)",
-                        task_id, run_idx + 1, len(all_rows),
+                        task_id, run_idx + 1, total,
                     )
+
+            # Launch all subtasks concurrently
+            async with httpx.AsyncClient(timeout=180.0) as client:
+                subtask_coros = []
+                for run_idx, subtask in enumerate(subtasks):
+                    sp = dict(params)
+                    if task.seed_strategy == "random":
+                        sp["seed"] = random.randint(0, 2**31)
+                    elif task.seed_strategy == "fixed":
+                        sp["seed"] = 42 + run_idx
+                    subtask_coros.append(
+                        _run_subtask(run_idx, subtask.id, sp, client)
+                    )
+                await asyncio.gather(*subtask_coros)
 
             task.status = TaskStatus.completed
             task.finished_at = datetime.now(timezone.utc)
