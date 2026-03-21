@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 
     # Set app info metric
     app_info.info({
-        "version": "0.4.0",
+        "version": "0.5.0",
         "storage_backend": settings.STORAGE_BACKEND,
     })
 
@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="SwanEVAL API",
-    version="0.4.0",
+    version="0.5.0",
     lifespan=lifespan,
 )
 
