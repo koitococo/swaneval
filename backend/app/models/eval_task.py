@@ -112,7 +112,7 @@ class EvalSubtask(SQLModel, table=True):
 
     status: TaskStatus = Field(
         sa_column=Column(
-            SAEnum(TaskStatus, name="subtaskstatus", create_constraint=False),
+            SAEnum(TaskStatus, name="taskstatus", create_constraint=False),
             nullable=False,
             default=TaskStatus.pending,
         )

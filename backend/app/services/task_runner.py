@@ -508,17 +508,34 @@ async def run_task(task_id: uuid.UUID):
             )
 
         except Exception as e:
-            logger.exception("Task %s failed: %s", task_id, e)
-            task.status = TaskStatus.failed
-            stmt = select(EvalSubtask).where(
-                EvalSubtask.task_id == task_id,
-                EvalSubtask.status != TaskStatus.completed,
-            )
-            result = await session.exec(stmt)
-            for st in result.all():
-                st.status = TaskStatus.failed
-                st.error_log = str(e)
-                session.add(st)
+            logger.exception("Task %s FAILED: %s", task_id, e)
+            # Rollback the failed transaction before updating status
+            await session.rollback()
+            try:
+                # Re-fetch task in clean session state
+                task = await session.get(EvalTask, task_id)
+                if task:
+                    task.status = TaskStatus.failed
+                    task.finished_at = datetime.now(timezone.utc)
+                    session.add(task)
+                    # Mark incomplete subtasks as failed
+                    stmt = select(EvalSubtask).where(
+                        EvalSubtask.task_id == task_id,
+                        EvalSubtask.status != TaskStatus.completed,
+                    )
+                    result = await session.exec(stmt)
+                    for st in result.all():
+                        st.status = TaskStatus.failed
+                        st.error_log = str(e)[:500]
+                        session.add(st)
+                    await session.commit()
+                    logger.info("Task %s marked as FAILED in database", task_id)
+            except Exception as cleanup_err:
+                logger.error(
+                    "Task %s: failed to update status after error: %s",
+                    task_id, cleanup_err,
+                )
+            return
 
         # Restore environment variables
         for k, orig in saved_env.items():
