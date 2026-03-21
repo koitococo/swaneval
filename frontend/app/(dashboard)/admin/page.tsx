@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { TableEmpty, TableLoading } from "@/components/table-states";
 import { extractErrorDetail } from "@/lib/utils";
+import { formatTime } from "@/lib/time";
 import { useUsers, useUpdateUser, useDeleteUser, useChangePassword, useUpdateUserTokens } from "@/lib/hooks/use-users";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { FilterDropdown } from "@/components/filter-dropdown";
@@ -291,10 +292,10 @@ export default function AdminPage() {
                     label="创建时间"
                     value={
                       "created_at" in selectedUser
-                        ? utc(
+                        ? formatTime(
                             (selectedUser as User & { created_at?: string })
                               .created_at,
-                          )?.toLocaleString("zh-CN") ?? "—"
+                          )
                         : "—"
                     }
                   />

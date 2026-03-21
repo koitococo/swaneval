@@ -18,6 +18,7 @@ import { X, FlaskConical, Trash2, Save, Loader2 } from "lucide-react";
 import { useUpdateCriterion } from "@/lib/hooks/use-criteria";
 import type { Criterion, LLMModel } from "@/lib/types";
 import { utc, extractErrorDetail } from "@/lib/utils";
+import { formatTime } from "@/lib/time";
 
 const typeLabel: Record<string, string> = {
   preset: "预设指标",
@@ -235,7 +236,7 @@ export function CriterionDetailPanel({
           )}
 
           {/* Created at */}
-          <DetailRow label="创建时间" value={utc(criterion.created_at)?.toLocaleString() ?? "—"} />
+          <DetailRow label="创建时间" value={formatTime(criterion.created_at) ?? "—"} />
 
           {/* Save / error */}
           {error && <p className="text-xs text-destructive">{error}</p>}

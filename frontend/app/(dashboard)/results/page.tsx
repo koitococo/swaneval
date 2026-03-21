@@ -81,6 +81,7 @@ import { FilterDropdown } from "@/components/filter-dropdown";
 import { TablePagination } from "@/components/table-pagination";
 import { TableEmpty, TableLoading } from "@/components/table-states";
 import { SegmentedControl } from "@/components/segmented-control";
+import { formatTime } from "@/lib/time";
 
 /** Chart palette — primary first, then complementary hues */
 const BAR_COLORS = [
@@ -855,7 +856,7 @@ export default function ResultsPage() {
                   <div className="border-b pb-3">
                     <h3 className="text-base font-semibold">{String(reportData.title)}</h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      模型：{String(reportData.model_name)} · 生成时间：{new Date(String(reportData.generated_at)).toLocaleString()}
+                      模型：{String(reportData.model_name)} · 生成时间：{formatTime(String(reportData.generated_at))}
                     </p>
                   </div>
 

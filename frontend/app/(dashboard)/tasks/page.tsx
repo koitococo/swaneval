@@ -38,6 +38,7 @@ import { useDatasets } from "@/lib/hooks/use-datasets";
 import { useCriteria } from "@/lib/hooks/use-criteria";
 import type { EvalTask } from "@/lib/types";
 import { utc, extractErrorDetail } from "@/lib/utils";
+import { formatTime } from "@/lib/time";
 import { PageHeader, SearchToolbar } from "@/components/page-header";
 import { CopyButton } from "@/components/copy-button";
 import { FilterDropdown } from "@/components/filter-dropdown";
@@ -141,18 +142,9 @@ export default function TasksPage() {
       },
       {
         accessorKey: "status", header: "状态",
-        cell: ({ row }) => {
-          const s = row.original.status;
-          return (
-            <div className="flex items-center gap-1.5">
-              <Badge variant={statusBadgeVariant[s] ?? "outline"} className="font-normal">{statusLabel[s] ?? s}</Badge>
-              {s === "running" && row.original.started_at && (
-                <span className="text-[10px] text-muted-foreground">
-                  {formatDuration(row.original.started_at, null)}
-                </span>
-              )}
-            </div>
-          );
+        cell: ({ getValue }) => {
+          const s = getValue<string>();
+          return <Badge variant={statusBadgeVariant[s] ?? "outline"} className="font-normal">{statusLabel[s] ?? s}</Badge>;
         },
       },
       {
@@ -165,7 +157,7 @@ export default function TasksPage() {
       },
       {
         accessorKey: "created_at", header: "创建时间",
-        cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{utc(getValue<string>())?.toLocaleString()}</span>,
+        cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{formatTime(getValue<string>())}</span>,
       },
       {
         id: "duration", header: "耗时",

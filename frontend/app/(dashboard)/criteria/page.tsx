@@ -54,6 +54,7 @@ import {
 import { useModels } from "@/lib/hooks/use-models";
 import type { Criterion } from "@/lib/types";
 import { utc, extractErrorDetail } from "@/lib/utils";
+import { formatTime } from "@/lib/time";
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { CreateModal } from "@/components/create-modal";
 import { SelectionBar } from "@/components/selection-bar";
@@ -245,7 +246,7 @@ export default function CriteriaPage() {
         header: "创建时间",
         cell: ({ getValue }) => (
           <span className="text-muted-foreground">
-            {utc(getValue<string>())?.toLocaleDateString()}
+            {formatTime(getValue<string>())}
           </span>
         ),
       },

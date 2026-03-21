@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { extractErrorDetail } from "@/lib/utils";
+import { formatTime } from "@/lib/time";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -134,7 +135,7 @@ export default function TaskDetailPage() {
         <div className="flex-1">
           <h1 className="text-lg font-semibold">{task.name}</h1>
           <p className="text-xs text-muted-foreground">
-            创建于 {utc(task.created_at)?.toLocaleString()}
+            创建于 {formatTime(task.created_at)}
           </p>
         </div>
         <Badge variant={statusVariant(task.status)} className="text-sm">

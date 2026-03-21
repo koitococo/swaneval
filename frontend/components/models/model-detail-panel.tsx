@@ -25,6 +25,7 @@ import {
 import { useUpdateModel, useTestModel } from "@/lib/hooks/use-models";
 import type { LLMModel } from "@/lib/types";
 import { utc } from "@/lib/utils";
+import { formatTime } from "@/lib/time";
 
 const typeLabel: Record<string, string> = {
   api: "API",
@@ -188,7 +189,7 @@ export function ModelDetailPanel({
             />
             <DetailRow
               label="注册时间"
-              value={utc(model.created_at)?.toLocaleString()}
+              value={formatTime(model.created_at)}
             />
           </div>
 

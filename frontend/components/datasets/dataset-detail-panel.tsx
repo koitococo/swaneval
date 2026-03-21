@@ -25,6 +25,7 @@ import {
 } from "@/lib/hooks/use-datasets";
 import type { Dataset } from "@/lib/types";
 import { utc } from "@/lib/utils";
+import { formatTime } from "@/lib/time";
 
 const sourceTypeLabel: Record<string, string> = {
   upload: "上传",
@@ -190,7 +191,7 @@ export function DatasetDetailPanel({
             )}
             <DetailRow
               label="创建时间"
-              value={utc(dataset.created_at)?.toLocaleString()}
+              value={formatTime(dataset.created_at)}
             />
           </div>
 

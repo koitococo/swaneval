@@ -23,6 +23,7 @@ import {
 } from "@/lib/hooks/use-tasks";
 import type { EvalTask, Dataset, Criterion } from "@/lib/types";
 import { utc } from "@/lib/utils";
+import { formatTime } from "@/lib/time";
 import { statusLabel, statusBadgeVariant, formatDuration } from "./task-constants";
 
 function parseParams(json: string) {
@@ -153,15 +154,15 @@ export function TaskDetailPanel({
             )}
             <DetailRow
               label="创建时间"
-              value={utc(task.created_at)?.toLocaleString() ?? "\u2014"}
+              value={formatTime(task.created_at) ?? "\u2014"}
             />
             <DetailRow
               label="开始时间"
-              value={utc(task.started_at)?.toLocaleString() ?? "\u2014"}
+              value={formatTime(task.started_at) ?? "\u2014"}
             />
             <DetailRow
               label="结束时间"
-              value={utc(task.finished_at)?.toLocaleString() ?? "\u2014"}
+              value={formatTime(task.finished_at) ?? "\u2014"}
             />
             <DetailRow
               label="耗时"
