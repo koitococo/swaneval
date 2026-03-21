@@ -105,6 +105,20 @@ export function useResumeTask() {
   });
 }
 
+export function useRestartTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.post<EvalTask>(`/tasks/${id}/restart`);
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["results"] });
+    },
+  });
+}
+
 export function useCancelTask() {
   const qc = useQueryClient();
   return useMutation({

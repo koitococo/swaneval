@@ -10,11 +10,12 @@ from sqlmodel import Field, SQLModel
 # 任务状态枚举 / Task status enumeration
 class TaskStatus(str, enum.Enum):
     """任务状态枚举 / Task status enumeration"""
-    pending = "pending"       # 待处理 / Pending (waiting to run)
-    running = "running"   # 运行中 / Running
-    paused = "paused"     # 暂停 / Paused
-    completed = "completed"  # 已完成 / Completed
-    failed = "failed"     # 失败 / Failed
+    pending = "pending"         # 待处理 / Pending
+    running = "running"         # 运行中 / Running
+    paused = "paused"           # 暂停 / Paused by user
+    completed = "completed"     # 已完成 / Completed
+    failed = "failed"           # 失败 / Failed due to error
+    cancelled = "cancelled"     # 已取消 / Cancelled by user
 
 
 # 随机种子策略枚举 / Random seed strategy enumeration

@@ -6,17 +6,19 @@ export const statusLabel: Record<string, string> = {
   failed: "失败",
   pending: "等待中",
   paused: "已暂停",
+  cancelled: "已取消",
 };
 
 export const statusBadgeVariant: Record<
   string,
-  "default" | "secondary" | "destructive" | "outline"
+  "default" | "secondary" | "destructive" | "outline" | "warning"
 > = {
   completed: "default",
   running: "secondary",
   failed: "destructive",
   pending: "outline",
   paused: "outline",
+  cancelled: "warning",
 };
 
 export function formatDuration(start: string | null, end: string | null): string {

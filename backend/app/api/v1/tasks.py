@@ -157,10 +157,54 @@ async def cancel_task(
     task = await session.get(EvalTask, task_id)
     if not task:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
-    task.status = TaskStatus.failed
+    task.status = TaskStatus.cancelled
+    session.add(task)
+    # Also cancel running subtasks
+    stmt = select(EvalSubtask).where(
+        EvalSubtask.task_id == task_id,
+        EvalSubtask.status.in_([TaskStatus.running, TaskStatus.pending]),
+    )
+    result = await session.exec(stmt)
+    for st in result.all():
+        st.status = TaskStatus.cancelled
+        session.add(st)
+    await session.commit()
+    await session.refresh(task)
+    return await _enrich_task(session, task)
+
+
+@router.post("/{task_id}/restart", response_model=TaskResponse)
+async def restart_task(
+    task_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Restart a failed/cancelled task from scratch — clears all results."""
+    task = await session.get(EvalTask, task_id)
+    if not task:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
+    if task.status not in (TaskStatus.failed, TaskStatus.cancelled):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "只有失败或已取消的任务可以重启",
+        )
+    # Delete old results
+    stmt = select(EvalResult).where(EvalResult.task_id == task_id)
+    for r in (await session.exec(stmt)).all():
+        await session.delete(r)
+    # Delete old subtasks
+    stmt = select(EvalSubtask).where(EvalSubtask.task_id == task_id)
+    for st in (await session.exec(stmt)).all():
+        await session.delete(st)
+    # Reset task state
+    task.status = TaskStatus.pending
+    task.started_at = None
+    task.finished_at = None
     session.add(task)
     await session.commit()
     await session.refresh(task)
+    # Launch the task again
+    asyncio.create_task(run_task(task.id))
     return await _enrich_task(session, task)
 
 

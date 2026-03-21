@@ -13,11 +13,13 @@ import {
   Ban,
   ExternalLink,
   Trash2,
+  RotateCcw,
 } from "lucide-react";
 import {
   usePauseTask,
   useResumeTask,
   useCancelTask,
+  useRestartTask,
 } from "@/lib/hooks/use-tasks";
 import type { EvalTask, Dataset, Criterion } from "@/lib/types";
 import { utc } from "@/lib/utils";
@@ -52,6 +54,7 @@ export function TaskDetailPanel({
   const pauseTask = usePauseTask();
   const resumeTask = useResumeTask();
   const cancelTask = useCancelTask();
+  const restartTask = useRestartTask();
 
   const params = parseParams(task.params_json);
 
@@ -180,6 +183,7 @@ export function TaskDetailPanel({
           {(task.status === "running" ||
             task.status === "paused" ||
             task.status === "failed" ||
+            task.status === "cancelled" ||
             task.status === "pending") && (
             <div className="flex gap-2">
               {task.status === "running" && (
@@ -198,7 +202,7 @@ export function TaskDetailPanel({
                   暂停
                 </Button>
               )}
-              {(task.status === "paused" || task.status === "failed") && (
+              {task.status === "paused" && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -212,6 +216,22 @@ export function TaskDetailPanel({
                     <Play className="mr-1.5 h-3.5 w-3.5" />
                   )}
                   恢复
+                </Button>
+              )}
+              {(task.status === "failed" || task.status === "cancelled") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => restartTask.mutate(task.id)}
+                  disabled={restartTask.isPending}
+                >
+                  {restartTask.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  重启
                 </Button>
               )}
               {(task.status === "running" || task.status === "pending") && (

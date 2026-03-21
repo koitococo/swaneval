@@ -64,7 +64,7 @@ export interface LLMModel {
 export interface EvalTask {
   id: string;
   name: string;
-  status: "pending" | "running" | "paused" | "completed" | "failed";
+  status: "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";
   model_id: string;
   model_name: string;
   dataset_ids: string;
@@ -83,7 +83,7 @@ export interface EvalSubtask {
   id: string;
   task_id: string;
   run_index: number;
-  status: "pending" | "running" | "paused" | "completed" | "failed";
+  status: "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";
   progress_pct: number;
   last_completed_index: number;
   error_log: string;

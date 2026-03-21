@@ -267,6 +267,19 @@ async def _call_model(
         return f"[ERROR] {e}", latency_ms, 0.0, 0
 
 
+def _extract_field(row: dict, keys: list[str]) -> str:
+    """Extract the first non-empty value matching any of the candidate keys."""
+    for key in keys:
+        val = row.get(key)
+        if val is not None and str(val).strip():
+            return str(val)
+    # Fallback: return the first string value in the row
+    for val in row.values():
+        if isinstance(val, str) and val.strip():
+            return val
+    return ""
+
+
 async def run_task(task_id: uuid.UUID):
     """Execute an evaluation task end-to-end."""
     storage = get_storage()
@@ -425,26 +438,25 @@ async def run_task(task_id: uuid.UUID):
                         if task.status in (
                             TaskStatus.paused,
                             TaskStatus.failed,
+                            TaskStatus.cancelled,
                         ):
-                            subtask.status = TaskStatus.paused
+                            subtask.status = task.status
                             session.add(subtask)
                             await session.commit()
+                            logger.info(
+                                "Task %s stopped (status=%s) at prompt %d/%d",
+                                task_id, task.status, subtask.last_completed_index, len(all_rows),
+                            )
                             return
 
-                        prompt = row.get(
-                            "prompt",
-                            row.get(
-                                "query",
-                                row.get("input", row.get("question", "")),
-                            ),
-                        )
-                        expected = row.get(
-                            "expected",
-                            row.get(
-                                "response",
-                                row.get("output", row.get("answer", "")),
-                            ),
-                        )
+                        prompt = _extract_field(row, [
+                            "prompt", "instruction", "query",
+                            "input", "question", "text", "content",
+                        ])
+                        expected = _extract_field(row, [
+                            "expected", "response", "output",
+                            "answer", "target", "label",
+                        ])
 
                         output, latency, first_token, tokens = (
                             await _call_model(client, model, prompt, run_params)

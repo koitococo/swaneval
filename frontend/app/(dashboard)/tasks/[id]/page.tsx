@@ -23,7 +23,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Pause, Play, XCircle, AlertTriangle, Trash2, BarChart3 } from "lucide-react";
+import { ArrowLeft, Pause, Play, XCircle, RotateCcw, AlertTriangle, Trash2, BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { utc } from "@/lib/utils";
 import {
@@ -32,6 +32,7 @@ import {
   usePauseTask,
   useResumeTask,
   useCancelTask,
+  useRestartTask,
   useDeleteTask,
 } from "@/lib/hooks/use-tasks";
 import { useTaskSummary, useErrorResults } from "@/lib/hooks/use-results";
@@ -74,6 +75,7 @@ export default function TaskDetailPage() {
   const pause = usePauseTask();
   const resumeTask = useResumeTask();
   const cancel = useCancelTask();
+  const restartTask = useRestartTask();
   const deleteTask = useDeleteTask();
   const [showDelete, setShowDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -142,13 +144,14 @@ export default function TaskDetailPage() {
             <Pause className="mr-1 h-3.5 w-3.5" /> 暂停
           </Button>
         )}
-        {(task.status === "paused" || task.status === "failed") && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => resumeTask.mutate(id)}
-          >
+        {task.status === "paused" && (
+          <Button variant="outline" size="sm" onClick={() => resumeTask.mutate(id)}>
             <Play className="mr-1 h-3.5 w-3.5" /> 恢复
+          </Button>
+        )}
+        {(task.status === "failed" || task.status === "cancelled") && (
+          <Button variant="outline" size="sm" onClick={() => restartTask.mutate(id)}>
+            <RotateCcw className="mr-1 h-3.5 w-3.5" /> 重启
           </Button>
         )}
         {(task.status === "running" || task.status === "pending") && (
