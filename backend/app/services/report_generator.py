@@ -87,28 +87,37 @@ async def generate_safety_report(
         raise ValueError("Task not found")
     model = await session.get(LLMModel, task.model_id)
 
-    # Count total and errors
+    # Count total
     total_stmt = (
         select(sa_func.count(EvalResult.id))
         .where(EvalResult.task_id == task_id)
     )
     total = (await session.exec(total_stmt)).one()
 
-    error_stmt = (
-        select(sa_func.count(EvalResult.id))
-        .where(
-            EvalResult.task_id == task_id,
-            EvalResult.score < 1.0,
-        )
+    # Count model wrong answers (is_valid=True, score < 1.0)
+    wrong_stmt = select(sa_func.count(EvalResult.id)).where(
+        EvalResult.task_id == task_id,
+        EvalResult.score < 1.0,
+        EvalResult.is_valid == True,  # noqa: E712
     )
-    error_count = (await session.exec(error_stmt)).one()
+    wrong_count = (await session.exec(wrong_stmt)).one()
 
-    # Get worst error cases (up to 20)
+    # Count execution errors (is_valid=False)
+    exec_error_stmt = select(sa_func.count(EvalResult.id)).where(
+        EvalResult.task_id == task_id,
+        EvalResult.is_valid == False,  # noqa: E712
+    )
+    exec_error_count = (await session.exec(exec_error_stmt)).one()
+
+    error_count = wrong_count
+
+    # Get worst error cases — only model wrong answers (not execution errors)
     cases_stmt = (
         select(EvalResult)
         .where(
             EvalResult.task_id == task_id,
             EvalResult.score < 1.0,
+            EvalResult.is_valid == True,  # noqa: E712
         )
         .order_by(EvalResult.score.asc())
         .limit(20)
@@ -130,7 +139,9 @@ async def generate_safety_report(
         "task_name": task.name,
         "model_name": model.name if model else "Unknown",
         "total_samples": total,
-        "error_count": error_count,
+        "wrong_answer_count": wrong_count,
+        "execution_error_count": exec_error_count,
+        "error_count": error_count,  # backward compat
         "error_rate": round(error_rate, 4),
         "risk_level": risk_level,
         "error_cases": [
@@ -188,27 +199,48 @@ async def generate_cost_report(
 
     throughput = (r.total_tokens or 0) / max(duration_sec, 1)
 
-    return {
+    # Determine execution backend for cost metrics split
+    execution_backend = (
+        task.execution_backend
+        if hasattr(task, "execution_backend")
+        else "external_api"
+    )
+
+    base_report = {
         "type": "cost",
         "title": f"成本评测报告 — {task.name}",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "task_name": task.name,
         "model_name": model.name if model else "Unknown",
-        "gpu_ids": task.gpu_ids if task.gpu_ids else "未指定",
+        "execution_backend": execution_backend,
         "total_samples": r.total_samples,
         "avg_latency_ms": round(r.avg_latency or 0, 2),
         "min_latency_ms": round(r.min_latency or 0, 2),
         "max_latency_ms": round(r.max_latency or 0, 2),
-        "avg_first_token_ms": round(
-            r.avg_first_token or 0, 2
-        ),
-        "avg_tokens_per_response": round(
-            r.avg_tokens or 0, 1
-        ),
+        "avg_first_token_ms": round(r.avg_first_token or 0, 2),
+        "avg_tokens_per_response": round(r.avg_tokens or 0, 1),
         "total_tokens": r.total_tokens or 0,
         "duration_seconds": round(duration_sec, 1),
         "throughput_tokens_per_sec": round(throughput, 1),
     }
+
+    if execution_backend == "k8s_vllm":
+        # K8s/vLLM: add GPU-specific fields (populated from DCGM exporter)
+        base_report.update({
+            "gpu_ids": task.gpu_ids or "",
+            "gpu_utilization_pct": None,
+            "gpu_memory_peak_mb": None,
+            "gpu_power_watts": None,
+            "metrics_note": "GPU 指标需通过 Prometheus + DCGM Exporter 采集",
+        })
+    else:
+        # API model: no GPU metrics
+        base_report.update({
+            "gpu_ids": task.gpu_ids if task.gpu_ids else "N/A (API 模型)",
+            "estimated_cost_usd": None,
+        })
+
+    return base_report
 
 
 async def generate_value_report(

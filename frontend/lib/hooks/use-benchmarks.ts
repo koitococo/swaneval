@@ -43,3 +43,23 @@ export function useDeleteBenchmark() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["benchmarks"] }),
   });
 }
+
+export function usePullBenchmarks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      source?: string;
+      model_filter?: string;
+      limit?: number;
+      auto_import?: boolean;
+    }) => {
+      const res = await api.post<{ source: string; count?: number; imported?: number; preview?: unknown[] }>(
+        "/benchmarks/pull",
+        null,
+        { params: data },
+      );
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["benchmarks"] }),
+  });
+}

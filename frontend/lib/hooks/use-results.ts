@@ -54,3 +54,16 @@ export function useErrorResults(taskId: string, page = 1, pageSize = 50, refetch
     refetchInterval,
   });
 }
+
+export function useErrorAnalysis(taskId: string, errorOnly: boolean = false) {
+  return useQuery({
+    queryKey: ["results", "errors", taskId, errorOnly],
+    queryFn: async () => {
+      const res = await api.get<PaginatedResponse<EvalResult>>("/results/errors", {
+        params: { task_id: taskId, error_only: errorOnly, page_size: 50 },
+      });
+      return res.data;
+    },
+    enabled: !!taskId,
+  });
+}

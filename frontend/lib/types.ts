@@ -320,3 +320,29 @@ export interface PreflightResult {
   warnings: string[];
   preflight_token: string;
 }
+
+export interface Report {
+  id: string;
+  task_id: string;
+  report_type: string;
+  status: string;
+  title: string;
+  content: Record<string, unknown> | null;
+  error_message: string;
+  created_at: string;
+}
+
+export interface ReportListItem {
+  id: string;
+  task_id: string;
+  report_type: string;
+  status: string;
+  title: string;
+  created_at: string;
+}
+
+export interface BenchmarkPullResult {
+  source: string;
+  count: number;
+  preview: ExternalBenchmark[];
+}

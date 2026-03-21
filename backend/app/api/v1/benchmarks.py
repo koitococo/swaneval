@@ -123,6 +123,53 @@ async def create_benchmarks_batch(
     return entries
 
 
+@router.post("/pull")
+async def pull_benchmarks_from_platform(
+    source: str = "open_llm_leaderboard",
+    model_filter: str = "",
+    limit: int = 50,
+    auto_import: bool = False,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Pull benchmark data from an external platform.
+
+    If auto_import=True, directly imports into DB.
+    Otherwise returns preview data for user confirmation.
+    """
+    from app.services.benchmark_puller import pull_benchmarks
+
+    try:
+        entries = await pull_benchmarks(source, model_filter, limit)
+    except Exception as e:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"Pull failed: {e}"
+        ) from e
+
+    if not auto_import:
+        return {"source": source, "count": len(entries), "preview": entries[:20]}
+
+    # Auto-import
+    imported = []
+    for item in entries:
+        entry = ExternalBenchmark(
+            model_name=item["model_name"],
+            provider=item.get("provider", ""),
+            benchmark_name=item["benchmark_name"],
+            score=item["score"],
+            score_display=item.get("score_display", ""),
+            source_url=item.get("source_url", ""),
+            source_platform=item.get("source_platform", source),
+            notes=item.get("notes", ""),
+        )
+        session.add(entry)
+        imported.append(entry)
+    await session.commit()
+    for e in imported:
+        await session.refresh(e)
+    return {"source": source, "imported": len(imported)}
+
+
 @router.delete("/{benchmark_id}", status_code=204)
 async def delete_benchmark(
     benchmark_id: uuid.UUID,

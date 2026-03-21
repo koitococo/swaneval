@@ -6,6 +6,7 @@ from app.models.eval_task import EvalSubtask, EvalTask
 from app.models.external_benchmark import ExternalBenchmark
 from app.models.llm_model import LLMModel
 from app.models.permission import PermissionGroup, ResourceAcl, UserGroupMembership
+from app.models.report import Report, ReportExportLog
 from app.models.user import User
 
 __all__ = [
@@ -24,4 +25,6 @@ __all__ = [
     "ResourceAcl",
     "ComputeCluster",
     "ClusterInfraJob",
+    "Report",
+    "ReportExportLog",
 ]
