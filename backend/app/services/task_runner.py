@@ -83,32 +83,77 @@ def _should_use_evalscope(params: dict) -> bool:
 async def _load_dataset_rows(
     storage: StorageBackend, source_uri: str
 ) -> list[dict]:
-    """Load JSONL/JSON dataset rows via storage backend."""
+    """Load dataset rows from any supported format (Parquet, JSON, JSONL, CSV)."""
+    ext = os.path.splitext(source_uri)[1].lower()
     key = uri_to_key(source_uri)
-    if key is not None:
-        if not await storage.exists(key):
-            logger.error("Dataset file not found in storage: %s", key)
-            return []
-        text = await storage.read_text(key)
-    else:
-        # Mounted path — read directly from local filesystem
-        path = Path(source_uri)
-        if not path.exists():
-            logger.error("Dataset file not found: %s", source_uri)
-            return []
-        text = await asyncio.to_thread(path.read_text, encoding="utf-8")
 
-    is_json = source_uri.endswith(".json") or (key and key.endswith(".json"))
-    if is_json:
+    # ── Parquet — read as binary, convert via pyarrow ──
+    if ext == ".parquet":
+        import io
+
+        import pyarrow.parquet as pq
+
+        if key is not None:
+            if not await storage.exists(key):
+                logger.error("Dataset file not found: %s", key)
+                return []
+            data = await storage.read_file(key)
+        else:
+            p = Path(source_uri)
+            if not p.exists():
+                logger.error("Dataset file not found: %s", source_uri)
+                return []
+            data = await asyncio.to_thread(p.read_bytes)
+
+        table = pq.read_table(io.BytesIO(data))
+        return table.to_pandas().to_dict(orient="records")
+
+    # ── CSV ──
+    if ext == ".csv":
+        import io
+
+        import pandas as pd
+
+        text = await _read_text(storage, source_uri, key)
+        if text is None:
+            return []
+        df = pd.read_csv(io.StringIO(text))
+        return df.fillna("").to_dict(orient="records")
+
+    # ── Text formats: JSON / JSONL ──
+    text = await _read_text(storage, source_uri, key)
+    if text is None:
+        return []
+
+    if ext == ".json":
         data = json.loads(text)
         return data if isinstance(data, list) else [data]
 
+    # JSONL (default)
     rows: list[dict] = []
     for line in text.splitlines():
         line = line.strip()
         if line:
             rows.append(json.loads(line))
     return rows
+
+
+async def _read_text(
+    storage: StorageBackend,
+    source_uri: str,
+    key: str | None,
+) -> str | None:
+    """Read a file as UTF-8 text from storage or filesystem."""
+    if key is not None:
+        if not await storage.exists(key):
+            logger.error("Dataset file not found: %s", key)
+            return None
+        return await storage.read_text(key)
+    p = Path(source_uri)
+    if not p.exists():
+        logger.error("Dataset file not found: %s", source_uri)
+        return None
+    return await asyncio.to_thread(p.read_text, encoding="utf-8")
 
 
 async def _run_task_with_evalscope(
