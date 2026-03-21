@@ -70,13 +70,15 @@ export function FilterDropdown({
             <span className="font-semibold text-foreground max-w-[120px] truncate">
               {displayLabel}
             </span>
-            <button
-              type="button"
+            <span
+              role="button"
+              tabIndex={0}
               onClick={(e) => { e.stopPropagation(); onChange("__all__"); }}
-              className="rounded-full hover:bg-primary/20 p-0.5 -mr-0.5"
+              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onChange("__all__"); } }}
+              className="rounded-full hover:bg-primary/20 p-0.5 -mr-0.5 cursor-pointer"
             >
               <X className="h-3 w-3" />
-            </button>
+            </span>
           </>
         )}
         {value === "__all__" && (
