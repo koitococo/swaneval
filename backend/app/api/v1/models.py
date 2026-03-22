@@ -1,14 +1,13 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from sqlalchemy.exc import IntegrityError
-
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_db, require_permission
 from app.config import settings
 from app.models.llm_model import LLMModel
 from app.models.user import User
@@ -17,8 +16,11 @@ from app.schemas.model import (
     LLMModelResponse,
     LLMModelUpdate,
     ModelTestResponse,
+    PlaygroundRequest,
+    PlaygroundResponse,
 )
 from app.services.model_connectivity import test_model_connectivity
+from app.services.task_runner import ModelCallResult, _call_model
 
 router = APIRouter()
 
@@ -27,7 +29,7 @@ router = APIRouter()
 async def create_model(
     body: LLMModelCreate,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("models.write"),
 ):
     m = LLMModel(
         name=body.name,
@@ -49,7 +51,7 @@ async def create_model(
 @router.get("", response_model=list[LLMModelResponse])
 async def list_models(
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("models.read"),
 ):
     stmt = select(LLMModel).order_by(col(LLMModel.created_at).desc())
     result = await session.exec(stmt)
@@ -60,7 +62,7 @@ async def list_models(
 async def get_model(
     model_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("models.read"),
 ):
     m = await session.get(LLMModel, model_id)
     if not m:
@@ -73,7 +75,7 @@ async def update_model(
     model_id: uuid.UUID,
     body: LLMModelUpdate,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("models.write"),
 ):
     m = await session.get(LLMModel, model_id)
     if not m:
@@ -93,7 +95,7 @@ async def update_model(
     if body.max_tokens is not None:
         m.max_tokens = body.max_tokens
 
-    m.updated_at = datetime.utcnow()
+    m.updated_at = datetime.now(timezone.utc)
     session.add(m)
     await session.commit()
     await session.refresh(m)
@@ -104,7 +106,7 @@ async def update_model(
 async def test_model(
     model_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("models.read"),
 ):
     m = await session.get(LLMModel, model_id)
     if not m:
@@ -119,6 +121,12 @@ async def test_model(
         model_name=model_name,
         api_format=m.api_format or "openai",
     )
+
+    m.last_test_at = datetime.now(timezone.utc)
+    m.last_test_ok = ok
+    session.add(m)
+    await session.commit()
+
     return ModelTestResponse(ok=ok, message=message)
 
 
@@ -126,7 +134,7 @@ async def test_model(
 async def delete_model(
     model_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("models.write"),
 ):
     m = await session.get(LLMModel, model_id)
     if not m:
@@ -140,3 +148,31 @@ async def delete_model(
             status.HTTP_409_CONFLICT,
             "无法删除：该模型仍被评测任务引用，请先删除相关任务。",
         )
+
+
+@router.post("/{model_id}/playground", response_model=PlaygroundResponse)
+async def playground(
+    model_id: uuid.UUID,
+    body: PlaygroundRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = require_permission("models.read"),
+):
+    """Send a prompt to a model and get the response."""
+    m = await session.get(LLMModel, model_id)
+    if not m:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Model not found")
+
+    params = {"temperature": body.temperature, "max_tokens": body.max_tokens}
+
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        result: ModelCallResult = await _call_model(client, m, body.prompt, params)
+
+    if result.error:
+        raise HTTPException(400, f"Model call failed: {result.error.detail}")
+
+    return PlaygroundResponse(
+        output=result.output,
+        latency_ms=result.latency_ms,
+        tokens_generated=result.tokens_generated,
+        model_name=m.model_name or m.name,
+    )

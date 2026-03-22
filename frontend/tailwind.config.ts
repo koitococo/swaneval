@@ -11,9 +11,11 @@ module.exports = {
     container: {
       center: true,
       padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
+      screens: { "2xl": "1400px" },
+    },
+    fontFamily: {
+      sans: ['"Inter Variable"', '"Inter"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      mono: ['"JetBrains Mono Variable"', '"JetBrains Mono"', 'ui-monospace', 'monospace'],
     },
     extend: {
       colors: {
@@ -57,14 +59,6 @@ module.exports = {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
-        "accordion-down": {
-          from: { height: 0 },
-          to: { height: "var(--radix-accordion-content-height)" },
-        },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: 0 },
-        },
         "modal-expand": {
           from: { opacity: "0", transform: "scale(0.85)" },
           to: { opacity: "1", transform: "scale(1)" },
@@ -75,8 +69,8 @@ module.exports = {
         },
         "shake": {
           "0%, 100%": { transform: "translateX(0)" },
-          "15%, 55%": { transform: "translateX(-5px)" },
-          "35%, 75%": { transform: "translateX(5px)" },
+          "10%, 50%, 90%": { transform: "translateX(-8px)" },
+          "30%, 70%": { transform: "translateX(8px)" },
         },
         "backdrop-in": {
           from: { opacity: "0" },
@@ -84,8 +78,6 @@ module.exports = {
         },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
         "modal-expand": "modal-expand 0.2s ease-out",
         "float-up": "float-up 0.25s ease-out forwards",
         "shake": "shake 0.4s ease-in-out",

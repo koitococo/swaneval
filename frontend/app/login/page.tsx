@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/logo";
+import { useQueryClient } from "@tanstack/react-query";
+import { extractErrorDetail } from "@/lib/utils";
 import api from "@/lib/api";
 import type { TokenResponse, User } from "@/lib/types";
 import { useUserCount } from "@/lib/hooks/use-users";
@@ -18,6 +20,7 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const qc = useQueryClient();
   const { data: userCount, isLoading: countLoading } = useUserCount();
   const isFirstUser = userCount === 0;
 
@@ -54,11 +57,7 @@ export default function LoginPage() {
       localStorage.setItem("user", JSON.stringify(user));
       window.location.href = "/";
     } catch (err: unknown) {
-      const detail =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { detail?: string } } }).response
-              ?.data?.detail
-          : undefined;
+      const detail = extractErrorDetail(err, "");
       if (detail === "User not found") {
         setError("该用户不存在，请先注册账号");
         setMode("register");
@@ -79,6 +78,7 @@ export default function LoginPage() {
         ? { ...regForm, username: "admin", role: "admin" }
         : { ...regForm, role: "engineer" };
       await api.post("/auth/register", body);
+      await qc.invalidateQueries({ queryKey: ["user-count"] });
       setSuccess("账号创建成功，请在下方登录。");
       setMode("login");
       setLoginForm({
@@ -86,12 +86,7 @@ export default function LoginPage() {
         password: regForm.password,
       });
     } catch (err: unknown) {
-      const detail =
-        err && typeof err === "object" && "response" in err
-          ? (err as { response?: { data?: { detail?: string } } }).response
-              ?.data?.detail
-          : undefined;
-      setError(detail || "注册失败");
+      setError(extractErrorDetail(err, "注册失败"));
     } finally {
       setLoading(false);
     }
@@ -116,7 +111,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 items-center justify-center bg-background px-6">
+      <div className="flex flex-1 items-center justify-center bg-muted px-6">
         <div className="w-full max-w-sm space-y-8">
           <div className="lg:hidden flex items-center gap-2.5">
             <Logo className="h-7 w-7 text-primary" />

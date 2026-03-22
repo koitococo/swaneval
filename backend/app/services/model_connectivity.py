@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from urllib.parse import urlparse
 from typing import Any, cast
+from urllib.parse import urlparse
 
 import httpx
 
@@ -33,7 +33,7 @@ def _build_headers(api_key: str, endpoint_url: str) -> dict[str, str]:
 
 
 def _build_payload(model_name: str, endpoint_url: str) -> dict:
-    # Anthropic-compatible endpoints accept `messages`, but do not use OpenAI `choices` output schema.
+    # Anthropic endpoints accept `messages` but don't use OpenAI `choices` schema.
     _ = endpoint_url
     return {
         "model": model_name,

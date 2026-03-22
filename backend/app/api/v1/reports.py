@@ -2,6 +2,7 @@
 
 import csv
 import io
+import json
 import uuid
 
 from docx import Document as DocxDocument
@@ -10,7 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_db, require_permission
+from app.models.report import Report, ReportStatus, ReportType
 from app.models.user import User
 from app.services.report_generator import (
     generate_cost_report,
@@ -29,14 +31,149 @@ REPORT_GENERATORS = {
 }
 
 
+# ── Persistent report CRUD ─────────────────────────────
+
+
+@router.post("", status_code=201)
+async def create_report(
+    task_id: uuid.UUID,
+    report_type: str = "performance",
+    session: AsyncSession = Depends(get_db),
+    current_user: User = require_permission("reports.generate"),
+):
+    """Generate and persist a report."""
+    generator = REPORT_GENERATORS.get(report_type)
+    if not generator:
+        raise HTTPException(400, f"Invalid report type: {report_type}")
+
+    rt = ReportType(report_type)
+    report = Report(
+        task_id=task_id,
+        report_type=rt,
+        status=ReportStatus.generating,
+        created_by=current_user.id,
+    )
+    session.add(report)
+    await session.commit()
+    await session.refresh(report)
+
+    try:
+        content = await generator(task_id, session)
+        report.content_json = json.dumps(content, ensure_ascii=False, default=str)
+        report.title = content.get("title", "")
+        report.status = ReportStatus.ready
+    except Exception as e:
+        report.status = ReportStatus.failed
+        report.error_message = str(e)[:500]
+
+    session.add(report)
+    await session.commit()
+    await session.refresh(report)
+    return {
+        "id": str(report.id),
+        "task_id": str(report.task_id),
+        "report_type": report.report_type,
+        "status": report.status,
+        "title": report.title,
+        "content": (
+            json.loads(report.content_json)
+            if report.status == ReportStatus.ready
+            else None
+        ),
+        "error_message": report.error_message,
+        "created_at": report.created_at.isoformat(),
+    }
+
+
+@router.get("")
+async def list_reports(
+    task_id: uuid.UUID | None = None,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = require_permission("reports.read"),
+):
+    """List persisted reports, filtered by visibility."""
+    from sqlmodel import select as sel
+
+    stmt = sel(Report).order_by(Report.created_at.desc())
+    if task_id:
+        stmt = stmt.where(Report.task_id == task_id)
+    result = await session.exec(stmt)
+    all_reports = result.all()
+
+    # Filter by visibility
+    visible = []
+    for r in all_reports:
+        if current_user.role == "admin":
+            visible.append(r)
+        elif r.created_by == current_user.id:
+            visible.append(r)
+        elif r.visibility == "public":
+            visible.append(r)
+        elif r.visibility == "team":
+            visible.append(r)  # team = all authenticated users
+        elif r.allowed_users:
+            if str(current_user.id) in r.allowed_users.split(","):
+                visible.append(r)
+    reports = visible
+
+    return [
+        {
+            "id": str(r.id),
+            "task_id": str(r.task_id),
+            "report_type": r.report_type,
+            "status": r.status,
+            "title": r.title,
+            "visibility": r.visibility,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in reports
+    ]
+
+
+@router.get("/{report_id}")
+async def get_report(
+    report_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = require_permission("reports.read"),
+):
+    """Fetch a persisted report with full content."""
+    report = await session.get(Report, report_id)
+    if not report:
+        raise HTTPException(404, "Report not found")
+
+    # Visibility access check
+    if (
+        current_user.role != "admin"
+        and report.created_by != current_user.id
+        and report.visibility == "creator"
+        and str(current_user.id) not in (report.allowed_users or "").split(",")
+    ):
+        raise HTTPException(403, "无权查看此报告")
+
+    return {
+        "id": str(report.id),
+        "task_id": str(report.task_id),
+        "report_type": report.report_type,
+        "status": report.status,
+        "title": report.title,
+        "visibility": report.visibility,
+        "content": json.loads(report.content_json) if report.content_json else None,
+        "error_message": report.error_message,
+        "created_at": report.created_at.isoformat(),
+    }
+
+
+# ── Legacy generate (stateless) ────────────────────────
+
+
 @router.post("/generate")
 async def generate_report(
     task_id: uuid.UUID,
     report_type: str = "performance",
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("reports.read"),
 ):
-    """Generate a report as JSON."""
+    """Generate a report as JSON (stateless, not persisted)."""
     generator = REPORT_GENERATORS.get(report_type)
     if not generator:
         raise HTTPException(
@@ -54,12 +191,15 @@ async def generate_report(
         ) from e
 
 
+# ── Export endpoints ────────────────────────────────────
+
+
 @router.post("/export/csv")
 async def export_csv(
     task_id: uuid.UUID,
     report_type: str = "performance",
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("reports.export"),
 ):
     """Export report as CSV."""
     report = await _get_report(
@@ -84,7 +224,7 @@ async def export_html(
     task_id: uuid.UUID,
     report_type: str = "performance",
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("reports.export"),
 ):
     """Export report as HTML."""
     report = await _get_report(
@@ -109,7 +249,7 @@ async def export_docx(
     task_id: uuid.UUID,
     report_type: str = "performance",
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("reports.export"),
 ):
     """Export report as DOCX."""
     report = await _get_report(
@@ -128,6 +268,29 @@ async def export_docx(
                 f'attachment; filename='
                 f'"{report_type}_report.docx"'
             )
+        },
+    )
+
+
+@router.post("/export/pdf")
+async def export_pdf(
+    task_id: uuid.UUID,
+    report_type: str = "performance",
+    session: AsyncSession = Depends(get_db),
+    current_user: User = require_permission("reports.export"),
+):
+    """Export report as PDF (via HTML rendering)."""
+    report = await _get_report(task_id, report_type, session)
+    html = _report_to_html(report)
+
+    # Convert HTML to PDF using simple approach
+    pdf_bytes = _html_to_pdf(html)
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{report_type}_report.pdf"'
         },
     )
 
@@ -359,9 +522,9 @@ def _html_safety(r: dict) -> str:
     rl = r.get("risk_level", "")
     css = (
         "low"
-        if "低" in rl
+        if "\u4f4e" in rl
         else "mid"
-        if "中" in rl
+        if "\u4e2d" in rl
         else "high"
     )
     out = (
@@ -418,6 +581,17 @@ def _html_value(r: dict) -> str:
         f"Value Index: <b>{r['value_index']}</b></p>"
     )
     return summary + _html_perf(r)
+
+
+def _html_to_pdf(html: str) -> bytes:
+    """Convert HTML to PDF. Uses weasyprint if available, falls back to basic."""
+    try:
+        from weasyprint import HTML
+        return HTML(string=html).write_pdf()
+    except ImportError:
+        # Fallback: return HTML wrapped as "PDF" (user can print to PDF)
+        # In production, install weasyprint for real PDF generation
+        return html.encode("utf-8")
 
 
 # ── DOCX helper ─────────────────────────────────────────

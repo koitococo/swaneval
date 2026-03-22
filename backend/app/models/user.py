@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, SQLModel
 
@@ -48,8 +48,17 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True)
     # 是否激活 / Whether the user account is active
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    hf_token: str = Field(default="")
+    ms_token: str = Field(default="")
+
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
+    )
     # 创建时间 / Account creation timestamp
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
+    )
     # 更新时间 / Last update timestamp

@@ -45,8 +45,8 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
                 active
-                  ? "bg-accent text-accent-foreground font-medium"
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  ? "bg-muted text-foreground font-medium"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -67,7 +67,7 @@ export function Sidebar() {
                 logout();
                 window.location.href = "/login";
               }}
-              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />

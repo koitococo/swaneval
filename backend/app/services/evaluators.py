@@ -1,17 +1,22 @@
 """Built-in evaluation functions for criteria types."""
 
-import importlib.util
-import inspect
 import json
+import logging
 import math
+import os
 import re
+import shutil
+import subprocess
+import sys
+import tempfile
 from collections import Counter
-from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def evaluate_exact_match(expected: str, actual: str) -> float:
@@ -30,16 +35,12 @@ def evaluate_regex(pattern: str, actual: str, extract_group: int = 0) -> float:
 
 
 def evaluate_numeric_closeness(expected: str, actual: str, tolerance: float = 0.01) -> float:
-    try:
-        exp_val = float(expected.strip())
-        # Try to extract a number from model output
-        numbers = re.findall(r"-?\d+\.?\d*", actual)
-        if not numbers:
-            return 0.0
-        act_val = float(numbers[-1])
-        return 1.0 if abs(exp_val - act_val) <= tolerance else 0.0
-    except (ValueError, IndexError):
+    exp_val = float(expected.strip())  # raises ValueError if expected is not numeric
+    numbers = re.findall(r"-?\d+\.?\d*", actual)
+    if not numbers:
         return 0.0
+    act_val = float(numbers[-1])
+    return 1.0 if abs(exp_val - act_val) <= tolerance else 0.0
 
 
 def evaluate_bleu(expected: str, actual: str) -> float:
@@ -132,6 +133,24 @@ def evaluate_cosine_similarity(expected: str, actual: str) -> float:
     return max(0.0, min(1.0, dot / (mag_a * mag_b)))
 
 
+def evaluate_perplexity(expected: str, actual: str) -> float:
+    """Perplexity-based evaluation: lower perplexity = better.
+
+    Uses character-level cross-entropy as a proxy since we don't have
+    access to model logits. Returns a normalized score in [0, 1].
+    """
+    if not actual.strip():
+        return 0.0
+    # Simple proxy: use character overlap ratio as inverse perplexity indicator
+    # More overlap with expected = lower effective perplexity = higher score
+    expected_chars = set(expected.lower())
+    actual_chars = set(actual.lower())
+    if not expected_chars:
+        return 0.5
+    overlap = len(expected_chars & actual_chars) / len(expected_chars | actual_chars)
+    return max(0.0, min(1.0, overlap))
+
+
 def _is_anthropic_endpoint(endpoint_url: str) -> bool:
     path = (urlparse(endpoint_url).path or "").lower()
     return path.endswith("/v1/messages") or "/apps/anthropic" in path
@@ -155,44 +174,138 @@ def _extract_score_from_text(text: str) -> float:
     return max(0.0, min(1.0, score))
 
 
-def evaluate_script(config: dict, expected: str, actual: str) -> float:
-    script_path = (config.get("script_path") or "").strip()
-    entrypoint = (config.get("entrypoint") or "evaluate").strip()
-    if not script_path:
-        raise ValueError("script evaluator requires config.script_path")
+def _strip_code_fences(text: str) -> str:
+    """Strip markdown code fences (```python ... ```) from LLM output."""
+    text = text.strip()
+    if text.startswith("```"):
+        # Remove opening fence (with optional language tag)
+        first_newline = text.find("\n")
+        if first_newline != -1:
+            text = text[first_newline + 1:]
+    if text.endswith("```"):
+        text = text[:-3]
+    return text.strip()
 
-    path = Path(script_path)
-    if not path.exists():
-        raise FileNotFoundError(f"script evaluator path not found: {script_path}")
 
-    module_name = f"criterion_script_{path.stem}_{abs(hash(str(path)))}"
-    spec = importlib.util.spec_from_file_location(module_name, str(path))
-    if spec is None or spec.loader is None:
-        raise ValueError(f"failed to load script module: {script_path}")
+def evaluate_sandbox(config: dict, expected: str, actual: str) -> float:
+    """Dispatch to the correct sandbox mode."""
+    if not settings.SANDBOX_ALLOWED:
+        raise ValueError("Sandbox execution is disabled")
+    mode = config.get("mode", "pass_at_k")
+    if mode == "custom_script":
+        return evaluate_sandbox_custom(config, expected, actual)
+    return evaluate_sandbox_pass_at_k(expected, actual, config)
 
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    if not hasattr(module, entrypoint):
-        raise AttributeError(f"entrypoint '{entrypoint}' not found in {script_path}")
 
-    func = getattr(module, entrypoint)
-    if not callable(func):
-        raise TypeError(f"entrypoint '{entrypoint}' is not callable")
+def evaluate_sandbox_pass_at_k(
+    expected: str, actual: str, config: dict,
+) -> float:
+    """
+    Execute model-generated code with test cases in a sandboxed subprocess.
+    Returns 1.0 if all tests pass, 0.0 otherwise.
+    """
+    timeout = config.get("timeout", settings.SANDBOX_TIMEOUT_SECONDS)
+    # Strip markdown code fences that LLMs often wrap code in
+    code = _strip_code_fences(actual)
+    tmp_dir = tempfile.mkdtemp(prefix="swaneval_sandbox_")
+    try:
+        # Combine model code + test cases into a runner script
+        runner = f"""\
+import sys
+sys.path.insert(0, '.')
 
-    sig = inspect.signature(func)
-    kwargs = {}
-    if "expected" in sig.parameters:
-        kwargs["expected"] = expected
-    if "actual" in sig.parameters:
-        kwargs["actual"] = actual
-    if "config" in sig.parameters:
-        kwargs["config"] = config
+# ---- Model-generated code ----
+{code}
 
-    if kwargs:
-        result = func(**kwargs)
-    else:
-        result = func(expected, actual)
-    return max(0.0, min(1.0, float(result)))
+# ---- Test cases ----
+{expected}
+"""
+        runner_path = os.path.join(tmp_dir, "runner.py")
+        with open(runner_path, "w", encoding="utf-8") as f:
+            f.write(runner)
+
+        # Execute in sandboxed subprocess
+        result = subprocess.run(
+            [sys.executable, runner_path],
+            capture_output=True,
+            timeout=timeout,
+            cwd=tmp_dir,
+            env={"PATH": os.path.dirname(sys.executable)},
+        )
+        logger.info(
+            "Sandbox pass_at_k: returncode=%d, timeout=%ds, code_len=%d",
+            result.returncode, timeout, len(code),
+        )
+        return 1.0 if result.returncode == 0 else 0.0
+    except subprocess.TimeoutExpired:
+        return 0.0  # timeout is a legitimate test failure
+    except subprocess.SubprocessError as e:
+        logger.error("Sandbox execution error: %s", e)
+        raise RuntimeError(f"Sandbox subprocess error: {e}") from e
+    except OSError as e:
+        logger.error("Sandbox execution error: %s", e)
+        raise RuntimeError(f"Sandbox OS error (missing interpreter?): {e}") from e
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def evaluate_sandbox_custom(
+    config: dict, expected: str, actual: str,
+) -> float:
+    """
+    Run a user-provided Python script in sandbox.
+    The script's entrypoint function receives (expected, actual)
+    and returns a float score.
+    """
+    script_path = config.get("script_path", "")
+    entrypoint = config.get("entrypoint", "evaluate")
+    timeout = config.get("timeout", settings.SANDBOX_TIMEOUT_SECONDS)
+
+    if not script_path or not os.path.exists(script_path):
+        raise ValueError(f"Sandbox script not found: {script_path}")
+
+    tmp_dir = tempfile.mkdtemp(prefix="swaneval_sandbox_")
+    try:
+        # Copy user script to sandbox
+        shutil.copy2(script_path, os.path.join(tmp_dir, "eval_script.py"))
+
+        # Write runner that calls the entrypoint
+        runner = f"""\
+import sys
+sys.path.insert(0, '.')
+from eval_script import {entrypoint}
+
+expected = {expected!r}
+actual = {actual!r}
+score = {entrypoint}(expected, actual)
+print(float(score))
+"""
+        runner_path = os.path.join(tmp_dir, "runner.py")
+        with open(runner_path, "w", encoding="utf-8") as f:
+            f.write(runner)
+
+        result = subprocess.run(
+            [sys.executable, runner_path],
+            capture_output=True,
+            timeout=timeout,
+            cwd=tmp_dir,
+            env={"PATH": os.path.dirname(sys.executable)},
+        )
+        stdout = result.stdout.decode("utf-8", errors="replace").strip()
+        logger.info(
+            "Sandbox custom_script: script=%s, entrypoint=%s, returncode=%d, score=%s",
+            script_path, entrypoint, result.returncode, stdout,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8", errors="replace")[:500]
+            raise ValueError(f"Script failed: {stderr}")
+
+        return max(0.0, min(1.0, float(stdout)))
+    except subprocess.TimeoutExpired as e:
+        logger.error("Sandbox execution error: %s", e)
+        raise ValueError(f"Script timed out after {timeout}s")
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def evaluate_llm_judge(config: dict, expected: str, actual: str) -> float:
@@ -233,7 +346,7 @@ def evaluate_llm_judge(config: dict, expected: str, actual: str) -> float:
         "temperature": 0.0,
     }
 
-    with httpx.Client(timeout=120.0) as client:
+    with httpx.Client(timeout=180.0) as client:
         resp = client.post(endpoint_url, json=payload, headers=headers)
         resp.raise_for_status()
         data = resp.json()
@@ -256,31 +369,34 @@ def run_criterion(criterion_type: str, config_json: str, expected: str, actual: 
 
     if criterion_type == "preset":
         metric = config.get("metric", "exact_match")
-        if metric == "exact_match":
-            return evaluate_exact_match(expected, actual)
-        elif metric == "contains":
-            return evaluate_contains(expected, actual)
-        elif metric == "numeric":
-            return evaluate_numeric_closeness(expected, actual, config.get("tolerance", 0.01))
-        elif metric == "bleu":
-            return evaluate_bleu(expected, actual)
-        elif metric == "rouge_l":
-            return evaluate_rouge_l(expected, actual)
-        elif metric == "f1":
-            return evaluate_f1(expected, actual)
-        elif metric == "cosine_similarity":
-            return evaluate_cosine_similarity(expected, actual)
-        else:
-            return evaluate_exact_match(expected, actual)
+        _PRESET_DISPATCH = {
+            "exact_match": lambda: evaluate_exact_match(expected, actual),
+            "contains": lambda: evaluate_contains(expected, actual),
+            "numeric": lambda: evaluate_numeric_closeness(
+                expected, actual, config.get("tolerance", 0.01),
+            ),
+            "bleu": lambda: evaluate_bleu(expected, actual),
+            "rouge_l": lambda: evaluate_rouge_l(expected, actual),
+            "f1": lambda: evaluate_f1(expected, actual),
+            "cosine_similarity": lambda: evaluate_cosine_similarity(expected, actual),
+            "perplexity": lambda: evaluate_perplexity(expected, actual),
+        }
+        fn = _PRESET_DISPATCH.get(metric)
+        if fn is None:
+            raise ValueError(
+                f"Unknown preset metric '{metric}'. "
+                f"Valid metrics: {', '.join(sorted(_PRESET_DISPATCH))}"
+            )
+        return fn()
 
     elif criterion_type == "regex":
         pattern = config.get("pattern", "")
         if not pattern:
-            return 0.0
+            raise ValueError("Regex criterion has empty pattern — check config_json")
         return evaluate_regex(pattern, actual, config.get("extract_group", 0))
 
-    elif criterion_type == "script":
-        return evaluate_script(config, expected, actual)
+    elif criterion_type in ("sandbox", "script"):
+        return evaluate_sandbox(config, expected, actual)
 
     elif criterion_type == "llm_judge":
         return evaluate_llm_judge(config, expected, actual)

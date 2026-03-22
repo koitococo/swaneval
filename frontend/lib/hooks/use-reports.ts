@@ -1,5 +1,6 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import type { Report, ReportListItem } from "@/lib/types";
 
 export type ReportType = "performance" | "safety" | "cost" | "value";
 
@@ -13,6 +14,41 @@ export function useReport(taskId: string, reportType: ReportType) {
       return res.data;
     },
     enabled: !!taskId,
+  });
+}
+
+export function useReportList(taskId?: string) {
+  return useQuery({
+    queryKey: ["reports", taskId],
+    queryFn: async () => {
+      const params = taskId ? { task_id: taskId } : {};
+      const res = await api.get<ReportListItem[]>("/reports", { params });
+      return res.data;
+    },
+  });
+}
+
+export function useReportDetail(reportId: string) {
+  return useQuery({
+    queryKey: ["reports", "detail", reportId],
+    queryFn: async () => {
+      const res = await api.get<Report>(`/reports/${reportId}`);
+      return res.data;
+    },
+    enabled: !!reportId,
+  });
+}
+
+export function useCreateReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { task_id: string; report_type: string }) => {
+      const res = await api.post<Report>("/reports", null, {
+        params: data,
+      });
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reports"] }),
   });
 }
 

@@ -1,0 +1,76 @@
+"""persistent reports and export logs
+
+Revision ID: 0011
+Revises: 0010
+Create Date: 2026-03-21
+"""
+
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+
+from alembic import op
+
+revision: str = "0011"
+down_revision: str | None = "0010"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
+
+
+def upgrade() -> None:
+    # Create enum types
+    reporttype_enum = sa.Enum(
+        "performance", "safety", "cost", "value",
+        name="reporttype",
+    )
+    reportstatus_enum = sa.Enum(
+        "generating", "ready", "failed",
+        name="reportstatus",
+    )
+
+    reporttype_enum.create(op.get_bind(), checkfirst=True)
+    reportstatus_enum.create(op.get_bind(), checkfirst=True)
+
+    # Create reports table
+    op.create_table(
+        "reports",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("task_id", sa.Uuid(), nullable=False),
+        sa.Column("report_type", reporttype_enum, nullable=False),
+        sa.Column("status", reportstatus_enum, nullable=False, server_default=sa.text("'generating'")),
+        sa.Column("title", sa.String(), nullable=False, server_default=sa.text("''")),
+        sa.Column("content_json", sa.String(), nullable=False, server_default=sa.text("'{}'")),
+        sa.Column("error_message", sa.String(), nullable=False, server_default=sa.text("''")),
+        sa.Column("created_by", sa.Uuid(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["task_id"], ["eval_tasks.id"]),
+        sa.ForeignKeyConstraint(["created_by"], ["users.id"]),
+    )
+    op.create_index("ix_reports_task_id", "reports", ["task_id"])
+
+    # Create report_export_logs table
+    op.create_table(
+        "report_export_logs",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("report_id", sa.Uuid(), nullable=False),
+        sa.Column("format", sa.String(), nullable=False, server_default=sa.text("''")),
+        sa.Column("exported_by", sa.Uuid(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.PrimaryKeyConstraint("id"),
+        sa.ForeignKeyConstraint(["report_id"], ["reports.id"]),
+        sa.ForeignKeyConstraint(["exported_by"], ["users.id"]),
+    )
+    op.create_index("ix_report_export_logs_report_id", "report_export_logs", ["report_id"])
+
+
+def downgrade() -> None:
+    op.drop_index("ix_report_export_logs_report_id", table_name="report_export_logs")
+    op.drop_table("report_export_logs")
+    op.drop_index("ix_reports_task_id", table_name="reports")
+    op.drop_table("reports")
+
+    # Drop enum types
+    sa.Enum(name="reportstatus").drop(op.get_bind(), checkfirst=True)
+    sa.Enum(name="reporttype").drop(op.get_bind(), checkfirst=True)
