@@ -62,6 +62,30 @@ export function useDeleteUser() {
   });
 }
 
+export function useUserTokens() {
+  return useQuery({
+    queryKey: ["user-tokens"],
+    queryFn: async () => {
+      const res = await api.get<{ hf_token_set: boolean; ms_token_set: boolean }>("/auth/tokens");
+      return res.data;
+    },
+  });
+}
+
+export function useUpdateUserTokens() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { hf_token?: string; ms_token?: string }) => {
+      const res = await api.put<{ hf_token_set: boolean; ms_token_set: boolean }>("/auth/tokens", data);
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-tokens"] });
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+}
+
 export function useUserCount() {
   return useQuery({
     queryKey: ["user-count"],

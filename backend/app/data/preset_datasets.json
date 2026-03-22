@@ -1,0 +1,182 @@
+[
+  {
+    "name": "GSM8K",
+    "description": "Grade School Math 8K — 8500道小学数学应用题，评估模型的多步数学推理能力",
+    "source": "huggingface",
+    "source_id": "openai/gsm8k",
+    "subset": "main",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "math,reasoning,preset"
+  },
+  {
+    "name": "MATH (Algebra)",
+    "description": "竞赛级代数数学题，评估高级数学推理（hendrycks MATH 数据集 algebra 子集）",
+    "source": "huggingface",
+    "source_id": "EleutherAI/hendrycks_math",
+    "subset": "algebra",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "math,reasoning,competition,preset"
+  },
+  {
+    "name": "MATH",
+    "description": "竞赛级数学题完整集，涵盖代数、几何、数论等7个子领域，评估模型高级数学推理能力",
+    "source": "huggingface",
+    "source_id": "hendrycks/competition_math",
+    "subset": "default",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "math,reasoning,competition,preset"
+  },
+  {
+    "name": "ARC-Challenge",
+    "description": "AI2 推理挑战赛（困难集），3548道小学科学选择题，评估模型的科学问答与推理能力",
+    "source": "huggingface",
+    "source_id": "allenai/ai2_arc",
+    "subset": "ARC-Challenge",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "reasoning,science,qa,preset"
+  },
+  {
+    "name": "HellaSwag",
+    "description": "常识推理基准，评估模型对日常情景的理解与后续事件预测能力",
+    "source": "huggingface",
+    "source_id": "Rowan/hellaswag",
+    "subset": "default",
+    "split": "validation",
+    "format": "jsonl",
+    "tags": "reasoning,commonsense,preset"
+  },
+  {
+    "name": "WinoGrande",
+    "description": "大规模共指消解基准（XL集），评估模型对代词指代关系的常识推理能力",
+    "source": "huggingface",
+    "source_id": "allenai/winogrande",
+    "subset": "winogrande_xl",
+    "split": "validation",
+    "format": "jsonl",
+    "tags": "reasoning,commonsense,coreference,preset"
+  },
+  {
+    "name": "BBH (Boolean Expressions)",
+    "description": "BIG-Bench Hard 布尔表达式任务，评估模型的逻辑推理能力",
+    "source": "huggingface",
+    "source_id": "lukaemon/bbh",
+    "subset": "boolean_expressions",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "reasoning,logic,preset"
+  },
+  {
+    "name": "HumanEval",
+    "description": "164道 Python 编程题，评估模型的代码生成能力（Pass@k 指标）",
+    "source": "huggingface",
+    "source_id": "openai/openai_humaneval",
+    "subset": "openai_humaneval",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "code,python,preset"
+  },
+  {
+    "name": "MBPP",
+    "description": "Mostly Basic Python Problems — 974道 Python 编程题，评估基础代码生成能力",
+    "source": "huggingface",
+    "source_id": "google-research-datasets/mbpp",
+    "subset": "full",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "code,python,preset"
+  },
+  {
+    "name": "MMLU",
+    "description": "大规模多任务语言理解基准，涵盖57个学科领域，全面评估模型的知识广度与理解能力",
+    "source": "huggingface",
+    "source_id": "cais/mmlu",
+    "subset": "all",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "language-understanding,knowledge,multi-task,preset"
+  },
+  {
+    "name": "C-Eval",
+    "description": "中文综合能力评估基准，涵盖52个学科，评估模型的中文知识与推理能力",
+    "source": "huggingface",
+    "source_id": "ceval/ceval-exam",
+    "subset": "default",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "language-understanding,chinese,knowledge,preset"
+  },
+  {
+    "name": "CMMLU",
+    "description": "中文多任务语言理解基准，涵盖自然科学、社会科学、人文等67个学科，评估中文综合能力",
+    "source": "huggingface",
+    "source_id": "haonan-li/cmmlu",
+    "subset": "default",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "language-understanding,chinese,multi-task,preset"
+  },
+  {
+    "name": "AlpacaEval",
+    "description": "805条指令，评估模型的指令跟随和开放式生成质量，常用于对话模型对比",
+    "source": "huggingface",
+    "source_id": "tatsu-lab/alpaca_eval",
+    "subset": "",
+    "split": "",
+    "format": "jsonl",
+    "tags": "instruction,chat,preset"
+  },
+  {
+    "name": "MT-Bench",
+    "description": "80组多轮对话题目，涵盖写作、推理、数学等8个类别，评估多轮对话能力",
+    "source": "huggingface",
+    "source_id": "HuggingFaceH4/mt_bench_prompts",
+    "subset": "default",
+    "split": "train",
+    "format": "jsonl",
+    "tags": "chat,multi-turn,preset"
+  },
+  {
+    "name": "IFEval",
+    "description": "指令跟随评估基准，包含可验证的指令约束（如格式、长度、关键词等），评估模型严格遵循指令的能力",
+    "source": "huggingface",
+    "source_id": "google/IFEval",
+    "subset": "default",
+    "split": "train",
+    "format": "jsonl",
+    "tags": "instruction,instruction-following,preset"
+  },
+  {
+    "name": "LongBench v2",
+    "description": "长文本理解基准 v2，涵盖摘要、问答、代码补全等多任务评估",
+    "source": "huggingface",
+    "source_id": "THUDM/LongBench-v2",
+    "subset": "default",
+    "split": "train",
+    "format": "jsonl",
+    "tags": "long-context,comprehension,preset"
+  },
+  {
+    "name": "TruthfulQA",
+    "description": "真实性评估基准（多选题），817道易引发错误回答的问题，评估模型生成真实且无害内容的能力",
+    "source": "huggingface",
+    "source_id": "truthfulqa/truthful_qa",
+    "subset": "multiple_choice",
+    "split": "validation",
+    "format": "jsonl",
+    "tags": "safety,truthfulness,preset"
+  },
+  {
+    "name": "GAOKAO-Bench",
+    "description": "中国高考真题基准，涵盖语文、数学、英语、文综、理综等科目，评估模型的中文应试能力",
+    "source": "huggingface",
+    "source_id": "BAAI/GAOKAO-Bench",
+    "subset": "default",
+    "split": "test",
+    "format": "jsonl",
+    "tags": "chinese,exam,multi-subject,preset"
+  }
+]

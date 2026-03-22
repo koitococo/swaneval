@@ -5,6 +5,15 @@ export interface User {
   nickname: string;
   role: "admin" | "data_admin" | "engineer" | "viewer";
   is_active: boolean;
+  hf_token_set?: boolean;
+  hf_token_masked?: string;
+  ms_token_set?: boolean;
+  ms_token_masked?: string;
+}
+
+export interface UserTokensStatus {
+  hf_token_set: boolean;
+  ms_token_set: boolean;
 }
 
 export interface TokenResponse {
@@ -34,7 +43,7 @@ export interface Dataset {
 export interface Criterion {
   id: string;
   name: string;
-  type: "preset" | "regex" | "script" | "llm_judge";
+  type: "preset" | "regex" | "sandbox" | "llm_judge";
   config_json: string;
   created_at: string;
 }
@@ -44,18 +53,41 @@ export interface LLMModel {
   name: string;
   provider: string;
   endpoint_url: string;
-  model_type: "api" | "local" | "huggingface";
+  model_type: "api" | "local" | "huggingface" | "modelscope";
   api_format: "openai" | "anthropic";
   description: string;
   model_name: string;
   max_tokens: number | null;
+  created_at: string;
+  deploy_status: string;
+  cluster_id: string | null;
+  source_model_id: string;
+  last_test_at: string | null;
+  last_test_ok: boolean | null;
+}
+
+export interface PlaygroundResponse {
+  output: string;
+  latency_ms: number;
+  tokens_generated: number;
+  model_name: string;
+}
+
+export interface JudgeTemplate {
+  id: string;
+  name: string;
+  description: string;
+  system_prompt: string;
+  dimensions: string;
+  scale: number;
+  is_builtin: boolean;
   created_at: string;
 }
 
 export interface EvalTask {
   id: string;
   name: string;
-  status: "pending" | "running" | "paused" | "completed" | "failed";
+  status: "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";
   model_id: string;
   model_name: string;
   dataset_ids: string;
@@ -65,16 +97,43 @@ export interface EvalTask {
   seed_strategy: "fixed" | "random";
   gpu_ids: string;
   env_vars: string;
+  execution_backend: string;
+  resource_config: string;
+  worker_id: string;
+  error_summary: string;
+  total_prompts: number;
+  completed_prompts: number;
+  cluster_id: string | null;
   started_at: string | null;
   finished_at: string | null;
   created_at: string;
+}
+
+export interface QueueStatus {
+  pending: number;
+  running: number;
+  workers: number;
+}
+
+export interface StabilityStats {
+  criterion_id: string;
+  criterion_name: string;
+  run_count: number;
+  mean_score: number;
+  std_dev: number;
+  variance: number;
+  ci_95_lower: number;
+  ci_95_upper: number;
+  min_score: number;
+  max_score: number;
+  per_run_scores: number[];
 }
 
 export interface EvalSubtask {
   id: string;
   task_id: string;
   run_index: number;
-  status: "pending" | "running" | "paused" | "completed" | "failed";
+  status: "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";
   progress_pct: number;
   last_completed_index: number;
   error_log: string;
@@ -93,6 +152,8 @@ export interface EvalResult {
   latency_ms: number;
   tokens_generated: number;
   first_token_ms: number;
+  is_valid: boolean;
+  error_category: string | null;
   created_at: string;
 }
 
@@ -118,6 +179,26 @@ export interface ExternalBenchmark {
   notes: string;
 }
 
+export interface PresetDataset {
+  name: string;
+  description: string;
+  source: string;
+  source_id: string;
+  /** @deprecated use source_id */
+  hf_id?: string;
+  subset: string;
+  split: string;
+  format: string;
+  tags: string;
+}
+
+export interface PresetCriterion {
+  name: string;
+  type: string;
+  config_json: string;
+  description: string;
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
@@ -134,4 +215,134 @@ export interface TaskSummaryEntry {
   count: number;
   avg_latency_ms: number;
   avg_tokens: number;
+}
+
+export interface PermissionGroup {
+  id: string;
+  name: string;
+  description: string;
+  is_system: boolean;
+  permissions: string[];
+  member_count: number;
+}
+
+export interface ResourceAcl {
+  id: string;
+  resource_type: string;
+  resource_id: string;
+  grantee_type: string;
+  grantee_id: string;
+  access_level: string;
+}
+
+export interface ComputeCluster {
+  id: string;
+  name: string;
+  description: string;
+  api_server_url: string;
+  namespace: string;
+  status: string;
+  status_message: string;
+  gpu_count: number;
+  gpu_type: string;
+  gpu_available: number;
+  cpu_total_millicores: number;
+  memory_total_bytes: number;
+  node_count: number;
+  vllm_cache_ready: boolean;
+  last_probed_at: string | null;
+  created_at: string;
+}
+
+export interface ClusterNode {
+  name: string;
+  gpu_count: number;
+  gpu_type: string;
+  cpu_millicores: number;
+  memory_bytes: number;
+  status: string;
+}
+
+export interface DatasetVersion {
+  id: string;
+  dataset_id: string;
+  version: number;
+  file_path: string;
+  changelog: string;
+  row_count: number;
+  size_bytes: number;
+  format: string;
+  created_at: string;
+}
+
+export interface SyncLog {
+  id: string;
+  dataset_id: string;
+  triggered_by: string;
+  status: string;
+  old_version: number;
+  new_version: number | null;
+  old_row_count: number;
+  new_row_count: number | null;
+  error_message: string;
+  duration_ms: number;
+  created_at: string;
+}
+
+export interface DatasetStats {
+  row_count: number;
+  column_count: number;
+  size_bytes: number;
+  columns: ColumnStats[];
+}
+
+export interface ColumnStats {
+  name: string;
+  dtype: string;
+  null_count: number;
+  null_pct: number;
+  unique_count: number;
+  avg_text_len: number | null;
+  min_text_len: number | null;
+  max_text_len: number | null;
+  top_values: { value: string; count: number }[];
+  sample_values: string[];
+}
+
+export interface PreflightResult {
+  source_type: string;
+  format: string;
+  row_count: number;
+  size_bytes: number;
+  columns: string[];
+  sample_rows: Record<string, unknown>[];
+  field_types: Record<string, string>;
+  warnings: string[];
+  preflight_token: string;
+}
+
+export interface Report {
+  id: string;
+  task_id: string;
+  report_type: string;
+  status: string;
+  title: string;
+  content: Record<string, unknown> | null;
+  error_message: string;
+  created_at: string;
+}
+
+export interface ReportListItem {
+  id: string;
+  task_id: string;
+  report_type: string;
+  status: string;
+  title: string;
+  created_at: string;
+}
+
+export interface BenchmarkPullResult {
+  source: string;
+  count: number;
+  preview: ExternalBenchmark[];
 }

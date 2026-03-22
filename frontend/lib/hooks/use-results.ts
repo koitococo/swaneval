@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { EvalResult, LeaderboardEntry, TaskSummaryEntry, PaginatedResponse } from "@/lib/types";
 
-export function useResults(taskId?: string, page = 1, pageSize = 50) {
+export function useResults(taskId?: string, page = 1, pageSize = 50, enabled = true) {
   return useQuery({
     queryKey: ["results", taskId, page, pageSize],
     queryFn: async () => {
@@ -11,6 +11,7 @@ export function useResults(taskId?: string, page = 1, pageSize = 50) {
       const res = await api.get<PaginatedResponse<EvalResult>>("/results", { params });
       return res.data;
     },
+    enabled,
   });
 }
 
@@ -30,10 +31,15 @@ export function useTaskSummary(taskId: string, refetchInterval?: number | false)
   return useQuery({
     queryKey: ["results", "summary", taskId],
     queryFn: async () => {
-      const res = await api.get<TaskSummaryEntry[]>("/results/summary", {
+      const res = await api.get<
+        { criteria: TaskSummaryEntry[]; error_count: number } | TaskSummaryEntry[]
+      >("/results/summary", {
         params: { task_id: taskId },
       });
-      return res.data;
+      // Backend returns {criteria: [...], error_count} — normalize
+      const data = res.data;
+      if (Array.isArray(data)) return data;
+      return data.criteria ?? [];
     },
     enabled: !!taskId,
     refetchInterval,
@@ -51,5 +57,18 @@ export function useErrorResults(taskId: string, page = 1, pageSize = 50, refetch
     },
     enabled: !!taskId,
     refetchInterval,
+  });
+}
+
+export function useErrorAnalysis(taskId: string, errorOnly: boolean = false) {
+  return useQuery({
+    queryKey: ["results", "errors", taskId, errorOnly],
+    queryFn: async () => {
+      const res = await api.get<PaginatedResponse<EvalResult>>("/results/errors", {
+        params: { task_id: taskId, error_only: errorOnly, page_size: 50 },
+      });
+      return res.data;
+    },
+    enabled: !!taskId,
   });
 }

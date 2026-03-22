@@ -13,12 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -84,15 +79,19 @@ import { useTasks } from "@/lib/hooks/use-tasks";
 import type { LeaderboardEntry, EvalResult } from "@/lib/types";
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { TablePagination } from "@/components/table-pagination";
+import { TableEmpty, TableLoading } from "@/components/table-states";
+import { SegmentedControl } from "@/components/segmented-control";
+import { formatTime } from "@/lib/time";
 
+/** Chart palette — primary first, then complementary hues */
 const BAR_COLORS = [
-  "#6366f1",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#8b5cf6",
-  "#ec4899",
-  "#06b6d4",
+  "#7C3AED", // primary
+  "#10b981", // success (emerald)
+  "#f59e0b", // warning (amber)
+  "#dc2626", // error (red)
+  "#8B5CF6", // accent
+  "#ec4899", // pink
+  "#06b6d4", // cyan
 ];
 
 const PAGE_SIZE = 20;
@@ -100,7 +99,7 @@ const PAGE_SIZE = 20;
 function scoreColor(score: number): string {
   if (score >= 0.8) return "text-emerald-600";
   if (score >= 0.5) return "text-amber-600";
-  return "text-red-600";
+  return "text-destructive";
 }
 
 function exportCSV(data: LeaderboardEntry[]) {
@@ -126,11 +125,12 @@ function exportCSV(data: LeaderboardEntry[]) {
 
 export default function ResultsPage() {
   const { data: criteria = [] } = useCriteria();
-  const { data: tasks = [] } = useTasks();
+  const { data: tasks = [] } = useTasks(undefined, false);
   const { data: benchmarks = [] } = useBenchmarks();
   const createBenchmarkBatch = useCreateBenchmarkBatch();
   const deleteBenchmark = useDeleteBenchmark();
 
+  const [activeView, setActiveView] = useState("leaderboard");
   const [criterionFilter, setCriterionFilter] = useState<string>("__all__");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [importOpen, setImportOpen] = useState(false);
@@ -157,6 +157,7 @@ export default function ResultsPage() {
     detailTaskId || undefined,
     detailPage,
     PAGE_SIZE,
+    activeView === "detail" && !!detailTaskId,
   );
   const detailResults = detailData?.items ?? [];
   const detailTotal = detailData?.total ?? 0;
@@ -331,7 +332,7 @@ export default function ResultsPage() {
             onClick={column.getToggleSortingHandler()}
           >
             模型
-            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+            <ArrowUpDown className="h-3 w-3 text-muted-foreground/60" />
           </span>
         ),
         cell: ({ getValue }) => (
@@ -346,7 +347,7 @@ export default function ResultsPage() {
             onClick={column.getToggleSortingHandler()}
           >
             标准
-            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+            <ArrowUpDown className="h-3 w-3 text-muted-foreground/60" />
           </span>
         ),
         cell: ({ getValue }) => (
@@ -363,7 +364,7 @@ export default function ResultsPage() {
             onClick={column.getToggleSortingHandler()}
           >
             平均分
-            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+            <ArrowUpDown className="h-3 w-3 text-muted-foreground/60" />
           </span>
         ),
         cell: ({ getValue }) => {
@@ -383,7 +384,7 @@ export default function ResultsPage() {
             onClick={column.getToggleSortingHandler()}
           >
             样本数
-            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+            <ArrowUpDown className="h-3 w-3 text-muted-foreground/60" />
           </span>
         ),
         cell: ({ getValue }) => (
@@ -400,7 +401,7 @@ export default function ResultsPage() {
             onClick={column.getToggleSortingHandler()}
           >
             平均延迟
-            <ArrowUpDown className="h-3 w-3 text-muted-foreground/50" />
+            <ArrowUpDown className="h-3 w-3 text-muted-foreground/60" />
           </span>
         ),
         cell: ({ getValue }) => (
@@ -522,41 +523,54 @@ export default function ResultsPage() {
         ))}
       </div>
 
-      {/* Toolbar: criterion filter segmented tabs */}
-      <div className="flex items-center gap-2">
-        <FilterDropdown
-          label="标准"
-          options={criteria.map((c) => ({ key: c.id, label: c.name }))}
-          value={criterionFilter}
-          onChange={setCriterionFilter}
-        />
-      </div>
+      {/* Sidebar + Content */}
+      <div className="flex gap-4 min-h-0 items-start">
+        {/* Sidebar */}
+        <div className="w-48 shrink-0 space-y-1">
+          <div className="mb-2">
+            <FilterDropdown
+              label="标准"
+              options={criteria.map((c) => ({ key: c.id, label: c.name }))}
+              value={criterionFilter}
+              onChange={setCriterionFilter}
+            />
+          </div>
+          {[
+            { key: "leaderboard", label: "排行榜", icon: Medal },
+            { key: "champion", label: "天梯榜", icon: Trophy },
+            { key: "compare", label: "对比", icon: BarChart3 },
+            { key: "radar", label: "雷达图", icon: Hexagon },
+            { key: "external", label: "外部数据", icon: Globe },
+            { key: "reports", label: "报告", icon: FileText },
+            { key: "detail", label: "明细", icon: List },
+          ].map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setActiveView(item.key)}
+              className={cn(
+                "flex items-center gap-2 w-full rounded-full px-3 py-2 text-sm transition-all",
+                activeView === item.key
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          ))}
+        </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="leaderboard">
-        <TabsList>
-          <TabsTrigger value="leaderboard"><Medal className="mr-1 h-3.5 w-3.5" /> 排行榜</TabsTrigger>
-          <TabsTrigger value="champion"><Trophy className="mr-1 h-3.5 w-3.5" /> 天梯榜</TabsTrigger>
-          <TabsTrigger value="compare"><BarChart3 className="mr-1 h-3.5 w-3.5" /> 对比</TabsTrigger>
-          <TabsTrigger value="radar"><Hexagon className="mr-1 h-3.5 w-3.5" /> 雷达图</TabsTrigger>
-          <TabsTrigger value="external"><Globe className="mr-1 h-3.5 w-3.5" /> 外部数据</TabsTrigger>
-          <TabsTrigger value="reports"><FileText className="mr-1 h-3.5 w-3.5" /> 报告</TabsTrigger>
-          <TabsTrigger value="detail"><List className="mr-1 h-3.5 w-3.5" /> 明细</TabsTrigger>
-        </TabsList>
+        {/* Content */}
+        <div className="flex-1 min-w-0">
 
         {/* ── 排行榜 ── */}
-        <TabsContent value="leaderboard">
+        {activeView === "leaderboard" && (
           <Card>
             <CardContent className="p-0">
               {lbLoading ? (
-                <div className="py-12 text-center text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-                  加载中...
-                </div>
+                <TableLoading />
               ) : leaderboard.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground text-sm">
-                  暂无评测结果
-                </div>
+                <TableEmpty icon={Medal} title="暂无评测结果" />
               ) : (
                 <>
                 <Table>
@@ -594,52 +608,51 @@ export default function ResultsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
         {/* ── 对比 (Bar Chart) ── */}
-        <TabsContent value="compare">
+        {activeView === "compare" && (
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="p-0">
               {leaderboard.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground text-sm">
-                  暂无评测结果
-                </div>
+                <TableEmpty icon={Medal} title="暂无评测结果" />
               ) : (
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={barData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                    <YAxis domain={[0, 1]} tick={{ fontSize: 12 }} />
-                    <Tooltip
-                      formatter={(value: number) =>
-                        `${(value * 100).toFixed(1)}%`
-                      }
-                    />
-                    <Legend />
-                    {criterionNames.map((name, idx) => (
-                      <Bar
-                        key={name}
-                        dataKey={name}
-                        fill={BAR_COLORS[idx % BAR_COLORS.length]}
-                        radius={[2, 2, 0, 0]}
+                <div className="p-6">
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={barData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis domain={[0, 1]} tick={{ fontSize: 12 }} />
+                      <Tooltip
+                        formatter={(value: number) =>
+                          `${(value * 100).toFixed(1)}%`
+                        }
                       />
-                    ))}
-                  </BarChart>
-                </ResponsiveContainer>
+                      <Legend />
+                      {criterionNames.map((name, idx) => (
+                        <Bar
+                          key={name}
+                          dataKey={name}
+                          fill={BAR_COLORS[idx % BAR_COLORS.length]}
+                          radius={[2, 2, 0, 0]}
+                        />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
         {/* ── 雷达图 ── */}
-        <TabsContent value="radar">
+        {activeView === "radar" && (
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="p-0">
               {leaderboard.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground text-sm">
-                  暂无评测结果
-                </div>
+                <TableEmpty icon={Medal} title="暂无评测结果" />
               ) : (
+                <div className="p-6">
                 <ResponsiveContainer width="100%" height={400}>
                   <RadarChart data={radarData}>
                     <PolarGrid />
@@ -666,21 +679,20 @@ export default function ResultsPage() {
                     ))}
                   </RadarChart>
                 </ResponsiveContainer>
+                </div>
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
         {/* ── 天梯榜 (Champion per criterion) ── */}
-        <TabsContent value="champion">
+        {activeView === "champion" && (
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="p-0">
               {championData.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground text-sm">
-                  暂无评测结果
-                </div>
+                <TableEmpty icon={Medal} title="暂无评测结果" />
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 p-6">
                   {championData.map((entry) => (
                     <div
                       key={entry.criterion}
@@ -708,13 +720,13 @@ export default function ResultsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
         {/* ── 外部数据 ── */}
-        <TabsContent value="external">
+        {activeView === "external" && (
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between px-6 pt-6 pb-4">
                 <div>
                   <h3 className="text-sm font-semibold">外部基准测试数据</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -727,13 +739,11 @@ export default function ResultsPage() {
               </div>
 
               {benchmarks.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground text-sm space-y-3">
-                  <Globe className="h-8 w-8 mx-auto text-muted-foreground/30" />
-                  <p>暂无外部基准数据</p>
-                  <p className="text-xs">
-                    点击「导入数据」粘贴 JSON 格式的评测数据
-                  </p>
-                </div>
+                <TableEmpty
+                  icon={Globe}
+                  title="暂无外部基准数据"
+                  description="点击「导入数据」粘贴 JSON 格式的评测数据"
+                />
               ) : (
                 <Table>
                   <TableHeader>
@@ -779,18 +789,18 @@ export default function ResultsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
         {/* ── 报告生成器 ── */}
-        <TabsContent value="reports">
+        {activeView === "reports" && (
           <Card>
-            <CardContent className="pt-6 space-y-4">
+            <CardContent className="p-0">
               {/* Controls */}
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap px-4 py-3 border-b">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground shrink-0">任务</span>
                   <Select value={reportTaskId} onValueChange={setReportTaskId}>
-                    <SelectTrigger className="h-9 w-[200px]">
+                    <SelectTrigger className="h-9 max-w-xs">
                       <SelectValue placeholder="选择任务..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -804,28 +814,16 @@ export default function ResultsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center h-9 border rounded-md overflow-hidden">
-                  {([
+                <SegmentedControl
+                  options={[
                     { key: "performance" as const, label: "性能" },
                     { key: "safety" as const, label: "安全" },
                     { key: "cost" as const, label: "成本" },
                     { key: "value" as const, label: "性价比" },
-                  ]).map((item, i) => (
-                    <button
-                      key={item.key}
-                      onClick={() => setReportType(item.key)}
-                      className={`h-full px-3.5 text-xs font-medium transition-colors ${
-                        i < 3 ? "border-r" : ""
-                      } ${
-                        reportType === item.key
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
+                  ]}
+                  value={reportType}
+                  onChange={setReportType}
+                />
                 {reportTaskId && (
                   <div className="flex items-center gap-1 ml-auto">
                     {(["docx", "html", "csv"] as const).map((fmt) => (
@@ -847,25 +845,18 @@ export default function ResultsPage() {
 
               {/* Report content */}
               {!reportTaskId ? (
-                <div className="py-12 text-center text-muted-foreground text-sm">
-                  请选择一个已完成的任务生成报告
-                </div>
+                <TableEmpty icon={FileText} title="请选择一个已完成的任务生成报告" />
               ) : reportLoading ? (
-                <div className="py-12 text-center text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-                  生成报告中...
-                </div>
+                <TableLoading text="生成报告中..." />
               ) : !reportData ? (
-                <div className="py-12 text-center text-muted-foreground text-sm">
-                  暂无数据
-                </div>
+                <TableEmpty title="暂无数据" />
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 px-4 pb-4">
                   {/* Report header */}
                   <div className="border-b pb-3">
                     <h3 className="text-base font-semibold">{String(reportData.title)}</h3>
                     <p className="text-xs text-muted-foreground mt-1">
-                      模型：{String(reportData.model_name)} · 生成时间：{new Date(String(reportData.generated_at)).toLocaleString()}
+                      模型：{String(reportData.model_name)} · 生成时间：{formatTime(String(reportData.generated_at))}
                     </p>
                   </div>
 
@@ -920,7 +911,7 @@ export default function ResultsPage() {
                       <div className="grid grid-cols-3 gap-3">
                         <div className="rounded-lg border p-3 text-center">
                           <p className="text-xs text-muted-foreground">错误率</p>
-                          <p className={`text-2xl font-bold font-mono ${Number(reportData.error_rate) < 0.1 ? "text-emerald-600" : Number(reportData.error_rate) < 0.3 ? "text-amber-600" : "text-red-600"}`}>
+                          <p className={`text-2xl font-bold font-mono ${Number(reportData.error_rate) < 0.1 ? "text-emerald-600" : Number(reportData.error_rate) < 0.3 ? "text-amber-600" : "text-destructive"}`}>
                             {(Number(reportData.error_rate) * 100).toFixed(1)}%
                           </p>
                         </div>
@@ -940,8 +931,8 @@ export default function ResultsPage() {
                             {(reportData.error_cases as Array<Record<string, unknown>>).map((c, i) => (
                               <div key={i} className="rounded-md border p-3 text-xs space-y-1.5">
                                 <div><span className="text-muted-foreground">Prompt：</span>{String(c.prompt).slice(0, 200)}</div>
-                                <div><span className="text-muted-foreground">预期：</span><span className="text-emerald-700">{String(c.expected).slice(0, 200)}</span></div>
-                                <div><span className="text-muted-foreground">实际：</span><span className="text-red-700">{String(c.actual).slice(0, 200)}</span></div>
+                                <div><span className="text-muted-foreground">预期：</span><span className="text-emerald-600">{String(c.expected).slice(0, 200)}</span></div>
+                                <div><span className="text-muted-foreground">实际：</span><span className="text-destructive">{String(c.actual).slice(0, 200)}</span></div>
                                 <div className="text-right"><Badge variant="outline" className={`text-[10px] ${scoreColor(Number(c.score))}`}>{(Number(c.score) * 100).toFixed(1)}%</Badge></div>
                               </div>
                             ))}
@@ -1024,17 +1015,15 @@ export default function ResultsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        )}
 
         {/* ── 明细 ── */}
-        <TabsContent value="detail">
+        {activeView === "detail" && (
           <Card>
             <CardContent className="p-0">
               {/* Task filter bar */}
               <div className="flex items-center gap-3 px-4 py-3 border-b">
-                <span className="text-xs text-muted-foreground shrink-0">
-                  任务筛选
-                </span>
+                <span className="text-xs text-muted-foreground shrink-0">任务</span>
                 <Select
                   value={detailTaskId}
                   onValueChange={(v) => {
@@ -1060,16 +1049,12 @@ export default function ResultsPage() {
               </div>
 
               {detailLoading ? (
-                <div className="py-12 text-center text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
-                  加载中...
-                </div>
+                <TableLoading />
               ) : detailResults.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground text-sm">
-                  {detailTaskId
-                    ? "该任务暂无明细结果"
-                    : "请选择一个任务查看明细"}
-                </div>
+                <TableEmpty
+                  icon={List}
+                  title={detailTaskId ? "该任务暂无明细结果" : "请选择一个任务查看明细"}
+                />
               ) : (
                 <>
                   <Table>
@@ -1134,8 +1119,9 @@ export default function ResultsPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        )}
+        </div>
+      </div>
 
       {/* Import benchmark dialog */}
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
@@ -1151,7 +1137,7 @@ export default function ResultsPage() {
               value={importJson}
               onChange={(e) => setImportJson(e.target.value)}
               placeholder={`[\n  {\n    "model_name": "GPT-4o",\n    "provider": "OpenAI",\n    "benchmark_name": "MMLU",\n    "score": 0.887,\n    "source_platform": "Open LLM Leaderboard"\n  }\n]`}
-              className="flex min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-h-[200px] w-full rounded-md border border-border bg-muted px-3 py-2 text-xs font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             />
             {importError && (
               <p className="text-xs text-destructive">{importError}</p>

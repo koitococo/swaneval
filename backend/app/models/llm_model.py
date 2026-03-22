@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, SQLModel
 
@@ -13,6 +13,7 @@ class ModelType(str, enum.Enum):
     api = "api"
     local = "local"
     huggingface = "huggingface"
+    modelscope = "modelscope"
 
 
 class ApiFormat(str, enum.Enum):
@@ -62,8 +63,30 @@ class LLMModel(SQLModel, table=True):
     max_tokens: int | None = Field(default=None)
     # 模型 token 上限 / Optional model token limit
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
+    )
     # 创建时间 / Creation timestamp
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
+    )
     # 更新时间 / Last update timestamp
+
+    # ── Deployment & Status Fields ──
+    deploy_status: str = Field(default="")
+    # 部署状态: "", "deploying", "running", "stopped", "failed"
+
+    cluster_id: uuid.UUID | None = Field(default=None, foreign_key="compute_clusters.id")
+    # 部署到的集群ID
+
+    source_model_id: str = Field(default="")
+    # HuggingFace/ModelScope model ID for import metadata
+
+    last_test_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    # 上次测试时间
+
+    last_test_ok: bool | None = Field(default=None)
+    # 上次测试结果

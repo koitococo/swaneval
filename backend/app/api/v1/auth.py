@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func as sa_func
@@ -13,6 +13,7 @@ from app.schemas.auth import (
     RegisterRequest,
     TokenResponse,
     UpdateProfileRequest,
+    UpdateTokensRequest,
     UserResponse,
 )
 from app.services.auth import create_access_token, hash_password, verify_password
@@ -89,7 +90,7 @@ async def update_profile(
         current_user.nickname = body.nickname
     if body.email is not None:
         current_user.email = body.email
-    current_user.updated_at = datetime.utcnow()
+    current_user.updated_at = datetime.now(timezone.utc)
     session.add(current_user)
     await session.commit()
     await session.refresh(current_user)
@@ -105,7 +106,36 @@ async def change_password(
     if not verify_password(body.old_password, current_user.hashed_password):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "旧密码错误")
     current_user.hashed_password = hash_password(body.new_password)
-    current_user.updated_at = datetime.utcnow()
+    current_user.updated_at = datetime.now(timezone.utc)
     session.add(current_user)
     await session.commit()
     return {"ok": True}
+
+
+@router.get("/tokens")
+async def get_tokens(
+    current_user: User = Depends(get_current_user),
+):
+    return {
+        "hf_token_set": bool(current_user.hf_token),
+        "ms_token_set": bool(current_user.ms_token),
+    }
+
+
+@router.put("/tokens")
+async def update_tokens(
+    body: UpdateTokensRequest,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if body.hf_token is not None:
+        current_user.hf_token = body.hf_token
+    if body.ms_token is not None:
+        current_user.ms_token = body.ms_token
+    session.add(current_user)
+    await session.commit()
+    await session.refresh(current_user)
+    return {
+        "hf_token_set": bool(current_user.hf_token),
+        "ms_token_set": bool(current_user.ms_token),
+    }

@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, SQLModel
 
@@ -10,11 +10,12 @@ from sqlmodel import Field, SQLModel
 # 任务状态枚举 / Task status enumeration
 class TaskStatus(str, enum.Enum):
     """任务状态枚举 / Task status enumeration"""
-    pending = "pending"       # 待处理 / Pending (waiting to run)
-    running = "running"   # 运行中 / Running
-    paused = "paused"     # 暂停 / Paused
-    completed = "completed"  # 已完成 / Completed
-    failed = "failed"     # 失败 / Failed
+    pending = "pending"         # 待处理 / Pending
+    running = "running"         # 运行中 / Running
+    paused = "paused"           # 暂停 / Paused by user
+    completed = "completed"     # 已完成 / Completed
+    failed = "failed"           # 失败 / Failed due to error
+    cancelled = "cancelled"     # 已取消 / Cancelled by user
 
 
 # 随机种子策略枚举 / Random seed strategy enumeration
@@ -53,6 +54,9 @@ class EvalTask(SQLModel, table=True):
     criteria_ids: str = Field(default="")  # comma-separated UUIDs
     # 标准ID列表 / Criterion IDs (comma-separated UUIDs)
 
+    dataset_version_id: str = Field(default="")
+    # 数据集版本ID列表 / Comma-separated version IDs binding tasks to specific dataset versions
+
     params_json: str = Field(default='{"temperature": 0.7, "max_tokens": 1024}')
     # 参数JSON / Parameters JSON (temperature, max_tokens, etc)
 
@@ -70,19 +74,48 @@ class EvalTask(SQLModel, table=True):
     env_vars: str = Field(default="")
     # 环境变量 JSON / Environment variables JSON (e.g. {"CUDA_VISIBLE_DEVICES": "0"})
 
+    execution_backend: str = Field(default="external_api")
+    # 执行后端: external_api, local_worker, k8s_vllm
+
+    resource_config: str = Field(default="")
+    # 资源配置 JSON: {"gpu_count": 1, "gpu_type": "A100", "memory_gb": 80}
+
+    worker_id: str = Field(default="")
+    # 当前执行此任务的 worker ID
+
+    error_summary: str = Field(default="")
+    # 错误摘要 (failed prompts count, error categories)
+
+    total_prompts: int = Field(default=0)
+    # 总 Prompt 数（创建时计算）
+
+    completed_prompts: int = Field(default=0)
+    # 已完成 Prompt 数
+
+    cluster_id: uuid.UUID | None = Field(
+        default=None, foreign_key="compute_clusters.id",
+    )
+    # 计算集群ID / Compute cluster ID (foreign key to compute_clusters)
+
     created_by: uuid.UUID | None = Field(default=None, foreign_key="users.id")
     # 创建者ID / Creator user ID (foreign key to users)
 
-    started_at: datetime | None = Field(default=None)
+    started_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
     # 开始时间 / Start timestamp
 
-    finished_at: datetime | None = Field(default=None)
+    finished_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
     # 完成时间 / Finish timestamp
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
+    )
     # 创建时间 / Creation timestamp
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
+    )
     # 更新时间 / Last update timestamp
 
 
@@ -106,7 +139,7 @@ class EvalSubtask(SQLModel, table=True):
 
     status: TaskStatus = Field(
         sa_column=Column(
-            SAEnum(TaskStatus, name="subtaskstatus", create_constraint=False),
+            SAEnum(TaskStatus, name="taskstatus", create_constraint=False),
             nullable=False,
             default=TaskStatus.pending,
         )
@@ -122,8 +155,14 @@ class EvalSubtask(SQLModel, table=True):
     error_log: str = Field(default="")
     # 错误日志 / Error log (if failed)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
+    )
     # 创建时间 / Creation timestamp
 
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_type=DateTime(timezone=True),
+    )
     # 更新时间 / Update timestamp

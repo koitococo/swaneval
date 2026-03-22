@@ -6,6 +6,30 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Extract error detail from an Axios error response.
+ * Replaces the repeated `err && typeof err === "object" && "response" in err` pattern.
+ */
+export function extractErrorDetail(err: unknown, fallback = "操作失败"): string {
+  if (err && typeof err === "object" && "response" in err) {
+    const resp = (err as { response?: { data?: { detail?: string } } }).response;
+    return resp?.data?.detail || fallback;
+  }
+  return fallback;
+}
+
+/**
+ * Count items by a key function. Replaces the repeated useMemo counting pattern.
+ */
+export function countBy<T>(items: T[], keyFn: (item: T) => string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const item of items) {
+    const key = keyFn(item);
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  return counts;
+}
+
+/**
  * Parse a timestamp string as UTC.
  * Backend sends naive UTC timestamps without 'Z' suffix —
  * JS would misinterpret them as local time. This ensures UTC.

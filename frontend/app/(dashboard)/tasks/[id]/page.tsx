@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { extractErrorDetail } from "@/lib/utils";
+import { formatTime } from "@/lib/time";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -22,18 +24,21 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Pause, Play, XCircle, AlertTriangle, Trash2 } from "lucide-react";
+import { ArrowLeft, Pause, Play, XCircle, RotateCcw, AlertTriangle, Trash2, BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { utc } from "@/lib/utils";
+import { estimateEta } from "@/components/tasks/task-constants";
 import {
   useTask,
   useSubtasks,
   usePauseTask,
   useResumeTask,
   useCancelTask,
+  useRestartTask,
   useDeleteTask,
 } from "@/lib/hooks/use-tasks";
 import { useTaskSummary, useErrorResults } from "@/lib/hooks/use-results";
+import { TableEmpty, TableLoading } from "@/components/table-states";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart,
@@ -72,6 +77,7 @@ export default function TaskDetailPage() {
   const pause = usePauseTask();
   const resumeTask = useResumeTask();
   const cancel = useCancelTask();
+  const restartTask = useRestartTask();
   const deleteTask = useDeleteTask();
   const [showDelete, setShowDelete] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -98,19 +104,20 @@ export default function TaskDetailPage() {
     }
   })();
 
-  const chartData = summary.map((s) => ({
+  const summaryArr = Array.isArray(summary) ? summary : [];
+  const chartData = summaryArr.map((s) => ({
     name: s.criterion_name,
     score: s.avg_score,
     latency: s.avg_latency_ms,
   }));
 
   const barColors = [
-    "#3b82f6",
-    "#10b981",
-    "#f59e0b",
-    "#ef4444",
-    "#8b5cf6",
-    "#ec4899",
+    "#7C3AED", // primary
+    "#10b981", // success
+    "#f59e0b", // warning
+    "#dc2626", // error
+    "#8B5CF6", // accent
+    "#ec4899", // pink
   ];
 
   const failedSubtasks = subtasks.filter((st) => st.status === "failed");
@@ -129,7 +136,7 @@ export default function TaskDetailPage() {
         <div className="flex-1">
           <h1 className="text-lg font-semibold">{task.name}</h1>
           <p className="text-xs text-muted-foreground">
-            创建于 {utc(task.created_at)?.toLocaleString()}
+            创建于 {formatTime(task.created_at)}
           </p>
         </div>
         <Badge variant={statusVariant(task.status)} className="text-sm">
@@ -140,13 +147,14 @@ export default function TaskDetailPage() {
             <Pause className="mr-1 h-3.5 w-3.5" /> 暂停
           </Button>
         )}
-        {(task.status === "paused" || task.status === "failed") && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => resumeTask.mutate(id)}
-          >
+        {task.status === "paused" && (
+          <Button variant="outline" size="sm" onClick={() => resumeTask.mutate(id)}>
             <Play className="mr-1 h-3.5 w-3.5" /> 恢复
+          </Button>
+        )}
+        {(task.status === "failed" || task.status === "cancelled") && (
+          <Button variant="outline" size="sm" onClick={() => restartTask.mutate(id)}>
+            <RotateCcw className="mr-1 h-3.5 w-3.5" /> 重启
           </Button>
         )}
         {(task.status === "running" || task.status === "pending") && (
@@ -216,25 +224,41 @@ export default function TaskDetailPage() {
       {subtasks.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">子任务</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium">子任务</CardTitle>
+              {task.status === "running" && (() => {
+                const avgPct = subtasks.reduce((s, st) => s + st.progress_pct, 0) / subtasks.length;
+                const eta = estimateEta(task.started_at, avgPct);
+                return eta ? (
+                  <span className="text-xs text-muted-foreground">预计剩余 {eta}</span>
+                ) : null;
+              })()}
+            </div>
           </CardHeader>
           <CardContent className="space-y-2">
             {subtasks.map((st) => (
-              <div
-                key={st.id}
-                className="grid items-center gap-3"
-                style={{ gridTemplateColumns: "4rem 1fr 3rem 4.5rem" }}
-              >
-                <span className="text-xs text-muted-foreground">
-                  运行 {st.run_index + 1}
-                </span>
-                <Progress value={st.progress_pct} className="h-2" />
-                <span className="text-xs font-mono text-right">
-                  {st.progress_pct.toFixed(0)}%
-                </span>
-                <Badge variant={statusVariant(st.status)} className="justify-center">
-                  {st.status}
-                </Badge>
+              <div key={st.id} className="space-y-1">
+                <div
+                  className="grid items-center gap-3"
+                  style={{ gridTemplateColumns: "4rem 1fr 3rem 4.5rem" }}
+                >
+                  <span className="text-xs text-muted-foreground">
+                    运行 {st.run_index + 1}
+                  </span>
+                  <Progress value={st.progress_pct} className="h-2" />
+                  <span className="text-xs font-mono text-right">
+                    {st.progress_pct.toFixed(0)}%
+                  </span>
+                  <Badge variant={statusVariant(st.status)} className="justify-center">
+                    {st.status}
+                  </Badge>
+                </div>
+                {st.status === "running" && (() => {
+                  const eta = estimateEta(task.started_at, st.progress_pct);
+                  return eta ? (
+                    <p className="text-[10px] text-muted-foreground pl-[4.5rem]">{eta}</p>
+                  ) : null;
+                })()}
               </div>
             ))}
           </CardContent>
@@ -245,17 +269,22 @@ export default function TaskDetailPage() {
         <TabsList>
           <TabsTrigger value="summary">汇总</TabsTrigger>
           <TabsTrigger value="errors">
-            错误{errors.length > 0 && ` (${errors.length})`}
+            错误
+            {errors.length > 0 && (
+              <Badge variant="destructive" className="ml-1.5 text-[10px] px-1.5 py-0">{errors.length}</Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="summary" className="space-y-4">
-          {summary.length === 0 ? (
+          {summaryArr.length === 0 ? (
             <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                {task.status === "running" || task.status === "pending"
-                  ? "任务仍在运行中..."
-                  : "暂无结果。"}
+              <CardContent className="p-0">
+                {task.status === "running" || task.status === "pending" ? (
+                  <TableLoading text="任务仍在运行中..." />
+                ) : (
+                  <TableEmpty icon={BarChart3} title="暂无结果" />
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -312,7 +341,7 @@ export default function TaskDetailPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {summary.map((s) => (
+                      {summaryArr.map((s) => (
                         <TableRow key={s.criterion_id}>
                           <TableCell className="font-medium">
                             {s.criterion_name}
@@ -349,9 +378,7 @@ export default function TaskDetailPage() {
           <Card>
             <CardContent className="p-0">
               {errors.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground">
-                  未发现错误。
-                </p>
+                <TableEmpty title="未发现错误" />
               ) : (
                 <Table>
                   <TableHeader>
@@ -411,12 +438,7 @@ export default function TaskDetailPage() {
                   await deleteTask.mutateAsync(id);
                   router.push("/tasks");
                 } catch (err: unknown) {
-                  const detail =
-                    err && typeof err === "object" && "response" in err
-                      ? (err as { response?: { data?: { detail?: string } } }).response
-                          ?.data?.detail
-                      : undefined;
-                  setDeleteError(detail || "删除失败");
+                  setDeleteError(extractErrorDetail(err, "删除失败"));
                 }
               }}
               disabled={deleteTask.isPending}

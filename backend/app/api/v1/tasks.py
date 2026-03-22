@@ -1,17 +1,16 @@
-import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_db, require_permission
 from app.models.eval_result import EvalResult
 from app.models.eval_task import EvalSubtask, EvalTask, TaskStatus
 from app.models.llm_model import LLMModel
 from app.models.user import User
 from app.schemas.task import SubtaskResponse, TaskCreate, TaskResponse
-from app.services.task_runner import run_task
+from app.services.task_queue import enqueue_task
 
 
 async def _enrich_task(session: AsyncSession, task: EvalTask) -> TaskResponse:
@@ -32,6 +31,15 @@ async def _enrich_task(session: AsyncSession, task: EvalTask) -> TaskResponse:
         params_json=task.params_json,
         repeat_count=task.repeat_count,
         seed_strategy=task.seed_strategy,
+        gpu_ids=task.gpu_ids or "",
+        env_vars=task.env_vars or "",
+        execution_backend=task.execution_backend or "external_api",
+        resource_config=task.resource_config or "",
+        worker_id=task.worker_id or "",
+        error_summary=task.error_summary or "",
+        total_prompts=task.total_prompts or 0,
+        completed_prompts=task.completed_prompts or 0,
+        cluster_id=task.cluster_id,
         started_at=task.started_at,
         finished_at=task.finished_at,
         created_at=task.created_at,
@@ -44,7 +52,7 @@ router = APIRouter()
 async def create_task(
     body: TaskCreate,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("tasks.create"),
 ):
     task = EvalTask(
         name=body.name,
@@ -57,14 +65,17 @@ async def create_task(
         seed_strategy=body.seed_strategy,
         gpu_ids=body.gpu_ids,
         env_vars=body.env_vars,
+        execution_backend=body.execution_backend,
+        resource_config=body.resource_config,
+        cluster_id=body.cluster_id,
         created_by=current_user.id,
     )
     session.add(task)
     await session.commit()
     await session.refresh(task)
 
-    # Launch task in background
-    asyncio.create_task(run_task(task.id))
+    # Enqueue task for worker execution
+    await enqueue_task(str(task.id))
 
     return await _enrich_task(session, task)
 
@@ -73,7 +84,7 @@ async def create_task(
 async def list_tasks(
     status_filter: TaskStatus | None = None,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("tasks.read"),
 ):
     stmt = select(EvalTask).order_by(EvalTask.created_at.desc())
     if status_filter:
@@ -83,11 +94,21 @@ async def list_tasks(
     return [await _enrich_task(session, t) for t in tasks]
 
 
+@router.get("/queue-status")
+async def queue_status(
+    current_user: User = require_permission("tasks.read"),
+):
+    """Return task queue metrics."""
+    from app.services.task_queue import get_queue_status
+
+    return await get_queue_status()
+
+
 @router.get("/{task_id}", response_model=TaskResponse)
 async def get_task(
     task_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("tasks.read"),
 ):
     task = await session.get(EvalTask, task_id)
     if not task:
@@ -99,7 +120,7 @@ async def get_task(
 async def list_subtasks(
     task_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("tasks.read"),
 ):
     stmt = (
         select(EvalSubtask)
@@ -114,7 +135,7 @@ async def list_subtasks(
 async def pause_task(
     task_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("tasks.manage"),
 ):
     task = await session.get(EvalTask, task_id)
     if not task:
@@ -132,7 +153,7 @@ async def pause_task(
 async def resume_task(
     task_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("tasks.manage"),
 ):
     task = await session.get(EvalTask, task_id)
     if not task:
@@ -144,7 +165,7 @@ async def resume_task(
     await session.commit()
     await session.refresh(task)
 
-    asyncio.create_task(run_task(task.id))
+    await enqueue_task(str(task.id))
     return await _enrich_task(session, task)
 
 
@@ -152,15 +173,59 @@ async def resume_task(
 async def cancel_task(
     task_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("tasks.manage"),
 ):
     task = await session.get(EvalTask, task_id)
     if not task:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
-    task.status = TaskStatus.failed
+    task.status = TaskStatus.cancelled
+    session.add(task)
+    # Also cancel running subtasks
+    stmt = select(EvalSubtask).where(
+        EvalSubtask.task_id == task_id,
+        EvalSubtask.status.in_([TaskStatus.running, TaskStatus.pending]),
+    )
+    result = await session.exec(stmt)
+    for st in result.all():
+        st.status = TaskStatus.cancelled
+        session.add(st)
+    await session.commit()
+    await session.refresh(task)
+    return await _enrich_task(session, task)
+
+
+@router.post("/{task_id}/restart", response_model=TaskResponse)
+async def restart_task(
+    task_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    current_user: User = require_permission("tasks.manage"),
+):
+    """Restart a failed/cancelled task from scratch — clears all results."""
+    task = await session.get(EvalTask, task_id)
+    if not task:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Task not found")
+    if task.status not in (TaskStatus.failed, TaskStatus.cancelled):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "只有失败或已取消的任务可以重启",
+        )
+    # Delete old results
+    stmt = select(EvalResult).where(EvalResult.task_id == task_id)
+    for r in (await session.exec(stmt)).all():
+        await session.delete(r)
+    # Delete old subtasks
+    stmt = select(EvalSubtask).where(EvalSubtask.task_id == task_id)
+    for st in (await session.exec(stmt)).all():
+        await session.delete(st)
+    # Reset task state
+    task.status = TaskStatus.pending
+    task.started_at = None
+    task.finished_at = None
     session.add(task)
     await session.commit()
     await session.refresh(task)
+    # Enqueue the task again for worker execution
+    await enqueue_task(str(task.id))
     return await _enrich_task(session, task)
 
 
@@ -168,7 +233,7 @@ async def cancel_task(
 async def delete_task(
     task_id: uuid.UUID,
     session: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = require_permission("tasks.manage"),
 ):
     task = await session.get(EvalTask, task_id)
     if not task:

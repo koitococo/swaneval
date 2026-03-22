@@ -60,7 +60,7 @@ export function FilterDropdown({
           "inline-flex items-center gap-1.5 rounded-full border px-3 h-8 text-xs font-medium transition-colors",
           value !== "__all__"
             ? "bg-primary/10 border-primary/30 text-primary"
-            : "bg-background border-input text-muted-foreground hover:text-foreground",
+            : "bg-muted border-border text-muted-foreground hover:text-foreground",
         )}
       >
         <span>{label}</span>
@@ -70,13 +70,15 @@ export function FilterDropdown({
             <span className="font-semibold text-foreground max-w-[120px] truncate">
               {displayLabel}
             </span>
-            <button
-              type="button"
+            <span
+              role="button"
+              tabIndex={0}
               onClick={(e) => { e.stopPropagation(); onChange("__all__"); }}
-              className="rounded-full hover:bg-primary/20 p-0.5 -mr-0.5"
+              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onChange("__all__"); } }}
+              className="rounded-full hover:bg-primary/20 p-0.5 -mr-0.5 cursor-pointer"
             >
               <X className="h-3 w-3" />
-            </button>
+            </span>
           </>
         )}
         {value === "__all__" && (
@@ -88,7 +90,7 @@ export function FilterDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 min-w-[200px] rounded-lg border bg-popover text-popover-foreground overflow-hidden animate-modal-expand"
+        <div className="absolute top-full left-0 mt-1 z-50 min-w-[200px] rounded-xl border bg-card text-foreground shadow-lg overflow-hidden animate-modal-expand"
           style={{ transformOrigin: "top left" }}
         >
           {/* Search */}
@@ -100,7 +102,7 @@ export function FilterDropdown({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="搜索..."
-                  className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-input bg-background outline-none focus:ring-1 focus:ring-ring"
+                  className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-border bg-muted outline-none focus:ring-1 focus:ring-primary"
                   autoFocus
                 />
               </div>
@@ -116,8 +118,8 @@ export function FilterDropdown({
               className={cn(
                 "w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors",
                 value === "__all__"
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent/50",
+                  ? "bg-muted text-foreground"
+                  : "hover:bg-muted/50",
               )}
             >
               <Check className={cn("h-3 w-3 shrink-0", value !== "__all__" && "invisible")} />
@@ -136,8 +138,8 @@ export function FilterDropdown({
                 className={cn(
                   "w-full flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs transition-colors",
                   value === option.key
-                    ? "bg-accent text-accent-foreground"
-                    : "hover:bg-accent/50",
+                    ? "bg-muted text-foreground"
+                    : "hover:bg-muted/50",
                 )}
               >
                 <Check className={cn("h-3 w-3 shrink-0", value !== option.key && "invisible")} />
