@@ -500,7 +500,7 @@ export default function ClustersPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">集群名称</Label>
+              <Label className="text-xs">集群名称<span className="text-destructive ml-0.5">*</span></Label>
               <Input
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}
@@ -527,7 +527,7 @@ export default function ClustersPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Kubeconfig</Label>
+              <Label className="text-xs">Kubeconfig<span className="text-destructive ml-0.5">*</span></Label>
               <textarea
                 value={createKubeconfig}
                 onChange={(e) => setCreateKubeconfig(e.target.value)}
