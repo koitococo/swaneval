@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -200,10 +200,10 @@ async def playground(
 @router.post("/{model_id}/deploy")
 async def deploy_model(
     model_id: uuid.UUID,
-    cluster_id: uuid.UUID | None = None,
-    gpu_count: int = 1,
-    memory_gb: int = 40,
-    timeout_seconds: int = 0,
+    cluster_id: uuid.UUID | None = Query(None),
+    gpu_count: int = Query(1),
+    memory_gb: int = Query(40),
+    timeout_seconds: int = Query(0),
     session: AsyncSession = Depends(get_db),
     current_user: User = require_permission("models.write"),
 ):
@@ -238,7 +238,7 @@ async def deploy_model(
     await session.commit()
 
     try:
-        hf_token = current_user.hf_token or settings.HF_TOKEN or ""
+        hf_token = getattr(current_user, "hf_token", "") or settings.HF_TOKEN or ""
         endpoint, dep_name = await full_vllm_lifecycle(
             kubeconfig_encrypted=cluster.kubeconfig_encrypted,
             namespace=cluster.namespace,
@@ -262,7 +262,13 @@ async def deploy_model(
             "endpoint_url": endpoint,
             "deployment_name": dep_name,
         }
+    except HTTPException:
+        m.deploy_status = "failed"
+        session.add(m)
+        await session.commit()
+        raise
     except Exception as e:
+        logger.exception("Deploy failed for model %s: %s", model_id, e)
         m.deploy_status = "failed"
         session.add(m)
         await session.commit()
