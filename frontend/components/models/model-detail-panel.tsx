@@ -24,9 +24,9 @@ import {
   MessageSquare,
   ChevronDown,
   Send,
+  X as XIcon,
 } from "lucide-react";
-import { useUpdateModel, useTestModel, usePlayground, useDeployModel, useUndeployModel } from "@/lib/hooks/use-models";
-import { useClusters } from "@/lib/hooks/use-clusters";
+import { useUpdateModel, useTestModel, usePlayground, useUndeployModel } from "@/lib/hooks/use-models";
 import type { LLMModel } from "@/lib/types";
 import { cn, utc } from "@/lib/utils";
 import { formatTime } from "@/lib/time";
@@ -57,10 +57,7 @@ export function ModelDetailPanel({
   const update = useUpdateModel();
   const testModel = useTestModel();
   const playground = usePlayground();
-  const deploy = useDeployModel();
   const undeploy = useUndeployModel();
-  const { data: clusters = [] } = useClusters();
-  const [deployClusterId, setDeployClusterId] = useState("");
 
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<
@@ -279,15 +276,20 @@ export function ModelDetailPanel({
             </Button>
           </div>
 
-          {/* Deploy section - only for HF/MS/local models */}
-          {(model.model_type === "huggingface" || model.model_type === "modelscope" || model.model_type === "local") && (
+          {/* Deploy status — for self-hosted models */}
+          {model.deploy_status && model.deploy_status !== "" && (
             <div className="border-t pt-3 mt-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">集群部署</p>
+              <p className="text-xs font-medium text-muted-foreground">集群部署状态</p>
               {model.deploy_status === "running" ? (
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5 text-xs">
                     <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span className="text-emerald-600 font-medium">已部署</span>
+                    <span className="text-emerald-600 font-medium">运行中</span>
+                    {model.vllm_deployment_name && (
+                      <span className="font-mono text-[10px] text-muted-foreground">
+                        {model.vllm_deployment_name}
+                      </span>
+                    )}
                   </div>
                   <Button
                     size="sm"
@@ -305,38 +307,17 @@ export function ModelDetailPanel({
                   <Loader2 className="h-3 w-3 animate-spin" />
                   正在部署...
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {model.deploy_status === "failed" && (
-                    <p className="text-xs text-destructive">上次部署失败</p>
-                  )}
-                  <Select value={deployClusterId} onValueChange={setDeployClusterId}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="选择集群" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clusters.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name} ({c.gpu_count} GPU)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    disabled={!deployClusterId || deploy.isPending}
-                    onClick={() => deploy.mutate({
-                      model_id: model.id,
-                      cluster_id: deployClusterId,
-                      gpu_count: 1,
-                    })}
-                  >
-                    {deploy.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                    部署到集群
-                  </Button>
+              ) : model.deploy_status === "failed" || model.deploy_status === "cleanup_failed" ? (
+                <div className="flex items-center gap-1.5 text-xs text-destructive">
+                  <XIcon className="h-3 w-3" />
+                  部署失败
                 </div>
-              )}
+              ) : model.deploy_status === "stopped" ? (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
+                  已停止
+                </div>
+              ) : null}
             </div>
           )}
 

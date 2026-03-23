@@ -62,6 +62,7 @@ export interface LLMModel {
   deploy_status: string;
   cluster_id: string | null;
   source_model_id: string;
+  vllm_deployment_name: string;
   last_test_at: string | null;
   last_test_ok: boolean | null;
 }

@@ -232,25 +232,30 @@ async def deploy_model(
             400, "Model needs source_model_id or model_name for deployment",
         )
 
+    # Snapshot all values BEFORE commit (commit expires ORM objects)
+    _model_name = m.name
+    _kubeconfig = cluster.kubeconfig_encrypted
+    _namespace = cluster.namespace
+    _gpu_type = cluster.gpu_type or ""
+    _vllm_image = getattr(cluster, "vllm_image", "") or ""
+    _hf_token = getattr(current_user, "hf_token", "") or settings.HF_TOKEN or ""
+
     m.deploy_status = "deploying"
     m.cluster_id = cluster.id
     session.add(m)
     await session.commit()
 
     try:
-        # Refresh user to avoid lazy-load greenlet error on hf_token
-        await session.refresh(current_user)
-        hf_token = current_user.hf_token or settings.HF_TOKEN or ""
         endpoint, dep_name = await full_vllm_lifecycle(
-            kubeconfig_encrypted=cluster.kubeconfig_encrypted,
-            namespace=cluster.namespace,
-            model_name=m.name,
+            kubeconfig_encrypted=_kubeconfig,
+            namespace=_namespace,
+            model_name=_model_name,
             hf_model_id=hf_model_id,
             gpu_count=gpu_count,
-            gpu_type=cluster.gpu_type or "",
+            gpu_type=_gpu_type,
             memory_gb=memory_gb,
-            hf_token=hf_token,
-            image=getattr(cluster, "vllm_image", "") or "",
+            hf_token=_hf_token,
+            image=_vllm_image,
             timeout_seconds=timeout_seconds,
         )
         m.endpoint_url = endpoint

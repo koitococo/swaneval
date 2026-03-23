@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Loader2, Check, X as XIcon, Globe, Server } from "lucide-react";
-import { useCreateModel } from "@/lib/hooks/use-models";
+import { useCreateModel, useDeployModel } from "@/lib/hooks/use-models";
 import { useAuthStore } from "@/lib/stores/auth";
 import { useUserTokens } from "@/lib/hooks/use-users";
 import { useClusters } from "@/lib/hooks/use-clusters";
@@ -32,12 +32,15 @@ interface ModelCreateFormProps {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ModelCreateForm({ onSuccess, onClose: _onClose }: ModelCreateFormProps) {
   const create = useCreateModel();
+  const deploy = useDeployModel();
   const user = useAuthStore((s) => s.user);
   const { data: tokenStatus } = useUserTokens();
   const { data: clusters = [] } = useClusters();
   const accountHref = user?.role === "admin" ? `/admin?user=${user.id}` : "/account";
 
   const [mode, setMode] = useState<"api" | "selfhosted">("api");
+  const [deployError, setDeployError] = useState("");
+  const [deployPhase, setDeployPhase] = useState<"" | "creating" | "deploying" | "done">("");
 
   // API model form
   const [apiForm, setApiForm] = useState({
@@ -45,7 +48,7 @@ export function ModelCreateForm({ onSuccess, onClose: _onClose }: ModelCreateFor
     api_format: "openai", model_name: "", max_tokens: "4096", description: "",
   });
 
-  // Self-hosted model form
+  // Self-hosted model form (includes deployment config)
   const [shForm, setShForm] = useState({
     name: "", source: "huggingface" as "huggingface" | "modelscope",
     model_id: "", description: "", max_tokens: "4096",
@@ -96,27 +99,63 @@ export function ModelCreateForm({ onSuccess, onClose: _onClose }: ModelCreateFor
     onSuccess();
   };
 
-  const handleCreateSelfHosted = async (e: React.FormEvent) => {
+  const handleCreateAndDeploy = async (e: React.FormEvent) => {
     e.preventDefault();
+    setDeployError("");
     const isHF = shForm.source === "huggingface";
-    await create.mutateAsync({
-      name: shForm.name || shForm.model_id.split("/").pop() || "",
-      provider: shForm.source,
-      endpoint_url: isHF
-        ? `https://api-inference.huggingface.co/models/${shForm.model_id}/v1/chat/completions`
-        : `https://api-inference.modelscope.cn/v1/chat/completions`,
-      model_type: shForm.source,
-      api_format: "openai",
-      model_name: shForm.model_id,
-      source_model_id: shForm.model_id,
-      max_tokens: shForm.max_tokens ? parseInt(shForm.max_tokens) : undefined,
-      description: shForm.description || undefined,
-    });
+    const displayName = shForm.name || shForm.model_id.split("/").pop() || "";
+
+    // Step 1: Create the model record
+    setDeployPhase("creating");
+    let modelId: string;
+    try {
+      const created = await create.mutateAsync({
+        name: displayName,
+        provider: shForm.source,
+        endpoint_url: isHF
+          ? `https://api-inference.huggingface.co/models/${shForm.model_id}/v1/chat/completions`
+          : `https://api-inference.modelscope.cn/v1/chat/completions`,
+        model_type: shForm.source,
+        api_format: "openai",
+        model_name: shForm.model_id,
+        source_model_id: shForm.model_id,
+        max_tokens: shForm.max_tokens ? parseInt(shForm.max_tokens) : undefined,
+        description: shForm.description || undefined,
+      });
+      modelId = created.id;
+    } catch (err: unknown) {
+      setDeployPhase("");
+      setDeployError(err instanceof Error ? err.message : "注册模型失败");
+      return;
+    }
+
+    // Step 2: Deploy to cluster (if cluster selected)
+    if (shForm.cluster_id) {
+      setDeployPhase("deploying");
+      try {
+        await deploy.mutateAsync({
+          model_id: modelId,
+          cluster_id: shForm.cluster_id,
+          gpu_count: parseInt(shForm.gpu_count) || 1,
+          memory_gb: parseInt(shForm.memory_gb) || 40,
+        });
+      } catch (err: unknown) {
+        // Model was created but deploy failed — still close, user can retry from detail panel
+        setDeployPhase("");
+        setDeployError(err instanceof Error ? err.message : "部署失败（模型已注册，可稍后重试）");
+        // Don't return — model is created, let user see it
+        setTimeout(() => onSuccess(), 2000);
+        return;
+      }
+    }
+
+    setDeployPhase("done");
     onSuccess();
   };
 
   const tokenSet = shForm.source === "huggingface" ? tokenStatus?.hf_token_set : tokenStatus?.ms_token_set;
   const tokenLabel = shForm.source === "huggingface" ? "HF Token" : "MS Token";
+  const isSubmitting = create.isPending || deploy.isPending || !!deployPhase;
 
   return (
     <>
@@ -213,7 +252,8 @@ export function ModelCreateForm({ onSuccess, onClose: _onClose }: ModelCreateFor
 
         {/* ── Self-Hosted Model ── */}
         <TabsContent value="selfhosted">
-          <form onSubmit={handleCreateSelfHosted} className="space-y-3">
+          <form onSubmit={handleCreateAndDeploy} className="space-y-3">
+            {/* Model source */}
             <PanelField label="模型来源" required>
               <Select value={shForm.source} onValueChange={(v) => setShForm({ ...shForm, source: v as "huggingface" | "modelscope" })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -231,23 +271,14 @@ export function ModelCreateForm({ onSuccess, onClose: _onClose }: ModelCreateFor
                 className="font-mono"
                 required
               />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                {shForm.source === "huggingface" ? "HuggingFace" : "ModelScope"} 模型仓库 ID
-              </p>
             </PanelField>
 
             {/* Token status */}
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               {tokenSet ? (
-                <>
-                  <Check className="h-3 w-3 text-emerald-500" />
-                  <span>{tokenLabel} 已配置</span>
-                </>
+                <><Check className="h-3 w-3 text-emerald-500" /><span>{tokenLabel} 已配置</span></>
               ) : (
-                <>
-                  <XIcon className="h-3 w-3 text-muted-foreground/50" />
-                  <span>{tokenLabel} 未配置（私有模型需要）</span>
-                </>
+                <><XIcon className="h-3 w-3 text-muted-foreground/50" /><span>{tokenLabel} 未配置（私有模型需要）</span></>
               )}
               <span>·</span>
               <a href={accountHref} className="text-primary hover:underline">去设置</a>
@@ -260,21 +291,76 @@ export function ModelCreateForm({ onSuccess, onClose: _onClose }: ModelCreateFor
                 placeholder={shForm.model_id.split("/").pop() || "自动使用模型 ID"}
               />
             </PanelField>
-            <PanelField label="描述">
-              <Input
-                value={shForm.description}
-                onChange={(e) => setShForm({ ...shForm, description: e.target.value })}
-                placeholder="备注（可选）"
-              />
-            </PanelField>
 
+            {/* ── Deployment config (integrated) ── */}
+            <div className="rounded-md border p-3 space-y-3">
+              <p className="text-xs font-medium">集群部署</p>
+              <PanelField label="计算集群" required>
+                <Select value={shForm.cluster_id} onValueChange={(v) => setShForm({ ...shForm, cluster_id: v })}>
+                  <SelectTrigger><SelectValue placeholder="选择集群" /></SelectTrigger>
+                  <SelectContent>
+                    {clusters.length === 0 ? (
+                      <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                        暂无集群，<a href="/clusters" className="text-primary hover:underline">去添加</a>
+                      </div>
+                    ) : clusters.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                        <span className="text-muted-foreground ml-1">
+                          {c.gpu_count > 0 ? `${c.gpu_count} GPU` : "CPU"}
+                          {c.gpu_type ? ` (${c.gpu_type})` : ""}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </PanelField>
+              <div className="grid grid-cols-2 gap-2">
+                <PanelField label="GPU 数量">
+                  <Input
+                    type="number" min="0"
+                    value={shForm.gpu_count}
+                    onChange={(e) => setShForm({ ...shForm, gpu_count: e.target.value })}
+                    className="font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">0 = CPU 模式</p>
+                </PanelField>
+                <PanelField label="内存 (GB)">
+                  <Input
+                    type="number" min="4"
+                    value={shForm.memory_gb}
+                    onChange={(e) => setShForm({ ...shForm, memory_gb: e.target.value })}
+                    className="font-mono"
+                  />
+                </PanelField>
+              </div>
+            </div>
+
+            {/* Errors */}
+            {deployError && (
+              <div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {deployError}
+              </div>
+            )}
+
+            {/* Submit */}
             <div className="pt-1">
-              <Button type="submit" className="w-full" disabled={create.isPending}>
-                {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                {create.isPending ? "注册模型" : "注册模型"}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isSubmitting || !shForm.model_id || !shForm.cluster_id}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Server className="mr-2 h-4 w-4" />
+                )}
+                {deployPhase === "creating" ? "注册模型中..." :
+                 deployPhase === "deploying" ? "部署到集群中..." :
+                 "注册并部署"}
               </Button>
               <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
-                注册后可在模型详情中部署到集群，或在创建任务时选择 K8s/vLLM 后端自动部署
+                模型将注册到平台并自动部署 vLLM 到选定集群
               </p>
             </div>
           </form>
