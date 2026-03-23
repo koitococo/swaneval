@@ -302,17 +302,23 @@ async def undeploy_model(
         except Exception:
             pass
 
+    cleanup_ok = False
     if dep_name:
         try:
             await cleanup_vllm(
                 cluster.kubeconfig_encrypted, cluster.namespace, dep_name,
             )
+            cleanup_ok = True
         except Exception as e:
             logger.warning("Cleanup failed: %s", e)
 
-    m.deploy_status = "stopped"
-    m.endpoint_url = ""
-    m.vllm_deployment_name = ""
+    if cleanup_ok or not dep_name:
+        m.deploy_status = "stopped"
+        m.endpoint_url = ""
+        m.vllm_deployment_name = ""
+    else:
+        m.deploy_status = "cleanup_failed"
+        # Keep endpoint_url and deployment_name so retry is possible
     session.add(m)
     await session.commit()
     await session.refresh(m)
