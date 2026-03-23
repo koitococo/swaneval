@@ -23,19 +23,25 @@ _false = sa.text("false")
 
 
 def upgrade() -> None:
-    # ── Create enum types ───────────────────────────────────────────
+    # ── Create enum types (idempotent) ──────────────────────────────
+    op.execute(sa.text(
+        "DO $$ BEGIN CREATE TYPE clusterstatus AS ENUM "
+        "('connecting', 'ready', 'error', 'provisioning', 'offline'); "
+        "EXCEPTION WHEN duplicate_object THEN null; END $$;"
+    ))
+    op.execute(sa.text(
+        "DO $$ BEGIN CREATE TYPE infrajobtype AS ENUM "
+        "('namespace_setup', 'vllm_cache', 'resource_quota', 'probe'); "
+        "EXCEPTION WHEN duplicate_object THEN null; END $$;"
+    ))
     clusterstatus = postgresql.ENUM(
         "connecting", "ready", "error", "provisioning", "offline",
-        name="clusterstatus",
-        create_type=False,
+        name="clusterstatus", create_type=False,
     )
     infrajobtype = postgresql.ENUM(
         "namespace_setup", "vllm_cache", "resource_quota", "probe",
-        name="infrajobtype",
-        create_type=False,
+        name="infrajobtype", create_type=False,
     )
-    clusterstatus.create(op.get_bind(), checkfirst=True)
-    infrajobtype.create(op.get_bind(), checkfirst=True)
 
     # ── compute_clusters ────────────────────────────────────────────
     tz = sa.DateTime(timezone=True)

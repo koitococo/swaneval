@@ -17,19 +17,23 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
-def upgrade() -> None:
-    # Create enum types
-    reporttype_enum = sa.Enum(
-        "performance", "safety", "cost", "value",
-        name="reporttype",
-    )
-    reportstatus_enum = sa.Enum(
-        "generating", "ready", "failed",
-        name="reportstatus",
-    )
+def _create_enum_safe(name: str, values: list[str]) -> sa.Enum:
+    """Create a PostgreSQL enum type if it doesn't exist."""
+    enum = sa.Enum(*values, name=name)
+    bind = op.get_bind()
+    # Use raw SQL for reliable IF NOT EXISTS
+    vals = ", ".join(f"'{v}'" for v in values)
+    bind.execute(sa.text(
+        f"DO $$ BEGIN CREATE TYPE {name} AS ENUM ({vals}); "
+        f"EXCEPTION WHEN duplicate_object THEN null; END $$;"
+    ))
+    return enum
 
-    reporttype_enum.create(op.get_bind(), checkfirst=True)
-    reportstatus_enum.create(op.get_bind(), checkfirst=True)
+
+def upgrade() -> None:
+    # Create enum types (idempotent)
+    reporttype_enum = _create_enum_safe("reporttype", ["performance", "safety", "cost", "value"])
+    reportstatus_enum = _create_enum_safe("reportstatus", ["generating", "ready", "failed"])
 
     # Create reports table
     op.create_table(

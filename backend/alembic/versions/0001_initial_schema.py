@@ -21,21 +21,22 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     # ── Create enum types (idempotent) ────────────────────────────────
-    userrole = postgresql.ENUM("admin", "data_admin", "engineer", "viewer", name="userrole", create_type=False)
-    sourcetype = postgresql.ENUM("upload", "huggingface", "modelscope", "server_path", "preset", name="sourcetype", create_type=False)
-    criteriontype = postgresql.ENUM("preset", "regex", "script", "llm_judge", name="criteriontype", create_type=False)
-    modeltype = postgresql.ENUM("api", "local", "huggingface", name="modeltype", create_type=False)
-    apiformat = postgresql.ENUM("openai", "anthropic", name="apiformat", create_type=False)
-    taskstatus = postgresql.ENUM("pending", "running", "paused", "completed", "failed", name="taskstatus", create_type=False)
-    seedstrategy = postgresql.ENUM("fixed", "random", name="seedstrategy", create_type=False)
+    def _enum_safe(name: str, values: list[str]):
+        """Create PG enum IF NOT EXISTS, return a reference for column types."""
+        vals = ", ".join(f"'{v}'" for v in values)
+        op.execute(sa.text(
+            f"DO $$ BEGIN CREATE TYPE {name} AS ENUM ({vals}); "
+            f"EXCEPTION WHEN duplicate_object THEN null; END $$;"
+        ))
+        return postgresql.ENUM(*values, name=name, create_type=False)
 
-    userrole.create(op.get_bind(), checkfirst=True)
-    sourcetype.create(op.get_bind(), checkfirst=True)
-    criteriontype.create(op.get_bind(), checkfirst=True)
-    modeltype.create(op.get_bind(), checkfirst=True)
-    apiformat.create(op.get_bind(), checkfirst=True)
-    taskstatus.create(op.get_bind(), checkfirst=True)
-    seedstrategy.create(op.get_bind(), checkfirst=True)
+    userrole = _enum_safe("userrole", ["admin", "data_admin", "engineer", "viewer"])
+    sourcetype = _enum_safe("sourcetype", ["upload", "huggingface", "modelscope", "server_path", "preset"])
+    criteriontype = _enum_safe("criteriontype", ["preset", "regex", "script", "llm_judge"])
+    modeltype = _enum_safe("modeltype", ["api", "local", "huggingface"])
+    apiformat = _enum_safe("apiformat", ["openai", "anthropic"])
+    taskstatus = _enum_safe("taskstatus", ["pending", "running", "paused", "completed", "failed"])
+    seedstrategy = _enum_safe("seedstrategy", ["fixed", "random"])
 
     # ── users ─────────────────────────────────────────────────────────
     op.create_table(
