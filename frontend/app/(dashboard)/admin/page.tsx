@@ -203,7 +203,7 @@ export default function AdminPage() {
                     key={user.id}
                     type="button"
                     onClick={() => setSelectedUserId(user.id)}
-                    className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${
+                    className={`w-full text-left rounded-md px-3 py-2.5 transition-colors ${
                       selectedUserId === user.id
                         ? "bg-muted"
                         : "hover:bg-muted/50"

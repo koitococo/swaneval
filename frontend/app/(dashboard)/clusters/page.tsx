@@ -384,7 +384,7 @@ export default function ClustersPage() {
                     key={cluster.id}
                     type="button"
                     onClick={() => setSelectedId(cluster.id)}
-                    className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${
+                    className={`w-full text-left rounded-md px-3 py-2.5 transition-colors ${
                       selectedId === cluster.id
                         ? "bg-muted"
                         : "hover:bg-muted/50"
