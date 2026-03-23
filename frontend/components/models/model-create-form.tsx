@@ -15,6 +15,7 @@ import {
 import { Plus, Loader2, Check, X as XIcon } from "lucide-react";
 import { useCreateModel } from "@/lib/hooks/use-models";
 import { useAuthStore } from "@/lib/stores/auth";
+import { useUserTokens } from "@/lib/hooks/use-users";
 
 const emptyForm = {
   name: "",
@@ -38,6 +39,7 @@ interface ModelCreateFormProps {
 export function ModelCreateForm({ onSuccess, onClose: _onClose }: ModelCreateFormProps) {
   const create = useCreateModel();
   const user = useAuthStore((s) => s.user);
+  const { data: tokenStatus } = useUserTokens();
   const accountHref = user?.role === "admin" ? `/admin?user=${user.id}` : "/account";
 
   const [form, setForm] = useState({ ...emptyForm });
@@ -145,13 +147,10 @@ export function ModelCreateForm({ onSuccess, onClose: _onClose }: ModelCreateFor
               </p>
             </PanelField>
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              {user?.hf_token_set ? (
+              {tokenStatus?.hf_token_set ? (
                 <>
                   <Check className="h-3 w-3 text-emerald-500" />
                   <span>HF Token 已配置</span>
-                  {user.hf_token_masked && (
-                    <span className="font-mono text-[10px]">({user.hf_token_masked})</span>
-                  )}
                 </>
               ) : (
                 <>
@@ -180,13 +179,10 @@ export function ModelCreateForm({ onSuccess, onClose: _onClose }: ModelCreateFor
               </p>
             </PanelField>
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              {user?.ms_token_set ? (
+              {tokenStatus?.ms_token_set ? (
                 <>
                   <Check className="h-3 w-3 text-emerald-500" />
                   <span>MS Token 已配置</span>
-                  {user.ms_token_masked && (
-                    <span className="font-mono text-[10px]">({user.ms_token_masked})</span>
-                  )}
                 </>
               ) : (
                 <>
