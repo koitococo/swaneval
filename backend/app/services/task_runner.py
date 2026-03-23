@@ -563,7 +563,14 @@ async def run_task(task_id: uuid.UUID):
                     )
 
                     try:
-                        vllm_image = cluster.vllm_image or ""
+                        vllm_image = getattr(cluster, "vllm_image", "") or ""
+                        hf_token = settings.HF_TOKEN or ""
+                        # Try user-level token if task has created_by
+                        if not hf_token and hasattr(task, "created_by") and task.created_by:
+                            from app.models.user import User
+                            creator = await session.get(User, task.created_by)
+                            if creator and creator.hf_token:
+                                hf_token = creator.hf_token
                         vllm_endpoint, _vllm_deployment = await full_vllm_lifecycle(
                             kubeconfig_encrypted=cluster.kubeconfig_encrypted,
                             namespace=cluster.namespace,

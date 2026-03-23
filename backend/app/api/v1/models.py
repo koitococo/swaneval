@@ -265,10 +265,35 @@ async def deploy_model(
     session.add(m)
     await session.commit()
 
-    background_tasks.add_task(
-        _do_deploy, m.id, cluster.id, gpu_count, memory_gb,
-    )
-    return {"status": "deploying", "model_id": str(m.id)}
+    try:
+        hf_token = current_user.hf_token or settings.HF_TOKEN or ""
+        endpoint, dep_name = await full_vllm_lifecycle(
+            kubeconfig_encrypted=cluster.kubeconfig_encrypted,
+            namespace=cluster.namespace,
+            model_name=m.name,
+            hf_model_id=hf_model_id,
+            gpu_count=gpu_count,
+            gpu_type=cluster.gpu_type or "",
+            memory_gb=memory_gb,
+            hf_token=hf_token,
+            image=getattr(cluster, "vllm_image", "") or "",
+        )
+        m.endpoint_url = endpoint
+        m.deploy_status = "running"
+        m.api_key = "not-needed"  # vLLM internal doesn't need auth
+        session.add(m)
+        await session.commit()
+        await session.refresh(m)
+        return {
+            "status": "deployed",
+            "endpoint_url": endpoint,
+            "deployment_name": dep_name,
+        }
+    except Exception as e:
+        m.deploy_status = "failed"
+        session.add(m)
+        await session.commit()
+        raise HTTPException(500, f"Deployment failed: {e}") from e
 
 
 @router.post("/{model_id}/undeploy")
