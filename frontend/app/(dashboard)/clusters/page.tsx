@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,6 +48,7 @@ import { formatTime } from "@/lib/time";
 import { extractErrorDetail } from "@/lib/utils";
 import {
   useClusters,
+  useCluster,
   useCreateCluster,
   useDeleteCluster,
   useProbeCluster,
@@ -91,7 +92,7 @@ const statusLabel: Record<string, string> = {
 };
 
 function ClusterDetail({
-  cluster,
+  cluster: clusterProp,
   onClose,
   onDelete,
 }: {
@@ -101,25 +102,43 @@ function ClusterDetail({
 }) {
   const qc = useQueryClient();
   const probeCluster = useProbeCluster();
+  // Fetch fresh cluster data independently — don't rely on parent's stale prop
+  const { data: liveCluster } = useCluster(clusterProp.id);
+  const cluster = liveCluster ?? clusterProp;
+  const [isProbing, setIsProbing] = useState(false);
+
   const { data: nodes = [], isLoading: nodesLoading } = useClusterNodes(
     cluster.id,
   );
-  const { data: gpuStatus, refetch: refetchGpu } = useGpuStatus(cluster.id);
+  const { data: gpuStatus } = useGpuStatus(cluster.id);
   const { data: allDeployments = [] } = useActiveDeployments();
   const deployments = allDeployments.filter((m) => m.cluster_id === cluster.id);
   const [probeError, setProbeError] = useState("");
 
   const refreshAll = () => {
     qc.invalidateQueries({ queryKey: ["clusters"] });
+    qc.invalidateQueries({ queryKey: ["clusters", cluster.id] });
     qc.invalidateQueries({ queryKey: ["clusters", cluster.id, "nodes"] });
     qc.invalidateQueries({ queryKey: ["clusters", cluster.id, "gpu-status"] });
   };
+
+  // Poll while probing — stop when status changes away from "connecting"
+  useEffect(() => {
+    if (!isProbing) return;
+    if (cluster.status !== "connecting") {
+      setIsProbing(false);
+      return;
+    }
+    const timer = setInterval(refreshAll, 2000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProbing, cluster.status]);
 
   const handleProbe = async () => {
     setProbeError("");
     try {
       await probeCluster.mutateAsync(cluster.id);
-      refreshAll();
+      setIsProbing(true);
     } catch (err: unknown) {
       setProbeError(extractErrorDetail(err, "探测失败"));
     }
@@ -138,7 +157,7 @@ function ClusterDetail({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-semibold">{cluster.name}</h2>
-                {cluster.status === "connecting" || probeCluster.isPending ? (
+                {isProbing || cluster.status === "connecting" ? (
                   <Badge variant="warning" className="text-[10px]">
                     <Loader2 className="h-3 w-3 animate-spin mr-1" />
                     探测中
@@ -384,9 +403,9 @@ function ClusterDetail({
             size="sm"
             className="text-xs"
             onClick={handleProbe}
-            disabled={probeCluster.isPending || cluster.status === "connecting"}
+            disabled={isProbing}
           >
-            {probeCluster.isPending || cluster.status === "connecting" ? (
+            {isProbing ? (
               <Loader2 className="h-3 w-3 mr-1 animate-spin" />
             ) : (
               <RefreshCw className="h-3 w-3 mr-1" />

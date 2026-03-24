@@ -221,7 +221,7 @@ async def probe_cluster(
         )
 
     cluster.status = ClusterStatus.connecting
-    cluster.status_message = "Probing..."
+    cluster.status_message = ""
     cluster.updated_at = datetime.now(timezone.utc)
     session.add(cluster)
     await session.commit()
