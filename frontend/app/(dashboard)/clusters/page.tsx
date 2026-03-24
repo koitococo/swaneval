@@ -52,7 +52,6 @@ import {
   useDeleteCluster,
   useProbeCluster,
   useClusterNodes,
-  useInstallGpuSupport,
   useGpuStatus,
 } from "@/lib/hooks/use-clusters";
 import { useActiveDeployments } from "@/lib/hooks/use-models";
@@ -98,7 +97,6 @@ function ClusterDetail({
 }) {
   const qc = useQueryClient();
   const probeCluster = useProbeCluster();
-  const installGpu = useInstallGpuSupport();
   const { data: nodes = [], isLoading: nodesLoading } = useClusterNodes(
     cluster.id,
   );
@@ -106,9 +104,6 @@ function ClusterDetail({
   const { data: allDeployments = [] } = useActiveDeployments();
   const deployments = allDeployments.filter((m) => m.cluster_id === cluster.id);
   const [probeError, setProbeError] = useState("");
-  const [gpuError, setGpuError] = useState("");
-  const [gpuSuccess, setGpuSuccess] = useState("");
-  const [installingMethod, setInstallingMethod] = useState("");
 
   const refreshAll = () => {
     qc.invalidateQueries({ queryKey: ["clusters"] });
@@ -126,23 +121,6 @@ function ClusterDetail({
     }
   };
 
-  const handleInstallGpu = async (method: string) => {
-    setGpuError(""); setGpuSuccess(""); setInstallingMethod(method);
-    try {
-      const r = await installGpu.mutateAsync({ cluster_id: cluster.id, method });
-      if (r.ok) {
-        setGpuSuccess(r.message);
-        // Re-check GPU status after install
-        setTimeout(() => { refreshAll(); refetchGpu(); }, 2000);
-      } else {
-        setGpuError(r.message);
-      }
-    } catch (err: unknown) {
-      setGpuError(extractErrorDetail(err, "安装失败"));
-    } finally {
-      setInstallingMethod("");
-    }
-  };
 
   return (
     <Card className="h-full overflow-auto">
@@ -226,43 +204,15 @@ function ClusterDetail({
           )}
 
           {gpuStatus && !gpuStatus.has_device_plugin && !gpuStatus.has_gpu_operator && (
-            <>
-              <p className="text-[11px] text-muted-foreground">
-                选择一种方式安装 NVIDIA GPU 支持：
+            <div className="rounded-md bg-amber-500/10 px-2.5 py-2 text-[11px] text-amber-700 dark:text-amber-400 space-y-1">
+              <p className="font-medium">未检测到 NVIDIA GPU 支持</p>
+              <p>
+                部署 GPU 模型前，需要在集群上安装 NVIDIA Device Plugin 或 GPU Operator。
+                安装完成后点击「刷新资源」重新检测。
               </p>
-              <div className="flex gap-2">
-                <Button
-                  size="sm" variant="outline" className="flex-1 text-xs h-7"
-                  disabled={!!installingMethod}
-                  onClick={() => handleInstallGpu("device-plugin")}
-                >
-                  {installingMethod === "device-plugin" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                  Device Plugin
-                </Button>
-                <Button
-                  size="sm" variant="outline" className="flex-1 text-xs h-7"
-                  disabled={!!installingMethod}
-                  onClick={() => handleInstallGpu("gpu-operator")}
-                >
-                  {installingMethod === "gpu-operator" ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                  GPU Operator
-                </Button>
-              </div>
-              <div className="text-[10px] text-muted-foreground space-y-0.5">
-                <p><b>Device Plugin</b>：轻量方案，需要节点已安装 NVIDIA 驱动，后端需要 kubectl</p>
-                <p><b>GPU Operator</b>：完整方案，自动管理驱动和插件，后端需要 <a href="https://helm.sh/docs/intro/install/" target="_blank" rel="noopener" className="text-primary hover:underline">Helm CLI</a></p>
-              </div>
-            </>
-          )}
-
-          {gpuError && (
-            <div className="rounded-md bg-destructive/10 px-2.5 py-1.5 text-[11px] text-destructive">
-              {gpuError}
-            </div>
-          )}
-          {gpuSuccess && (
-            <div className="rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-[11px] text-emerald-600">
-              {gpuSuccess}
+              <p>
+                <a href="https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/getting-started.html" target="_blank" rel="noopener" className="text-primary hover:underline">NVIDIA GPU Operator 安装指南 →</a>
+              </p>
             </div>
           )}
         </div>
