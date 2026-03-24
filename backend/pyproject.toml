@@ -1,7 +1,7 @@
 [project]
-name = "evalscope-gui-backend"
+name = "swaneval-backend"
 version = "0.1.0"
-description = "Backend for EvalScope GUI - Enterprise model evaluation platform"
+description = "SwanEVAL - Enterprise LLM evaluation platform backend"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.110.0",
