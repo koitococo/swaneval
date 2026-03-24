@@ -58,11 +58,15 @@ import { useActiveDeployments } from "@/lib/hooks/use-models";
 import type { ComputeCluster } from "@/lib/types";
 
 function formatBytes(bytes: number): string {
-  return (bytes / 1024 ** 3).toFixed(1) + " GiB";
+  if (bytes >= 1024 ** 4) return (bytes / 1024 ** 4).toFixed(1) + " TiB";
+  if (bytes >= 1024 ** 3) return (bytes / 1024 ** 3).toFixed(1) + " GiB";
+  if (bytes >= 1024 ** 2) return (bytes / 1024 ** 2).toFixed(0) + " MiB";
+  return (bytes / 1024).toFixed(0) + " KiB";
 }
 
 function formatCpu(millicores: number): string {
-  return (millicores / 1000).toFixed(1) + " cores";
+  const cores = millicores / 1000;
+  return cores % 1 === 0 ? `${cores} 核` : `${cores.toFixed(1)} 核`;
 }
 
 const statusBadgeVariant: Record<
@@ -163,18 +167,29 @@ function ClusterDetail({
         </div>
 
         {/* Info fields */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <DetailField label="API Server" value={cluster.api_server_url || "—"} />
-          <DetailField label="命名空间" value={cluster.namespace || "default"} />
-          <DetailField
-            label="最后探测"
-            value={formatTime(cluster.last_probed_at)}
-          />
-          <DetailField label="创建时间" value={formatTime(cluster.created_at)} />
-          <DetailField
-            label="vLLM 镜像"
-            value={cluster.vllm_image || "默认 (Docker Hub)"}
-          />
+        <div className="grid grid-cols-2 gap-x-6 gap-y-3 mb-6 text-xs">
+          <div>
+            <dt className="text-muted-foreground mb-0.5">API 地址</dt>
+            <dd className="font-mono text-[11px] break-all">{cluster.api_server_url || "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground mb-0.5">命名空间</dt>
+            <dd className="font-mono">{cluster.namespace || "default"}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground mb-0.5">最后探测</dt>
+            <dd>{formatTime(cluster.last_probed_at)}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground mb-0.5">创建时间</dt>
+            <dd>{formatTime(cluster.created_at)}</dd>
+          </div>
+          {cluster.vllm_image && (
+            <div className="col-span-2">
+              <dt className="text-muted-foreground mb-0.5">vLLM 镜像</dt>
+              <dd className="font-mono text-[11px] break-all">{cluster.vllm_image}</dd>
+            </div>
+          )}
         </div>
 
         {/* GPU Support Section */}
@@ -228,26 +243,45 @@ function ClusterDetail({
         )}
 
         {/* Resource cards */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <ResourceCard
-            icon={HardDrive}
-            label="GPU"
-            value={`${cluster.gpu_available} / ${cluster.gpu_count}`}
-            sub={cluster.gpu_type || "—"}
-          />
-          <ResourceCard
-            icon={Cpu}
-            label="CPU"
-            value={formatCpu(cluster.cpu_total_millicores)}
-            sub={`${cluster.node_count} 节点`}
-          />
-          <ResourceCard
-            icon={MemoryStick}
-            label="内存"
-            value={formatBytes(cluster.memory_total_bytes)}
-            sub=""
-          />
-        </div>
+        {(() => {
+          const totalGpu = nodes.length > 0
+            ? nodes.reduce((s, n) => s + n.gpu_count, 0)
+            : cluster.gpu_count;
+          const gpuType = nodes.find(n => n.gpu_type)?.gpu_type || cluster.gpu_type || "";
+          return (
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="rounded-md border p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[11px] text-muted-foreground">GPU</span>
+                </div>
+                {totalGpu > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-semibold">{gpuType || "GPU"}</span>
+                    <Badge variant="secondary" className="text-[10px] tabular-nums">×{totalGpu}</Badge>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">无</p>
+                )}
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[11px] text-muted-foreground">CPU</span>
+                </div>
+                <p className="text-sm font-semibold tabular-nums">{formatCpu(cluster.cpu_total_millicores)}</p>
+                <p className="text-[10px] text-muted-foreground">{cluster.node_count} 个节点</p>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <MemoryStick className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[11px] text-muted-foreground">内存</span>
+                </div>
+                <p className="text-sm font-semibold tabular-nums">{formatBytes(cluster.memory_total_bytes)}</p>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Nodes table */}
         <div className="mb-6">
@@ -275,10 +309,17 @@ function ClusterDetail({
                         {node.name}
                       </TableCell>
                       <TableCell>
-                        {node.gpu_count} x {node.gpu_type || "—"}
+                        {node.gpu_count > 0 ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs">{node.gpu_type || "GPU"}</span>
+                            <Badge variant="secondary" className="text-[10px] tabular-nums">×{node.gpu_count}</Badge>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
                       </TableCell>
-                      <TableCell>{formatCpu(node.cpu_millicores)}</TableCell>
-                      <TableCell>{formatBytes(node.memory_bytes)}</TableCell>
+                      <TableCell className="tabular-nums text-xs">{formatCpu(node.cpu_millicores)}</TableCell>
+                      <TableCell className="tabular-nums text-xs">{formatBytes(node.memory_bytes)}</TableCell>
                       <TableCell>
                         <Badge
                           variant={
@@ -286,7 +327,7 @@ function ClusterDetail({
                           }
                           className="text-[10px]"
                         >
-                          {node.status}
+                          {node.status === "Ready" ? "就绪" : "异常"}
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -310,17 +351,19 @@ function ClusterDetail({
               {deployments.map((m) => (
                 <div
                   key={m.id}
-                  className="flex items-center justify-between rounded-lg border px-3 py-2"
+                  className="flex items-center justify-between rounded-md border px-3 py-2"
                 >
-                  <div>
-                    <span className="text-sm font-medium">{m.name}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {m.model_name || m.source_model_id || ""}
-                    </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium truncate">{m.name}</p>
+                    {(m.model_name || m.source_model_id) && (
+                      <p className="text-[10px] font-mono text-muted-foreground truncate">
+                        {m.model_name || m.source_model_id}
+                      </p>
+                    )}
                   </div>
                   <Badge
                     variant={m.deploy_status === "running" ? "success" : "warning"}
-                    className="text-[10px]"
+                    className="text-[10px] shrink-0 ml-2"
                   >
                     {m.deploy_status === "running" ? "运行中" : "部署中"}
                   </Badge>
@@ -366,37 +409,7 @@ function ClusterDetail({
   );
 }
 
-function ResourceCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  sub: string;
-}) {
-  return (
-    <div className="rounded-lg border p-3">
-      <div className="flex items-center gap-2 mb-1">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">{label}</span>
-      </div>
-      <p className="text-sm font-semibold">{value}</p>
-      {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
-    </div>
-  );
-}
 
-function DetailField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="text-sm mt-0.5 break-all">{value}</dd>
-    </div>
-  );
-}
 
 export default function ClustersPage() {
   const { data: clusters = [], isLoading, isFetching } = useClusters();
@@ -522,12 +535,12 @@ export default function ClustersPage() {
                         {statusLabel[cluster.status] ?? cluster.status}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span>
-                        GPU {cluster.gpu_available}/{cluster.gpu_count}
-                      </span>
-                      <span>{cluster.node_count} 节点</span>
-                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {cluster.gpu_count > 0
+                        ? `${cluster.gpu_count} GPU · ${cluster.node_count} 节点`
+                        : `${cluster.node_count} 个节点`
+                      }
+                    </p>
                   </button>
                 ))}
               </div>

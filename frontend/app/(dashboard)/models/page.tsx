@@ -240,7 +240,7 @@ export default function ModelsPage() {
       },
       {
         accessorKey: "max_tokens",
-        header: "Token",
+        header: "最大 Token",
         cell: ({ getValue }) => {
           const v = getValue<number | null>();
           return (

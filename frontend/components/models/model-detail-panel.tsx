@@ -328,7 +328,7 @@ export function ModelDetailPanel({
               className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
             >
               <MessageSquare className="h-3.5 w-3.5" />
-              Playground
+              模型试用
               <ChevronDown className={cn("h-3 w-3 transition-transform", showPlayground && "rotate-180")} />
             </button>
             {showPlayground && (
@@ -354,7 +354,7 @@ export function ModelDetailPanel({
                     />
                   </div>
                   <div className="flex items-center gap-1">
-                    <label className="text-[11px] text-muted-foreground">Token</label>
+                    <label className="text-[11px] text-muted-foreground">最大 Token</label>
                     <Input
                       type="number"
                       step="64"
