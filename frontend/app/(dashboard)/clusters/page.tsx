@@ -41,8 +41,15 @@ import {
   Trash2,
   X,
   Loader2,
+  Pencil,
+  Check,
+  Copy,
+  ClipboardCheck,
+  ChevronDown,
 } from "lucide-react";
 import { TableEmpty, TableLoading } from "@/components/table-states";
+import { JsonImportBar } from "@/components/json-import-bar";
+import { cn } from "@/lib/utils";
 import { RefreshIndicator } from "@/components/refresh-indicator";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { formatTime } from "@/lib/time";
@@ -51,6 +58,7 @@ import {
   useClusters,
   useCluster,
   useCreateCluster,
+  useUpdateCluster,
   useDeleteCluster,
   useProbeCluster,
   useClusterNodes,
@@ -114,7 +122,28 @@ function ClusterDetail({
   const { data: gpuStatus } = useGpuStatus(cluster.id);
   const { data: allDeployments = [] } = useActiveDeployments();
   const deployments = allDeployments.filter((m) => m.cluster_id === cluster.id);
+  const updateCluster = useUpdateCluster();
   const [probeError, setProbeError] = useState("");
+  const [editField, setEditField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [showKubeconfig, setShowKubeconfig] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const startEdit = (field: string, value: string) => {
+    setEditField(field);
+    setEditValue(value);
+  };
+
+  const saveEdit = async () => {
+    if (!editField) return;
+    try {
+      await updateCluster.mutateAsync({ id: cluster.id, [editField]: editValue });
+      refreshAll();
+    } catch { /* toast on error */ }
+    setEditField(null);
+  };
+
+  const cancelEdit = () => { setEditField(null); setEditValue(""); };
 
   const refreshAll = () => {
     qc.invalidateQueries({ queryKey: ["clusters"] });
@@ -186,30 +215,86 @@ function ClusterDetail({
           </Button>
         </div>
 
-        {/* Info fields */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-3 mb-6 text-xs">
+        {/* Editable info fields */}
+        <div className="space-y-2.5 mb-6 text-xs">
+          {/* Name — editable */}
+          <EditableField
+            label="名称" field="name" value={cluster.name}
+            editField={editField} editValue={editValue}
+            onStart={startEdit} onSave={saveEdit} onCancel={cancelEdit}
+            onChange={setEditValue} saving={updateCluster.isPending}
+          />
+          {/* Description — editable */}
+          <EditableField
+            label="描述" field="description" value={cluster.description || ""}
+            editField={editField} editValue={editValue}
+            onStart={startEdit} onSave={saveEdit} onCancel={cancelEdit}
+            onChange={setEditValue} saving={updateCluster.isPending}
+            placeholder="添加描述..."
+          />
+          {/* Namespace — editable */}
+          <EditableField
+            label="命名空间" field="namespace" value={cluster.namespace || "default"}
+            editField={editField} editValue={editValue}
+            onStart={startEdit} onSave={saveEdit} onCancel={cancelEdit}
+            onChange={setEditValue} saving={updateCluster.isPending} mono
+          />
+          {/* vLLM image — editable */}
+          <EditableField
+            label="vLLM 镜像" field="vllm_image" value={cluster.vllm_image || ""}
+            editField={editField} editValue={editValue}
+            onStart={startEdit} onSave={saveEdit} onCancel={cancelEdit}
+            onChange={setEditValue} saving={updateCluster.isPending}
+            mono placeholder="默认 (vllm/vllm-openai:latest)"
+          />
+          {/* API Server — read-only */}
           <div>
             <dt className="text-muted-foreground mb-0.5">API 地址</dt>
-            <dd className="font-mono text-[11px] break-all">{cluster.api_server_url || "—"}</dd>
+            <dd className="font-mono text-[11px] break-all text-muted-foreground">{cluster.api_server_url || "—"}</dd>
           </div>
-          <div>
-            <dt className="text-muted-foreground mb-0.5">命名空间</dt>
-            <dd className="font-mono">{cluster.namespace || "default"}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground mb-0.5">最后探测</dt>
-            <dd>{formatTime(cluster.last_probed_at)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground mb-0.5">创建时间</dt>
-            <dd>{formatTime(cluster.created_at)}</dd>
-          </div>
-          {cluster.vllm_image && (
-            <div className="col-span-2">
-              <dt className="text-muted-foreground mb-0.5">vLLM 镜像</dt>
-              <dd className="font-mono text-[11px] break-all">{cluster.vllm_image}</dd>
+          {/* Timestamps — read-only */}
+          <div className="flex gap-6">
+            <div>
+              <dt className="text-muted-foreground mb-0.5">最后探测</dt>
+              <dd className="text-muted-foreground">{formatTime(cluster.last_probed_at)}</dd>
             </div>
-          )}
+            <div>
+              <dt className="text-muted-foreground mb-0.5">创建时间</dt>
+              <dd className="text-muted-foreground">{formatTime(cluster.created_at)}</dd>
+            </div>
+          </div>
+          {/* Kubeconfig — collapsible */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowKubeconfig(!showKubeconfig)}
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronDown className={cn("h-3 w-3 transition-transform", showKubeconfig && "rotate-180")} />
+              <span>Kubeconfig</span>
+            </button>
+            {showKubeconfig && (
+              <div className="mt-1.5 relative">
+                <pre className="font-mono text-[10px] bg-muted rounded-md p-3 overflow-auto max-h-48 whitespace-pre-wrap break-all text-muted-foreground">
+                  {cluster.api_server_url
+                    ? `# Kubeconfig 已加密存储\n# API Server: ${cluster.api_server_url}\n# 命名空间: ${cluster.namespace || "default"}\n\n# 如需查看完整内容，请在服务器上运行:\n# kubectl config view --raw`
+                    : "无 Kubeconfig"}
+                </pre>
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 p-1 rounded hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => {
+                    navigator.clipboard.writeText(cluster.api_server_url || "");
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  title="复制 API 地址"
+                >
+                  {copied ? <ClipboardCheck className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* GPU Support Section */}
@@ -447,6 +532,57 @@ function ClusterDetail({
 
 
 
+/** Inline editable field for cluster detail panel. */
+function EditableField({
+  label, field, value, editField, editValue,
+  onStart, onSave, onCancel, onChange, saving,
+  mono, placeholder,
+}: {
+  label: string; field: string; value: string;
+  editField: string | null; editValue: string;
+  onStart: (field: string, value: string) => void;
+  onSave: () => void; onCancel: () => void;
+  onChange: (v: string) => void; saving: boolean;
+  mono?: boolean; placeholder?: string;
+}) {
+  const isEditing = editField === field;
+  return (
+    <div>
+      <dt className="text-muted-foreground mb-0.5">{label}</dt>
+      {isEditing ? (
+        <div className="flex items-center gap-1">
+          <Input
+            autoFocus
+            value={editValue}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
+            className={cn("h-7 text-xs", mono && "font-mono")}
+            placeholder={placeholder}
+          />
+          <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={onSave} disabled={saving}>
+            <Check className="h-3 w-3" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={onCancel}>
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <dd
+          className={cn(
+            "group flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors",
+            mono ? "font-mono text-[11px]" : "",
+            !value && "text-muted-foreground/50 italic",
+          )}
+          onClick={() => onStart(field, value)}
+        >
+          <span className="break-all">{value || placeholder || "未设置"}</span>
+          <Pencil className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors shrink-0" />
+        </dd>
+      )}
+    </div>
+  );
+}
+
 export default function ClustersPage() {
   const { data: clusters = [], isLoading, isFetching } = useClusters();
   const createCluster = useCreateCluster();
@@ -632,6 +768,24 @@ export default function ClustersPage() {
               输入集群名称和 Kubeconfig 以注册新的计算集群
             </DialogDescription>
           </DialogHeader>
+          <JsonImportBar
+            onImport={(text) => {
+              const d = JSON.parse(text);
+              if (d.name) setCreateName(d.name);
+              if (d.kubeconfig) setCreateKubeconfig(d.kubeconfig);
+              if (d.namespace) setCreateNamespace(d.namespace);
+              if (d.description) setCreateDescription(d.description);
+              if (d.vllm_image) {
+                const known = [
+                  "registry.cn-hangzhou.aliyuncs.com/modelscope-repo/vllm-openai:latest",
+                  "swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/vllm/vllm-openai:latest",
+                ];
+                if (known.includes(d.vllm_image)) setCreateVllmImageOption(d.vllm_image);
+                else { setCreateVllmImageOption("__custom__"); setCreateVllmImageCustom(d.vllm_image); }
+              }
+            }}
+            className="mb-1"
+          />
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs">集群名称<span className="text-destructive ml-0.5">*</span></Label>

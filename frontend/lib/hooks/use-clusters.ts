@@ -36,6 +36,18 @@ export function useCreateCluster() {
   });
 }
 
+export function useUpdateCluster() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { id: string; name?: string; description?: string; namespace?: string; vllm_image?: string }) => {
+      const { id, ...body } = data;
+      const res = await api.put<ComputeCluster>(`/clusters/${id}`, body);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["clusters"] }),
+  });
+}
+
 export function useDeleteCluster() {
   const qc = useQueryClient();
   return useMutation({
