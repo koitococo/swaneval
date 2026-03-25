@@ -366,27 +366,77 @@ async def wait_vllm_ready(
     )
     t0 = _time.monotonic()
 
+    last_pod_status = ""
+
     while True:
         elapsed = _time.monotonic() - t0
         if elapsed >= timeout_seconds:
             break
 
-        def _check():
+        def _check_with_details():
+            """Check deployment readiness + gather pod details for logging."""
             dep = apps_v1.read_namespaced_deployment(
                 deployment_name, namespace,
             )
             ready = dep.status.ready_replicas or 0
             desired = dep.spec.replicas or 1
-            return ready >= desired
+            is_ready = ready >= desired
 
-        is_ready = await asyncio.to_thread(_check)
+            # Gather pod status for logging
+            pod_info = ""
+            try:
+                pods = core_v1.list_namespaced_pod(
+                    namespace, label_selector=f"app={deployment_name}",
+                )
+                if pods.items:
+                    pod = pods.items[0]
+                    phase = pod.status.phase or "Unknown"
+                    # Get container status details
+                    container_statuses = pod.status.container_statuses or []
+                    if container_statuses:
+                        cs = container_statuses[0]
+                        if cs.state.waiting:
+                            pod_info = f"pod={phase} ({cs.state.waiting.reason or 'waiting'})"
+                        elif cs.state.running:
+                            pod_info = f"pod={phase} (running)"
+                        elif cs.state.terminated:
+                            pod_info = (
+                                f"pod=Terminated "
+                                f"(reason={cs.state.terminated.reason}, "
+                                f"exit={cs.state.terminated.exit_code})"
+                            )
+                        else:
+                            pod_info = f"pod={phase}"
+                    else:
+                        pod_info = f"pod={phase} (no containers)"
+
+                    # Get last few log lines if container is running
+                    if phase == "Running" and not is_ready:
+                        try:
+                            logs = core_v1.read_namespaced_pod_log(
+                                pod.metadata.name, namespace,
+                                container="vllm", tail_lines=1,
+                            )
+                            if logs and logs.strip():
+                                last_line = logs.strip().split("\n")[-1][:120]
+                                pod_info += f" | {last_line}"
+                        except Exception:
+                            pass
+                else:
+                    pod_info = "no pods yet"
+            except Exception:
+                pod_info = "pod status unknown"
+
+            return is_ready, pod_info
+
+        is_ready, pod_info = await asyncio.to_thread(_check_with_details)
+
         if is_ready:
             if service_type == "NodePort":
                 base_url = await _resolve_node_port_endpoint(
                     core_v1, namespace, deployment_name,
                 )
             elif service_type == "LoadBalancer":
-                # Read service to get load balancer ingress
                 def _get_lb():
                     svc = core_v1.read_namespaced_service(deployment_name, namespace)
                     lb = svc.status.load_balancer
@@ -398,9 +448,8 @@ async def wait_vllm_ready(
                 lb_url = await asyncio.to_thread(_get_lb)
                 if lb_url:
                     endpoint = f"{lb_url}/v1/chat/completions"
-                    logger.info("vLLM %s is ready at %s", deployment_name, endpoint)
+                    logger.info("vLLM %s ready at %s", deployment_name, endpoint)
                     return endpoint
-                # LB not ready yet, keep polling
                 await asyncio.sleep(poll_interval)
                 continue
             else:
@@ -409,19 +458,23 @@ async def wait_vllm_ready(
                     f".svc.cluster.local:8000"
                 )
             endpoint = f"{base_url}/v1/chat/completions"
-            logger.info("vLLM %s is ready at %s", deployment_name, endpoint)
+            logger.info("vLLM %s ready at %s", deployment_name, endpoint)
             return endpoint
 
-        await asyncio.sleep(poll_interval)
-        if int(elapsed) % 30 < poll_interval:
+        # Log progress with pod details (every 10s, or when status changes)
+        if pod_info != last_pod_status or int(elapsed) % 30 < poll_interval:
             logger.info(
-                "Waiting for vLLM %s... (%ds/%ds)",
-                deployment_name, int(elapsed), timeout_seconds,
+                "vLLM %s: %ds/%ds — %s",
+                deployment_name, int(elapsed), timeout_seconds, pod_info,
             )
+            last_pod_status = pod_info
 
+        await asyncio.sleep(poll_interval)
+
+    # Timeout — gather final pod info for the error message
     raise TimeoutError(
-        f"vLLM deployment {deployment_name} not ready "
-        f"after {timeout_seconds}s"
+        f"vLLM deployment {deployment_name} not ready after {timeout_seconds}s "
+        f"(last status: {last_pod_status})"
     )
 
 
