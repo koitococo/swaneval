@@ -14,6 +14,7 @@ import {
   LogOut,
   Users,
   Server,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth";
 import { useUserPermissions } from "@/lib/hooks/use-user-permissions";
@@ -42,6 +43,7 @@ export function Topbar() {
 
   if (user?.role === "admin") {
     allNav.push({ href: "/admin", label: "用户管理", icon: Users, perm: null });
+    allNav.push({ href: "/admin/permissions", label: "权限管理", icon: ShieldCheck, perm: null });
   }
 
   const handleAccountClick = () => {

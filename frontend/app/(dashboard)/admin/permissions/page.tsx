@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Trash2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { useRoleConfigs, usePermissionGroups, useCreatePermissionGroup, useDeletePermissionGroup } from "@/lib/hooks/use-permissions";
 import { extractErrorDetail } from "@/lib/utils";
 
@@ -67,18 +66,11 @@ export default function PermissionsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/admin">
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-lg font-semibold">权限管理</h1>
-          <p className="text-sm text-muted-foreground">
-            角色提供基础权限，权限组可在角色之上叠加额外能力
-          </p>
-        </div>
+      <div>
+        <h1 className="text-lg font-semibold">权限管理</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          角色提供基础权限，权限组可在角色之上叠加额外能力
+        </p>
       </div>
 
       {/* Preset roles */}

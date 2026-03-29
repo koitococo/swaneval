@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -165,7 +164,7 @@ export default function AdminPage() {
       <div className="w-80 shrink-0 flex flex-col">
         <div className="space-y-3 mb-3">
           {/* Title + count */}
-          <div>
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-semibold">用户管理</h1>
               <span className="text-xs text-muted-foreground">
@@ -175,17 +174,11 @@ export default function AdminPage() {
                 </span>{" "}
                 个用户
               </span>
-              <Button size="sm" onClick={() => setShowCreateUser(true)}>
-                <Plus className="h-4 w-4 mr-1" />
-                添加用户
-              </Button>
-              <Link href="/admin/permissions">
-                <Button size="sm" variant="outline">
-                  <ShieldCheck className="h-4 w-4 mr-1" />
-                  权限管理
-                </Button>
-              </Link>
             </div>
+            <Button size="sm" onClick={() => setShowCreateUser(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              添加
+            </Button>
           </div>
 
           {/* Search */}
