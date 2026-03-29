@@ -106,9 +106,8 @@ export default function PermissionsPage() {
     router.replace(`/admin/permissions${qs ? `?${qs}` : ""}`, { scroll: false });
   }, [router]);
 
-  // Restore selection from URL on mount
+  // Restore selection from URL on mount, AND keep selected data fresh when query cache updates
   useEffect(() => {
-    if (selected) return; // already selected
     const type = searchParams.get("type");
     if (type === "role") {
       const name = searchParams.get("name");
