@@ -241,6 +241,36 @@ async def remove_member(
     await session.commit()
 
 
+# ── User Groups ──────────────────────────────────────────────────────
+
+
+@router.get("/user-groups/{user_id}")
+async def get_user_groups(
+    user_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    _current_user: User = require_permission("admin.groups"),
+):
+    """Get permission groups a user belongs to."""
+    stmt = (
+        select(PermissionGroup)
+        .join(
+            UserGroupMembership,
+            UserGroupMembership.group_id == PermissionGroup.id,
+        )
+        .where(UserGroupMembership.user_id == user_id)
+    )
+    groups = (await session.exec(stmt)).all()
+    return [
+        {
+            "id": str(g.id),
+            "name": g.name,
+            "description": g.description,
+            "is_system": g.is_system,
+        }
+        for g in groups
+    ]
+
+
 # ── Current User Permissions ──────────────────────────────────────────
 
 

@@ -83,12 +83,9 @@ async def get_user_permissions(session: AsyncSession, user: User) -> set[str]:
         except (json.JSONDecodeError, TypeError):
             pass
 
-    # Fallback: if user has no group permissions, use role defaults
-    if not perms:
-        role_defaults = ROLE_PERMISSIONS.get(user.role, [])
-        perms = set(role_defaults)
-
-    return perms
+    # Role provides base permissions, groups add extra on top
+    role_defaults = set(ROLE_PERMISSIONS.get(user.role, []))
+    return role_defaults | perms
 
 
 async def check_permission(
