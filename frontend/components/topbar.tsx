@@ -21,14 +21,36 @@ import { useUserPermissions } from "@/lib/hooks/use-user-permissions";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const navWithPerms: { href: string; label: string; icon: typeof LayoutDashboard; perm: string | null }[] = [
-  { href: "/", label: "概览", icon: LayoutDashboard, perm: null },
-  { href: "/models", label: "模型", icon: Cpu, perm: "models.read" },
-  { href: "/datasets", label: "数据集", icon: Database, perm: "datasets.read" },
-  { href: "/criteria", label: "评估标准", icon: Ruler, perm: "criteria.read" },
-  { href: "/tasks", label: "评测任务", icon: PlayCircle, perm: "tasks.read" },
-  { href: "/results", label: "结果分析", icon: BarChart3, perm: "results.read" },
-  { href: "/clusters", label: "计算资源", icon: Server, perm: "clusters.read" },
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard; perm: string | null };
+
+// Nav groups: overview | resources | evaluation | analysis | infra
+// Separators rendered between groups
+const navGroups: { items: NavItem[]; }[] = [
+  // Overview
+  { items: [
+    { href: "/", label: "概览", icon: LayoutDashboard, perm: null },
+  ]},
+  // Resources
+  { items: [
+    { href: "/models", label: "模型", icon: Cpu, perm: "models.read" },
+    { href: "/datasets", label: "数据集", icon: Database, perm: "datasets.read" },
+    { href: "/criteria", label: "评估标准", icon: Ruler, perm: "criteria.read" },
+  ]},
+  // Evaluation & Analysis
+  { items: [
+    { href: "/tasks", label: "评测任务", icon: PlayCircle, perm: "tasks.read" },
+    { href: "/results", label: "结果分析", icon: BarChart3, perm: "results.read" },
+  ]},
+  // Infrastructure
+  { items: [
+    { href: "/clusters", label: "计算资源", icon: Server, perm: "clusters.read" },
+  ]},
+];
+
+// Admin-only items — rendered right-aligned
+const adminNav: NavItem[] = [
+  { href: "/admin", label: "用户管理", icon: Users, perm: null },
+  { href: "/admin/permissions", label: "权限管理", icon: ShieldCheck, perm: null },
 ];
 
 export function Topbar() {
@@ -37,14 +59,12 @@ export function Topbar() {
   const { user, logout } = useAuthStore();
   const { can } = useUserPermissions();
 
-  const allNav = navWithPerms.filter(
-    (item) => item.perm === null || can(item.perm)
-  );
+  // Filter each group by permission, drop empty groups
+  const visibleGroups = navGroups
+    .map(g => g.items.filter(item => item.perm === null || can(item.perm)))
+    .filter(items => items.length > 0);
 
-  if (user?.role === "admin") {
-    allNav.push({ href: "/admin", label: "用户管理", icon: Users, perm: null });
-    allNav.push({ href: "/admin/permissions", label: "权限管理", icon: ShieldCheck, perm: null });
-  }
+  const visibleAdmin = user?.role === "admin" ? adminNav : [];
 
   const handleAccountClick = () => {
     if (user?.role === "admin") {
@@ -62,28 +82,63 @@ export function Topbar() {
           <span className="text-base font-bold tracking-tight">SwanEVAL</span>
         </Link>
 
-        <nav className="flex items-center gap-1 flex-1">
-          {allNav.map((item) => {
-            const active =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-all duration-150 whitespace-nowrap",
-                  active
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex items-center flex-1">
+          {visibleGroups.map((items, gi) => (
+            <div key={gi} className="flex items-center">
+              {gi > 0 && (
+                <div className="w-px h-4 bg-border mx-1.5 shrink-0" />
+              )}
+              <div className="flex items-center gap-0.5">
+                {items.map((item) => {
+                  const active =
+                    item.href === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-all duration-150 whitespace-nowrap",
+                        active
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {/* Spacer pushes admin items to the right */}
+          <div className="flex-1" />
+
+          {visibleAdmin.length > 0 && (
+            <div className="flex items-center gap-0.5">
+              {visibleAdmin.map((item) => {
+                const active = pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-all duration-150 whitespace-nowrap",
+                      active
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    )}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </nav>
 
         {user && (
