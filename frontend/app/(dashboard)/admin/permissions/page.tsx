@@ -15,6 +15,7 @@ import {
   useRoleConfigs,
   usePermissionGroups,
   useCreatePermissionGroup,
+  useUpdatePermissionGroup,
   useDeletePermissionGroup,
   type RoleConfig,
 } from "@/lib/hooks/use-permissions";
@@ -75,6 +76,7 @@ export default function PermissionsPage() {
   const { data: roleConfigs = [] } = useRoleConfigs();
   const { data: permGroups = [] } = usePermissionGroups();
   const createGroup = useCreatePermissionGroup();
+  const updateGroup = useUpdatePermissionGroup();
   const deleteGroup = useDeletePermissionGroup();
 
   const [selected, setSelected] = useState<SelectedItem | null>(null);
@@ -107,6 +109,9 @@ export default function PermissionsPage() {
       ? selected.data.permissions
       : Array.isArray(selected.data.permissions) ? selected.data.permissions : []
     : [];
+
+  // Custom (non-system) groups can be edited inline
+  const isEditable = selected?.type === "group" && !(selected.data as PermissionGroup).is_system;
 
   return (
     <div className="flex gap-6 h-[calc(100vh-3.5rem-3rem)]">
@@ -252,12 +257,17 @@ export default function PermissionsPage() {
                 ))}
               </div>
 
-              <h3 className="text-sm font-medium mb-3">
-                权限列表
-                <span className="text-muted-foreground font-normal ml-1.5">
-                  ({selectedPerms.length} 项)
-                </span>
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium">
+                  权限列表
+                  <span className="text-muted-foreground font-normal ml-1.5">
+                    ({selectedPerms.length} 项)
+                  </span>
+                </h3>
+                {isEditable && (
+                  <p className="text-[10px] text-muted-foreground">点击权限可添加或移除</p>
+                )}
+              </div>
               <div className="space-y-3">
                 {permModules.map((mod) => {
                   const modPerms = mod.perms.filter((p) => selectedPerms.includes(p));
@@ -275,17 +285,28 @@ export default function PermissionsPage() {
                           const has = selectedPerms.includes(p);
                           const info = permInfo[p];
                           return (
-                            <span
+                            <button
                               key={p}
+                              type="button"
                               title={info?.hint || `${info?.label} — ${info?.action}`}
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium transition-opacity ${
+                              disabled={!isEditable}
+                              onClick={() => {
+                                if (!isEditable || selected?.type !== "group") return;
+                                const group = selected.data as PermissionGroup;
+                                const current = Array.isArray(group.permissions) ? group.permissions : [];
+                                const next = has
+                                  ? current.filter((x: string) => x !== p)
+                                  : [...current, p];
+                                updateGroup.mutate({ id: group.id, permissions: next });
+                              }}
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium transition-all ${
                                 has
                                   ? info?.color || "bg-muted text-foreground"
                                   : "bg-muted/50 text-muted-foreground/30"
-                              }`}
+                              } ${isEditable ? "cursor-pointer hover:ring-1 hover:ring-primary/30" : ""}`}
                             >
                               {info?.action || p}
-                            </span>
+                            </button>
                           );
                         })}
                       </div>
