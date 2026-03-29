@@ -151,7 +151,7 @@ export default function LoginPage() {
               {mode === "login" && !isFirstUser ? (
                 <form onSubmit={handleLogin} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="username">用户名</Label>
+                    <Label htmlFor="username">用户名<span className="text-destructive ml-0.5">*</span></Label>
                     <Input
                       id="username"
                       autoComplete="username"
@@ -164,7 +164,7 @@ export default function LoginPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">密码</Label>
+                    <Label htmlFor="password">密码<span className="text-destructive ml-0.5">*</span></Label>
                     <Input
                       id="password"
                       type="password"
@@ -198,7 +198,7 @@ export default function LoginPage() {
               ) : (
                 <form onSubmit={handleRegister} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="reg-user">用户名</Label>
+                    <Label htmlFor="reg-user">用户名<span className="text-destructive ml-0.5">*</span></Label>
                     <Input
                       id="reg-user"
                       autoComplete="username"
@@ -212,7 +212,7 @@ export default function LoginPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reg-email">邮箱</Label>
+                    <Label htmlFor="reg-email">邮箱<span className="text-destructive ml-0.5">*</span></Label>
                     <Input
                       id="reg-email"
                       type="email"
@@ -226,7 +226,7 @@ export default function LoginPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="reg-pass">密码</Label>
+                    <Label htmlFor="reg-pass">密码<span className="text-destructive ml-0.5">*</span></Label>
                     <Input
                       id="reg-pass"
                       type="password"

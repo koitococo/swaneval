@@ -773,7 +773,7 @@ function DatasetFieldMapping({
         <div className="space-y-0.5">
           <div className="flex items-center gap-1">
             <span className="text-[10px] text-muted-foreground">输入 (Prompt)</span>
-            <span className="text-[10px] text-destructive">*</span>
+            <span className="text-destructive ml-0.5">*</span>
           </div>
           <Select value={promptField} onValueChange={onPromptChange}>
             <SelectTrigger className={`h-7 text-[11px] font-mono ${promptMissing ? "border-destructive" : ""}`}>

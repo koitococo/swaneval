@@ -308,11 +308,17 @@ async def _call_model(
     """
     headers = {}
     api_key = model.api_key or settings.DEFAULT_MODEL_API_KEY
-    if not api_key:
+    # vLLM deployments managed by SwanEVAL don't need auth
+    is_vllm_deploy = bool(
+        getattr(model, "deploy_status", "") in ("running", "deploying")
+        and getattr(model, "vllm_deployment_name", "")
+    )
+    if not api_key and not is_vllm_deploy:
         raise ConfigError(
             "Missing api_key: set model.api_key or DEFAULT_MODEL_API_KEY"
         )
-    headers["Authorization"] = f"Bearer {api_key}"
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
 
     endpoint_url = _normalize_model_endpoint(
         model.endpoint_url or settings.DEFAULT_MODEL_ENDPOINT_URL

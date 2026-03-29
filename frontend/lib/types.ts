@@ -62,6 +62,7 @@ export interface LLMModel {
   deploy_status: string;
   cluster_id: string | null;
   source_model_id: string;
+  vllm_deployment_name: string;
   last_test_at: string | null;
   last_test_ok: boolean | null;
 }
@@ -250,6 +251,7 @@ export interface ComputeCluster {
   memory_total_bytes: number;
   node_count: number;
   vllm_image: string;
+  gpu_operator_installed: boolean;
   vllm_cache_ready: boolean;
   last_probed_at: string | null;
   created_at: string;

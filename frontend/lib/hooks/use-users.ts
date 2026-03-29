@@ -9,6 +9,7 @@ export function useUsers() {
       const res = await api.get<User[]>("/users");
       return res.data;
     },
+    staleTime: 60_000,
   });
 }
 
@@ -31,6 +32,22 @@ export function useChangePassword() {
     mutationFn: async (data: { old_password: string; new_password: string }) => {
       await api.post("/auth/change-password", data);
     },
+  });
+}
+
+export function useCreateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      username: string;
+      email: string;
+      password: string;
+      role?: string;
+    }) => {
+      const res = await api.post<User>("/users", data);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
   });
 }
 
@@ -69,6 +86,7 @@ export function useUserTokens() {
       const res = await api.get<{ hf_token_set: boolean; ms_token_set: boolean }>("/auth/tokens");
       return res.data;
     },
+    staleTime: 60_000,
   });
 }
 
