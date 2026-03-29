@@ -27,6 +27,7 @@ import { TableEmpty, TableLoading } from "@/components/table-states";
 import { extractErrorDetail } from "@/lib/utils";
 import { formatTime } from "@/lib/time";
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useChangePassword, useUpdateUserTokens } from "@/lib/hooks/use-users";
+import { useRoleConfigs, usePermissionGroups, useUserGroups, useAddGroupMembers, useRemoveGroupMember } from "@/lib/hooks/use-permissions";
 import { DeleteDialog } from "@/components/delete-dialog";
 import {
   Dialog,
@@ -37,7 +38,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FilterDropdown } from "@/components/filter-dropdown";
-import { utc } from "@/lib/utils";
 import type { User } from "@/lib/types";
 import { useUrlSelection } from "@/lib/hooks/use-url-selection";
 
@@ -60,6 +60,10 @@ const roleBadgeVariant: Record<
 
 export default function AdminPage() {
   const { data: users = [], isLoading } = useUsers();
+  useRoleConfigs();
+  const { data: permGroups = [] } = usePermissionGroups();
+  const addGroupMembers = useAddGroupMembers();
+  const removeGroupMember = useRemoveGroupMember();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
@@ -149,13 +153,18 @@ export default function AdminPage() {
     [users, selectedUserId],
   );
 
+  const { data: userGroupsData = [] } = useUserGroups(selectedUser?.id || "");
+  const availableGroups = permGroups.filter(
+    (g) => !userGroupsData.some((ug) => ug.id === g.id),
+  );
+
   return (
     <div className="flex gap-6 h-[calc(100vh-3.5rem-3rem)]">
       {/* Sidebar */}
       <div className="w-80 shrink-0 flex flex-col">
         <div className="space-y-3 mb-3">
           {/* Title + count */}
-          <div>
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-semibold">用户管理</h1>
               <span className="text-xs text-muted-foreground">
@@ -165,11 +174,11 @@ export default function AdminPage() {
                 </span>{" "}
                 个用户
               </span>
-              <Button size="sm" onClick={() => setShowCreateUser(true)}>
-                <Plus className="h-4 w-4 mr-1" />
-                添加用户
-              </Button>
             </div>
+            <Button size="sm" onClick={() => setShowCreateUser(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              添加
+            </Button>
           </div>
 
           {/* Search */}
@@ -426,6 +435,42 @@ export default function AdminPage() {
                           <SelectItem value="viewer">观察者</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Permission groups */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">额外权限组</Label>
+                      {userGroupsData.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {userGroupsData.map((g) => (
+                            <Badge key={g.id} variant="secondary" className="text-[10px] gap-1 pr-1">
+                              {g.name}
+                              <button
+                                onClick={() => removeGroupMember.mutate({ groupId: g.id, userId: selectedUser.id })}
+                                className="ml-0.5 rounded-full hover:bg-destructive/20 p-0.5"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground">无（使用角色默认权限）</p>
+                      )}
+                      {availableGroups.length > 0 && (
+                        <Select onValueChange={(gid) => {
+                          addGroupMembers.mutate({ groupId: gid, user_ids: [selectedUser.id] });
+                        }}>
+                          <SelectTrigger className="h-7 text-xs w-48">
+                            <SelectValue placeholder="添加到权限组..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableGroups.map((g) => (
+                              <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
 
                     {/* Action buttons */}
