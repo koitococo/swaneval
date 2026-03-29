@@ -2,6 +2,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { PermissionGroup, ResourceAcl } from "@/lib/types";
 
+export interface RoleConfig {
+  name: string;
+  label: string;
+  description: string;
+  permissions: string[];
+  is_preset: boolean;
+}
+
+export function useRoleConfigs() {
+  return useQuery({
+    queryKey: ["permissions", "roles"],
+    queryFn: async () => {
+      const res = await api.get<RoleConfig[]>("/permissions/roles");
+      return res.data;
+    },
+    staleTime: 120_000,
+  });
+}
+
 export function usePermissionGroups() {
   return useQuery({
     queryKey: ["permission-groups"],
@@ -50,7 +69,24 @@ export function useAddGroupMembers() {
     mutationFn: async (data: { groupId: string; user_ids: string[] }) => {
       await api.post(`/permissions/groups/${data.groupId}/members`, { user_ids: data.user_ids });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["permission-groups"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["permission-groups"] });
+      qc.invalidateQueries({ queryKey: ["permissions", "user-groups"] });
+    },
+  });
+}
+
+export function useUserGroups(userId: string) {
+  return useQuery({
+    queryKey: ["permissions", "user-groups", userId],
+    queryFn: async () => {
+      const res = await api.get<
+        { id: string; name: string; description: string; is_system: boolean }[]
+      >(`/permissions/user-groups/${userId}`);
+      return res.data;
+    },
+    enabled: !!userId,
+    staleTime: 30_000,
   });
 }
 
@@ -60,7 +96,10 @@ export function useRemoveGroupMember() {
     mutationFn: async (data: { groupId: string; userId: string }) => {
       await api.delete(`/permissions/groups/${data.groupId}/members/${data.userId}`);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["permission-groups"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["permission-groups"] });
+      qc.invalidateQueries({ queryKey: ["permissions", "user-groups"] });
+    },
   });
 }
 
