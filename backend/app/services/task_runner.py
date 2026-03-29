@@ -308,11 +308,17 @@ async def _call_model(
     """
     headers = {}
     api_key = model.api_key or settings.DEFAULT_MODEL_API_KEY
-    if not api_key:
+    # vLLM deployments managed by SwanEVAL don't need auth
+    is_vllm_deploy = bool(
+        getattr(model, "deploy_status", "") in ("running", "deploying")
+        and getattr(model, "vllm_deployment_name", "")
+    )
+    if not api_key and not is_vllm_deploy:
         raise ConfigError(
             "Missing api_key: set model.api_key or DEFAULT_MODEL_API_KEY"
         )
-    headers["Authorization"] = f"Bearer {api_key}"
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
 
     endpoint_url = _normalize_model_endpoint(
         model.endpoint_url or settings.DEFAULT_MODEL_ENDPOINT_URL
@@ -475,6 +481,12 @@ async def run_task(task_id: uuid.UUID):
         tasks_running.inc()
         session.add(task)
         await session.commit()
+
+        # vLLM deployment tracking — initialized here so the except block can see them
+        _vllm_deployment: str | None = None
+        _vllm_kubeconfig: str | None = None
+        _vllm_namespace: str | None = None
+
         logger.info(
             "Task %s STARTED — model=%s, datasets=%d, criteria=%d, repeat=%d",
             task_id, snapshot_model_id, len(snapshot_dataset_ids),
@@ -485,9 +497,123 @@ async def run_task(task_id: uuid.UUID):
             model = await session.get(LLMModel, snapshot_model_id)
             if not model:
                 raise ValueError(f"Model {snapshot_model_id} not found")
+
+            # ── K8s/vLLM deployment if needed ──
+            execution_backend = task.execution_backend or "external_api"
+            if execution_backend == "k8s_vllm":
+                from app.models.compute_cluster import ComputeCluster
+
+                cluster_id = task.cluster_id or model.cluster_id
+                if not cluster_id:
+                    raise ConfigError(
+                        "k8s_vllm backend requires cluster_id on task or model"
+                    )
+                cluster = await session.get(ComputeCluster, cluster_id)
+                if not cluster or not cluster.kubeconfig_encrypted:
+                    raise ConfigError(
+                        f"Cluster {cluster_id} not found or has no kubeconfig"
+                    )
+
+                # Skip deployment if model is already running on a cluster
+                if model.deploy_status == "running" and model.endpoint_url:
+                    logger.info(
+                        "Task %s: model '%s' already deployed at %s, reusing",
+                        task_id, model.name, model.endpoint_url,
+                    )
+                    # Don't cleanup pre-existing deployment
+                    _vllm_deployment = None
+                else:
+                    # Deploy vLLM from scratch
+                    from app.services.k8s_vllm import full_vllm_lifecycle
+
+                    # Determine HF model ID to deploy
+                    hf_model_id = (
+                        model.source_model_id
+                        or model.model_name
+                        or model.name
+                    )
+                    if not hf_model_id:
+                        raise ConfigError(
+                            "Model must have source_model_id or model_name for vLLM deployment"
+                        )
+
+                    # Parse resource config
+                    res_cfg = {}
+                    if hasattr(task, "resource_config") and task.resource_config:
+                        try:
+                            res_cfg = json.loads(task.resource_config)
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+
+                    gpu_count = res_cfg.get("gpu_count", 1)
+                    gpu_type = res_cfg.get("gpu_type", cluster.gpu_type or "")
+                    memory_gb = res_cfg.get("memory_gb", 40)
+
+                    logger.info(
+                        "Task %s: deploying vLLM for '%s' on cluster '%s' "
+                        "(%d GPU, %s, %dGB)",
+                        task_id, hf_model_id, cluster.name,
+                        gpu_count, gpu_type, memory_gb,
+                    )
+
+                    # Update model deploy status
+                    model.deploy_status = "deploying"
+                    model.cluster_id = cluster.id
+                    session.add(model)
+                    await session.commit()
+
+                    # HF token priority: model api_key > task creator's token > global setting
+                    hf_token = ""
+                    if model.model_type in ("huggingface", "modelscope") and model.api_key:
+                        hf_token = model.api_key
+                    if not hf_token and hasattr(task, "created_by") and task.created_by:
+                        from app.models.user import User
+                        creator = await session.get(User, task.created_by)
+                        if creator and creator.hf_token:
+                            hf_token = creator.hf_token
+                    if not hf_token:
+                        hf_token = settings.HF_TOKEN or ""
+
+                    try:
+                        vllm_image = getattr(cluster, "vllm_image", "") or ""
+                        vllm_endpoint, _vllm_deployment = await full_vllm_lifecycle(
+                            kubeconfig_encrypted=cluster.kubeconfig_encrypted,
+                            namespace=cluster.namespace,
+                            model_name=model.name,
+                            hf_model_id=hf_model_id,
+                            gpu_count=gpu_count,
+                            gpu_type=gpu_type,
+                            memory_gb=memory_gb,
+                            hf_token=hf_token,
+                            image=vllm_image,
+                            service_type=res_cfg.get("service_type", "NodePort"),
+                        )
+                        _vllm_kubeconfig = cluster.kubeconfig_encrypted
+                        _vllm_namespace = cluster.namespace
+                    except Exception as e:
+                        model.deploy_status = "failed"
+                        session.add(model)
+                        await session.commit()
+                        raise ConfigError(
+                            f"vLLM deployment failed: {e}"
+                        ) from e
+
+                    # Override model endpoint with the deployed vLLM endpoint
+                    model.endpoint_url = vllm_endpoint
+                    model.deploy_status = "running"
+                    model.vllm_deployment_name = _vllm_deployment
+                    session.add(model)
+                    await session.commit()
+
+                    logger.info(
+                        "Task %s: vLLM deployed at %s (deployment=%s)",
+                        task_id, vllm_endpoint, _vllm_deployment,
+                    )
+
             logger.info(
-                "Task %s using model '%s' (%s @ %s)",
-                task_id, model.name, model.model_name, model.endpoint_url,
+                "Task %s using model '%s' (%s @ %s) [backend=%s]",
+                task_id, model.name, model.model_name,
+                model.endpoint_url, execution_backend,
             )
 
             dataset_ids = snapshot_dataset_ids
@@ -887,10 +1013,51 @@ async def run_task(task_id: uuid.UUID):
                 task_id, elapsed, len(subtasks), len(all_rows), len(criteria),
             )
 
+            # Cleanup vLLM deployment if we created one
+            if _vllm_deployment and _vllm_kubeconfig and _vllm_namespace:
+                try:
+                    from app.services.k8s_vllm import cleanup_vllm
+                    await cleanup_vllm(
+                        _vllm_kubeconfig, _vllm_namespace, _vllm_deployment,
+                    )
+                    logger.info(
+                        "Task %s: vLLM deployment %s cleaned up",
+                        task_id, _vllm_deployment,
+                    )
+                except Exception as ce:
+                    logger.error(
+                        "Task %s: vLLM cleanup failed: %s",
+                        task_id, ce,
+                    )
+                # Reset model deploy status separately so DB errors
+                # don't mask cleanup errors above
+                try:
+                    model.deploy_status = "stopped"
+                    model.endpoint_url = ""
+                    model.vllm_deployment_name = ""
+                    session.add(model)
+                    await session.commit()
+                except Exception:
+                    logger.warning(
+                        "Task %s: failed to reset model status after cleanup",
+                        task_id, exc_info=True,
+                    )
+
         except Exception as e:
             tasks_total.labels(status="failed").inc()
             tasks_running.dec()
             logger.exception("Task %s FAILED: %s", task_id, e)
+
+            # Cleanup vLLM on failure too (K8s call — no DB session needed)
+            if _vllm_deployment and _vllm_kubeconfig and _vllm_namespace:
+                try:
+                    from app.services.k8s_vllm import cleanup_vllm
+                    await cleanup_vllm(
+                        _vllm_kubeconfig, _vllm_namespace, _vllm_deployment,
+                    )
+                except Exception:
+                    logger.warning("vLLM cleanup failed during error handling", exc_info=True)
+
             # Rollback the failed transaction before updating status
             await session.rollback()
             try:
@@ -910,6 +1077,15 @@ async def run_task(task_id: uuid.UUID):
                         st.status = TaskStatus.failed
                         st.error_log = str(e)[:500]
                         session.add(st)
+                    # Reset model deploy status if we had a vLLM deployment
+                    if _vllm_deployment:
+                        model_for_cleanup = await session.get(
+                            LLMModel, snapshot_model_id,
+                        )
+                        if model_for_cleanup:
+                            model_for_cleanup.deploy_status = "failed"
+                            model_for_cleanup.endpoint_url = ""
+                            session.add(model_for_cleanup)
                     await session.commit()
                     logger.info("Task %s marked as FAILED in database", task_id)
             except Exception as cleanup_err:

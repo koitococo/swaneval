@@ -80,13 +80,17 @@ ROLE_TO_GROUP = {
 
 
 def upgrade() -> None:
-    # ── Create accesslevel enum ────────────────────────────────────────
+    # ── Create accesslevel enum (idempotent) ────────────────────────────
+    op.execute(sa.text(
+        "DO $$ BEGIN CREATE TYPE accesslevel AS ENUM "
+        "('view', 'evaluate', 'download', 'edit', 'admin'); "
+        "EXCEPTION WHEN duplicate_object THEN null; END $$;"
+    ))
     accesslevel = postgresql.ENUM(
         "view", "evaluate", "download", "edit", "admin",
         name="accesslevel",
         create_type=False,
     )
-    accesslevel.create(op.get_bind(), checkfirst=True)
 
     # ── permission_groups ──────────────────────────────────────────────
     op.create_table(

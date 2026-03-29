@@ -9,6 +9,12 @@ export function useModels() {
       const res = await api.get<LLMModel[]>("/models");
       return res.data;
     },
+    staleTime: 30_000,
+    refetchInterval: (query) => {
+      const models = query.state.data;
+      const hasDeploying = models?.some((m: LLMModel) => m.deploy_status === "deploying");
+      return hasDeploying ? 5000 : false;
+    },
   });
 }
 
@@ -25,6 +31,7 @@ export function useCreateModel() {
       description?: string;
       model_name?: string;
       max_tokens?: number;
+      source_model_id?: string;
     }) => {
       const res = await api.post<LLMModel>("/models", data);
       return res.data;
@@ -84,5 +91,53 @@ export function usePlayground() {
       const res = await api.post<PlaygroundResponse>(`/models/${model_id}/playground`, body);
       return res.data;
     },
+  });
+}
+
+export function useActiveDeployments() {
+  return useQuery({
+    queryKey: ["models", "deployments"],
+    queryFn: async () => {
+      const res = await api.get<LLMModel[]>("/models/deployments");
+      return res.data;
+    },
+  });
+}
+
+export function useDeployModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { model_id: string; cluster_id: string; gpu_count?: number; memory_gb?: number }) => {
+      const { model_id, ...params } = data;
+      const res = await api.post<{ status: string; endpoint_url: string; deployment_name: string }>(
+        `/models/${model_id}/deploy`, null, { params },
+      );
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["models"] }),
+  });
+}
+
+export function useUndeployModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (model_id: string) => {
+      const res = await api.post<{ status: string }>(`/models/${model_id}/undeploy`);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["models"] }),
+  });
+}
+
+export function useCheckDeployHealth() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (model_id: string) => {
+      const res = await api.post<{ status: string; healthy: boolean; reason?: string }>(
+        `/models/${model_id}/check-deploy`,
+      );
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["models"] }),
   });
 }

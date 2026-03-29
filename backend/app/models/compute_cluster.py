@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime
+from sqlalchemy import BigInteger, Column, DateTime
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, SQLModel
 
@@ -15,6 +15,13 @@ class ClusterStatus(str, enum.Enum):
     error = "error"
     provisioning = "provisioning"
     offline = "offline"
+
+
+class InfraJobStatus(str, enum.Enum):
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"
 
 
 class InfraJobType(str, enum.Enum):
@@ -45,8 +52,14 @@ class ComputeCluster(SQLModel, table=True):
     gpu_type: str = Field(default="")
     gpu_available: int = Field(default=0)
     cpu_total_millicores: int = Field(default=0)
-    memory_total_bytes: int = Field(default=0)
+    memory_total_bytes: int = Field(default=0, sa_type=BigInteger)
     node_count: int = Field(default=0)
+    vllm_image: str = Field(default="")
+    # vLLM 镜像地址，空则使用默认 vllm/vllm-openai:latest
+
+    gpu_operator_installed: bool = Field(default=False)
+    # 是否已安装 NVIDIA GPU Operator
+
     vllm_cache_ready: bool = Field(default=False)
     last_probed_at: datetime | None = Field(
         default=None, sa_type=DateTime(timezone=True),
@@ -75,7 +88,13 @@ class ClusterInfraJob(SQLModel, table=True):
             nullable=False,
         )
     )
-    status: str = Field(default="pending")
+    status: InfraJobStatus = Field(
+        sa_column=Column(
+            SAEnum(InfraJobStatus, name="infrajobstatus", create_constraint=False),
+            nullable=False,
+            default=InfraJobStatus.pending,
+        )
+    )
     log: str = Field(default="")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),

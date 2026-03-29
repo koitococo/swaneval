@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# EvalScope GUI — Full Pipeline Test
+# SwanEVAL — Full Pipeline Test
 #
 # Prerequisites:
 #   - Backend running at localhost:8000

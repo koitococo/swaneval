@@ -1,20 +1,37 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class ClusterCreate(BaseModel):
-    name: str
+    name: str = Field(max_length=128)
     kubeconfig: str  # raw YAML
     namespace: str = "default"
     description: str = ""
+    vllm_image: str = ""  # 留空使用默认镜像
+    install_gpu_support: str = ""  # "device-plugin", "gpu-operator", or "" (skip)
+
+    @field_validator("kubeconfig")
+    @classmethod
+    def validate_kubeconfig(cls, v: str) -> str:
+        if len(v) > 1_000_000:
+            raise ValueError("Kubeconfig too large (max 1MB)")
+        import yaml
+        try:
+            data = yaml.safe_load(v)
+        except Exception:
+            raise ValueError("Invalid YAML format")
+        if not isinstance(data, dict) or "clusters" not in data:
+            raise ValueError("Invalid kubeconfig: missing 'clusters' key")
+        return v
 
 
 class ClusterUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     namespace: str | None = None
+    vllm_image: str | None = None
 
 
 class ClusterResponse(BaseModel):
@@ -32,9 +49,13 @@ class ClusterResponse(BaseModel):
     cpu_total_millicores: int
     memory_total_bytes: int
     node_count: int
+    vllm_image: str = ""
+    gpu_operator_installed: bool = False
     vllm_cache_ready: bool
     last_probed_at: datetime | None
     created_at: datetime
+    updated_at: datetime
+    created_by: uuid.UUID | None = None
 
 
 class ClusterNodeResponse(BaseModel):

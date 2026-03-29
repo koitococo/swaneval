@@ -61,6 +61,65 @@ services:
       - backend
     restart: unless-stopped
 
+  # ── 独立 Worker（可选，用于生产环境水平扩展）──
+  # 启用后需设置 backend 环境变量 EMBEDDED_WORKER=false
+  # 用法：docker compose --profile worker up -d
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: swaneval-worker
+    command: ["uv", "run", "python", "-m", "app.worker"]
+    volumes:
+      - swaneval_data:/data
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://swaneval:swaneval@postgres:5432/swaneval"
+      DATABASE_URL_SYNC: "postgresql://swaneval:swaneval@postgres:5432/swaneval"
+      REDIS_URL: "redis://redis:6379/0"
+      STORAGE_BACKEND: local
+      STORAGE_ROOT: /data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - worker
+
+  # ── 可选服务（需要 --profile 启用）──
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: swaneval-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    profiles:
+      - ollama
+
+  minio:
+    image: minio/minio:latest
+    container_name: swaneval-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - s3
+
 volumes:
   postgres_data:
   swaneval_data:

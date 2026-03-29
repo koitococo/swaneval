@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -51,8 +52,59 @@ async def lifespan(app: FastAPI):
         if settings.S3_REGION:
             os.environ.setdefault("AWS_DEFAULT_REGION", settings.S3_REGION)
 
+    # Reset stale "deploying" models from previous crash/restart
+    try:
+        from sqlmodel import select as _sel
+        from sqlmodel.ext.asyncio.session import AsyncSession as _AS
+
+        from app.database import engine as _engine
+        from app.models.llm_model import LLMModel
+
+        async with _AS(_engine) as _s:
+            stale = (await _s.exec(
+                _sel(LLMModel).where(LLMModel.deploy_status == "deploying")
+            )).all()
+            for m in stale:
+                logger.warning("Resetting stale deploying model: %s (%s)", m.name, m.id)
+                m.deploy_status = "failed"
+                _s.add(m)
+            if stale:
+                await _s.commit()
+                logger.info("Reset %d stale deploying model(s)", len(stale))
+    except Exception as e:
+        logger.warning("Failed to reset stale models: %s", e)
+
+    # Reset stale "running" tasks from previous crash
+    try:
+        from app.models.eval_task import EvalTask, TaskStatus
+
+        async with _AS(_engine) as _s:
+            stale_tasks = (await _s.exec(
+                _sel(EvalTask).where(EvalTask.status == TaskStatus.running)
+            )).all()
+            for t in stale_tasks:
+                logger.warning("Resetting stale running task: %s (%s)", t.name, t.id)
+                t.status = TaskStatus.failed
+                _s.add(t)
+            if stale_tasks:
+                await _s.commit()
+                logger.info("Reset %d stale running task(s)", len(stale_tasks))
+    except Exception as e:
+        logger.warning("Failed to reset stale tasks: %s", e)
+
     start_sync_loop()
+
+    # Start embedded worker if configured (default for dev)
+    _embedded_worker_task = None
+    if settings.EMBEDDED_WORKER:
+        from app.services.task_queue import embedded_worker_loop
+        _embedded_worker_task = asyncio.create_task(embedded_worker_loop())
+        logger.info("Embedded worker started (set EMBEDDED_WORKER=false for standalone mode)")
+
     yield
+
+    if _embedded_worker_task and not _embedded_worker_task.done():
+        _embedded_worker_task.cancel()
     stop_sync_loop()
 
 
