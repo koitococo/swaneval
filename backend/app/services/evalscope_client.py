@@ -1,9 +1,4 @@
-"""HTTP client for the EvalScope evaluation service.
-
-Communicates with the EvalScope Flask service (default :9000) via REST API.
-Handles the blocking nature of /api/v1/eval/invoke by running the request
-in a thread pool while concurrently polling progress on the async loop.
-"""
+"""HTTP client for the EvalScope evaluation service."""
 
 import asyncio
 import logging
@@ -36,11 +31,9 @@ class EvalScopeClient:
         self.base_url = (base_url or settings.EVALSCOPE_SERVICE_URL).rstrip("/")
         self.timeout = timeout or settings.EVALSCOPE_TIMEOUT_SECONDS
         self.poll_interval = poll_interval or settings.EVALSCOPE_POLL_INTERVAL
-        self._sync_client = httpx.Client(timeout=self.timeout)
-        self._async_client = httpx.AsyncClient(timeout=30)
+        self._async_client = httpx.AsyncClient(timeout=self.timeout)
 
     async def close(self) -> None:
-        self._sync_client.close()
         await self._async_client.aclose()
 
     # ── Health ────────────────────────────────────────────────────
@@ -69,11 +62,9 @@ class EvalScopeClient:
     ) -> dict[str, Any]:
         """Run an evaluation via the EvalScope service.
 
-        The ``POST /api/v1/eval/invoke`` endpoint is **synchronous/blocking**
-        — it does not return until the evaluation completes.  We run the
-        blocking HTTP call in a thread so the async event loop stays free,
-        and concurrently poll ``GET /api/v1/eval/progress`` to stream
-        progress updates back to the caller via *on_progress*.
+        The ``POST /api/v1/eval/invoke`` endpoint does not return until the
+        evaluation completes. Use the shared ``AsyncClient`` so the event loop
+        remains non-blocking while progress polling runs concurrently.
         """
         done = asyncio.Event()
         result_holder: dict[str, Any] = {}
@@ -81,8 +72,7 @@ class EvalScopeClient:
 
         async def _do_invoke():
             try:
-                resp = await asyncio.to_thread(
-                    self._sync_client.post,
+                resp = await self._async_client.post(
                     f"{self.base_url}/api/v1/eval/invoke",
                     json=config,
                 )
@@ -138,8 +128,7 @@ class EvalScopeClient:
     async def invoke_perf(self, config: dict[str, Any]) -> dict[str, Any]:
         """Run a performance/stress test via the EvalScope service."""
         try:
-            resp = await asyncio.to_thread(
-                self._sync_client.post,
+            resp = await self._async_client.post(
                 f"{self.base_url}/api/v1/perf/invoke",
                 json=config,
             )
