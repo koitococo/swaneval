@@ -28,10 +28,7 @@ class KeywordMatch(Metric):
         scores = []
         for pred in predictions:
             text = str(pred) if case_sensitive else str(pred).lower()
-            checks = [
-                (kw if case_sensitive else kw.lower()) in text
-                for kw in keywords
-            ]
+            checks = [(kw if case_sensitive else kw.lower()) in text for kw in keywords]
             if mode not in ("and", "or"):
                 mode = "and"
             if mode == "or":

@@ -50,7 +50,8 @@ class EvalScopeClient:
         for attempt in range(retries):
             try:
                 resp = await self._async_client.get(
-                    f"{self.base_url}/health", timeout=5,
+                    f"{self.base_url}/health",
+                    timeout=5,
                 )
                 if resp.status_code == 200:
                     return True
@@ -88,8 +89,7 @@ class EvalScopeClient:
                 if resp.status_code >= 400:
                     error_holder.append(
                         EvalScopeServiceError(
-                            f"EvalScope returned {resp.status_code}: "
-                            f"{resp.text[:500]}"
+                            f"EvalScope returned {resp.status_code}: {resp.text[:500]}"
                         )
                     )
                     return
@@ -97,14 +97,11 @@ class EvalScopeClient:
             except httpx.TimeoutException as e:
                 error_holder.append(
                     EvalScopeTimeoutError(
-                        f"EvalScope evaluation timed out after "
-                        f"{self.timeout}s: {e}"
+                        f"EvalScope evaluation timed out after {self.timeout}s: {e}"
                     )
                 )
             except Exception as e:
-                err = EvalScopeServiceError(
-                    f"EvalScope invocation failed: {e}"
-                )
+                err = EvalScopeServiceError(f"EvalScope invocation failed: {e}")
                 err.__cause__ = e
                 error_holder.append(err)
             finally:
@@ -123,7 +120,8 @@ class EvalScopeClient:
                         pass  # Progress polling failure is non-fatal
                 try:
                     await asyncio.wait_for(
-                        done.wait(), timeout=self.poll_interval,
+                        done.wait(),
+                        timeout=self.poll_interval,
                     )
                 except asyncio.TimeoutError:
                     pass  # Expected — poll again
@@ -147,18 +145,13 @@ class EvalScopeClient:
             )
             if resp.status_code >= 400:
                 raise EvalScopeServiceError(
-                    f"EvalScope perf returned {resp.status_code}: "
-                    f"{resp.text[:500]}"
+                    f"EvalScope perf returned {resp.status_code}: {resp.text[:500]}"
                 )
             return resp.json()
         except httpx.TimeoutException as e:
-            raise EvalScopeTimeoutError(
-                f"EvalScope perf test timed out: {e}"
-            ) from e
+            raise EvalScopeTimeoutError(f"EvalScope perf test timed out: {e}") from e
         except Exception as e:
-            raise EvalScopeServiceError(
-                f"EvalScope perf invocation failed: {e}"
-            ) from e
+            raise EvalScopeServiceError(f"EvalScope perf invocation failed: {e}") from e
 
     # ── Discovery ─────────────────────────────────────────────────
 

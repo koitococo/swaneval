@@ -40,6 +40,7 @@ async def compute_perplexity_batch(
         List of perplexity values (one per input text).
         Returns ``float('inf')`` for texts that fail.
     """
+
     async def _compute_one(client: httpx.AsyncClient, text: str) -> float:
         try:
             resp = await client.post(

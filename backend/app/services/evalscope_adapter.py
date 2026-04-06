@@ -27,22 +27,12 @@ logger = logging.getLogger(__name__)
 
 def _normalize_qa_row(row: dict[str, Any]) -> dict[str, str] | None:
     """Normalize one row into EvalScope general_qa format."""
-    query = (
-        row.get("query")
-        or row.get("prompt")
-        or row.get("input")
-        or row.get("question")
-    )
+    query = row.get("query") or row.get("prompt") or row.get("input") or row.get("question")
     if not query:
         return None
 
     normalized = {"query": str(query)}
-    response = (
-        row.get("response")
-        or row.get("expected")
-        or row.get("output")
-        or row.get("answer")
-    )
+    response = row.get("response") or row.get("expected") or row.get("output") or row.get("answer")
     if response is not None:
         normalized["response"] = str(response)
     return normalized
@@ -62,9 +52,7 @@ async def convert_dataset_to_general_qa_jsonl(
         # Mounted path — read from local filesystem
         import asyncio
 
-        text = await asyncio.to_thread(
-            Path(source_uri).read_text, encoding="utf-8"
-        )
+        text = await asyncio.to_thread(Path(source_uri).read_text, encoding="utf-8")
 
     # Parse rows
     rows: list[dict[str, Any]] = []
@@ -115,9 +103,7 @@ def build_evalscope_http_payload(
     ``dataset_stems`` maps dataset ID → unique stem name used for the
     converted JSONL files.  Falls back to ``Path(source_uri).stem``.
     """
-    api_key = (
-        model.api_key or settings.DEFAULT_MODEL_API_KEY or ""
-    ).strip() or "EMPTY"
+    api_key = (model.api_key or settings.DEFAULT_MODEL_API_KEY or "").strip() or "EMPTY"
 
     # Dataset args — each dataset becomes a subset under general_qa
     subset_list = []
@@ -180,9 +166,7 @@ def build_evalscope_http_payload(
 
     # Sandbox config
     if mapping.get("sandbox_config"):
-        dataset_args["general_qa"]["sandbox_config"] = mapping[
-            "sandbox_config"
-        ]
+        dataset_args["general_qa"]["sandbox_config"] = mapping["sandbox_config"]
 
     return payload
 
@@ -232,7 +216,8 @@ def map_criteria_to_evalscope(
             else:
                 logger.warning(
                     "Criterion %s: preset metric '%s' has no EvalScope mapping",
-                    c.id, metric,
+                    c.id,
+                    metric,
                 )
 
         elif c.type == "regex":
@@ -276,9 +261,7 @@ def map_criteria_to_evalscope(
             if cfg.get("system_prompt"):
                 judge_model_args["system_prompt"] = cfg["system_prompt"]
             # numeric scoring by default for llm_judge
-            judge_model_args["score_type"] = cfg.get(
-                "score_type", "numeric"
-            )
+            judge_model_args["score_type"] = cfg.get("score_type", "numeric")
 
         elif c.type == "sandbox":
             mode = cfg.get("mode", "pass_at_k")
@@ -291,13 +274,15 @@ def map_criteria_to_evalscope(
             elif mode != "custom_script":
                 logger.warning(
                     "Criterion %s: sandbox mode '%s' not supported by EvalScope",
-                    c.id, mode,
+                    c.id,
+                    mode,
                 )
 
         else:
             logger.warning(
                 "Criterion %s: unknown type '%s', skipping",
-                c.id, c.type,
+                c.id,
+                c.type,
             )
 
     result: dict[str, Any] = {}
@@ -313,14 +298,13 @@ def map_criteria_to_evalscope(
     return result
 
 
-async def extract_primary_score(
-    storage: StorageBackend, work_dir_key: str
-) -> float:
+async def extract_primary_score(storage: StorageBackend, work_dir_key: str) -> float:
     """Extract one representative score from EvalScope reports directory."""
     reports_prefix = f"{work_dir_key}/reports"
     files = await storage.list_files(reports_prefix, patterns=["*.json"])
     if not files:
         from app.errors import ResultIngestionError
+
         raise ResultIngestionError(
             f"No report files found in {reports_prefix} after task completion"
         )
@@ -338,9 +322,9 @@ async def extract_primary_score(
             return float(score)
     if read_errors and len(read_errors) == len(files):
         from app.errors import ResultIngestionError
+
         raise ResultIngestionError(
-            f"All {len(files)} report file(s) failed to read/parse: "
-            + "; ".join(read_errors)
+            f"All {len(files)} report file(s) failed to read/parse: " + "; ".join(read_errors)
         )
     return 0.0  # Files exist but no numeric score found
 
