@@ -1015,7 +1015,6 @@ async def run_task(task_id: uuid.UUID):
                 )
                 session.add(task)
                 await session.commit()
-                await session.commit()
             logger.info("Task %s: total %d prompt rows to evaluate", task_id, len(all_rows))
 
             # Load criteria
