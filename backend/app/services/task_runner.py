@@ -388,10 +388,12 @@ async def _run_task_via_evalscope_service(
     # 8. Create EvalResult entries with correct dataset/criterion attribution
     default_dataset_id = datasets[0].id
     total_results = 0
+    fallback_count = 0
     for row in ingested_results:
-        dataset_id = prompt_to_dataset.get(
-            row["prompt_text"], default_dataset_id
-        )
+        dataset_id = prompt_to_dataset.get(row["prompt_text"])
+        if dataset_id is None:
+            dataset_id = default_dataset_id
+            fallback_count += 1
         for criterion in criteria:
             result = EvalResult(
                 task_id=task_id,
@@ -408,6 +410,12 @@ async def _run_task_via_evalscope_service(
             )
             session.add(result)
             total_results += 1
+
+    if fallback_count:
+        logger.debug(
+            "Task %s: %d/%d results used default dataset attribution",
+            task_id, fallback_count, len(ingested_results),
+        )
 
     subtask.last_completed_index = (
         len(ingested_results) if ingested_results else total_converted

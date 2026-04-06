@@ -170,7 +170,13 @@ class EvalScopeClient:
             )
             if resp.status_code == 200:
                 data = resp.json()
-                return data if isinstance(data, list) else []
+                if isinstance(data, list):
+                    return data
+                logger.warning(
+                    "EvalScope benchmarks response is not a list: %s",
+                    type(data).__name__,
+                )
+                return []
         except Exception as e:
             logger.warning("Failed to list EvalScope benchmarks: %s", e)
         return []

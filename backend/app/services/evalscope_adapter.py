@@ -288,6 +288,17 @@ def map_criteria_to_evalscope(
                     "image": "python:3.11-slim",
                     "network_enabled": False,
                 }
+            elif mode != "custom_script":
+                logger.warning(
+                    "Criterion %s: sandbox mode '%s' not supported by EvalScope",
+                    c.id, mode,
+                )
+
+        else:
+            logger.warning(
+                "Criterion %s: unknown type '%s', skipping",
+                c.id, c.type,
+            )
 
     result: dict[str, Any] = {}
     if metric_list:
