@@ -149,6 +149,10 @@ class EvalScopeClient:
             raise EvalScopeTimeoutError(
                 f"EvalScope perf test timed out: {e}"
             ) from e
+        except Exception as e:
+            raise EvalScopeServiceError(
+                f"EvalScope perf invocation failed: {e}"
+            ) from e
 
     # ── Discovery ─────────────────────────────────────────────────
 

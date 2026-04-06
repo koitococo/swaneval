@@ -71,7 +71,7 @@ async def compute_perplexity_batch(
         async with semaphore:
             return await _compute_one(client, text)
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=10.0)) as client:
         tasks = [_limited(client, text) for text in texts]
         return list(await asyncio.gather(*tasks))
 

@@ -92,6 +92,11 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ⚠️ 安全警告 / Security Warning:
+  # ms-enclave 需要 Docker daemon 来管理沙箱容器，因此必须挂载 docker.sock。
+  # 这赋予了容器对宿主机 Docker 的完全控制权。
+  # 仅在开发/测试环境使用此配置；生产环境应将 ms-enclave 部署在独立服务器上，
+  # 并通过 EVALSCOPE_SANDBOX_URL 远程连接。
   evalscope-sandbox:
     build:
       context: ./sandbox

@@ -32,6 +32,8 @@ class KeywordMatch(Metric):
                 (kw if case_sensitive else kw.lower()) in text
                 for kw in keywords
             ]
+            if mode not in ("and", "or"):
+                mode = "and"
             if mode == "or":
                 scores.append(1.0 if any(checks) else 0.0)
             else:

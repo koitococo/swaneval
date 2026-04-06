@@ -243,6 +243,8 @@ def map_criteria_to_evalscope(
             extra_params["pattern"] = cfg.get("pattern", "")
             if cfg.get("match_mode"):
                 extra_params["match_mode"] = cfg["match_mode"]
+            if cfg.get("flags"):
+                extra_params["flags"] = cfg["flags"]
 
         elif c.type == "llm_judge":
             if judge_model_args is not None:

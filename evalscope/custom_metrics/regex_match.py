@@ -16,6 +16,8 @@ class RegexMatch(Metric):
 
     def apply(self, predictions, references, **kwargs):
         pattern = kwargs.get("pattern", "")
+        if not pattern:
+            return [0.0] * len(predictions)
         match_mode = kwargs.get("match_mode", "search")
         flags = 0
         if kwargs.get("flags"):

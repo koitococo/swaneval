@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
 
 RUN useradd --create-home --shell /bin/bash appuser
 
-RUN pip install --no-cache-dir "evalscope[service]"
+RUN pip install --no-cache-dir "evalscope[service]==1.5.1"
 
 COPY custom_metrics/ /app/custom_metrics/
 COPY startup.py /app/startup.py
